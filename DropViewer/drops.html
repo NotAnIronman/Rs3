@@ -1013,57 +1013,124 @@ window.addEventListener('message', evt => {
 const isAlt1 = typeof window.alt1 !== 'undefined';
 
 if (isAlt1) {
+  // Badge — flashes green when Alt+1 fires
   const badge = document.createElement('div');
+  badge.id = 'alt1badge';
   badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
-    'font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;';
+    'font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;cursor:pointer;';
   badge.textContent = 'ALT1';
+  badge.title = 'Click to manually trigger screen read';
   document.body.appendChild(badge);
 
-  dbg('alt1 version: ' + window.alt1.version);
-  dbg('permissionPixel: ' + window.alt1.permissionPixel);
-  dbg('permissionInstalled: ' + window.alt1.permissionInstalled);
+  function flashBadge() {
+    badge.style.background = '#4caf50';
+    setTimeout(function() { badge.style.background = '#e94560'; }, 1000);
+  }
 
-  if (window.alt1.openInfo) {
-    const info = window.alt1.openInfo;
-    dbg('openInfo raw: ' + JSON.stringify(info));
+  dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel + ' installed=' + window.alt1.permissionInstalled);
+
+  // ── Read openInfo on load ─────────────────────────────────
+  // When Alt+1 is pressed, Alt1 reads the text under the cursor.
+  // If the app is already open, Alt1 RELOADS it with the new openInfo.
+  // So we just read openInfo every time the page loads.
+  function processOpenInfo(info) {
+    if (!info) return false;
+    dbg('openInfo: ' + JSON.stringify(info));
+    // openInfo can be a JSON string like {"openMethod":"alt1","text":"Examine Goblin"}
+    // or just a plain string
     let text = info;
-    if (typeof info === 'string' && info.startsWith('{')) {
-      try { text = JSON.parse(info).text || info; } catch(e) {}
+    if (typeof info === 'string') {
+      try {
+        const parsed = JSON.parse(info);
+        // Check for the matched text in various fields
+        text = parsed.text || parsed.match || parsed.string || JSON.stringify(parsed);
+      } catch(e) {
+        text = info; // plain string
+      }
     }
     dbg('openInfo text: ' + text);
     const name = parseExamineText(text);
     if (name) {
+      flashBadge();
       setStatus('busy', 'Detected: ' + name);
-      setTimeout(() => lookup(name), 300);
-    } else {
-      setStatus('ok', 'Alt1 - right-click NPC then hover Examine then press Alt+1');
+      setTimeout(function() { lookup(name); }, 200);
+      return true;
     }
-  } else {
-    setStatus('ok', 'Alt1 - right-click NPC then hover Examine then press Alt+1');
+    return false;
   }
 
-  if (!window.alt1.permissionInstalled) {
-    dbg('App not installed - alt1pressed events will not fire.');
-    dbg('Open this page in Alt1 browser and click Add App to install.');
-    setStatus('err', 'Install this app in Alt1 to enable Alt+1 detection');
+  const handled = processOpenInfo(window.alt1.openInfo);
+  if (!handled) {
+    setStatus('ok', 'Alt1 ready - right-click NPC, hover Examine, press Alt+1');
   }
 
-  if (window.alt1.events && window.alt1.events.alt1pressed) {
-    window.alt1.events.alt1pressed.push(function(e) {
-      dbg('alt1pressed! ' + JSON.stringify(e));
-      const text = e.text || e.match || e.string || '';
-      if (text) {
-        const name = parseExamineText(text);
-        if (name) { lookup(name); return; }
-      }
-      const mp = window.alt1.mousePosition;
-      const mx = mp >> 16;
-      const my = mp & 0xFFFF;
-      handleAlt1Capture(mx, my);
-    });
-    dbg('alt1pressed handler registered');
+  // ── Poll openInfo for changes ─────────────────────────────
+  // In some Alt1 versions the page isn't reloaded — openInfo updates in place.
+  // Poll every 250ms to catch this case.
+  let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
+  setInterval(function() {
+    const current = JSON.stringify(window.alt1.openInfo);
+    if (current !== lastOpenInfo) {
+      lastOpenInfo = current;
+      dbg('openInfo changed: ' + current);
+      processOpenInfo(window.alt1.openInfo);
+    }
+  }, 250);
+
+  // ── Manual screen capture via badge click ─────────────────
+  // Click the ALT1 badge to manually trigger a screen read.
+  // This is the fallback when the activator doesn't fire.
+  badge.addEventListener('click', function() {
+    flashBadge();
+    dbg('Manual capture triggered');
+    handleAlt1Capture();
+  });
+
+  // ── Also try captureHold on an interval when RS is active ─
+  // bindReadRightClickString reads the right-click menu directly.
+  // We poll it continuously and trigger when Examine is found.
+  if (window.alt1.permissionPixel && window.alt1.rsLinked) {
+    let lastRCText = '';
+    let rcCooldown = 0;
+    setInterval(function() {
+      if (Date.now() < rcCooldown) return;
+      try {
+        const mp = window.alt1.mousePosition;
+        const mx = (mp >> 16) & 0xFFFF;
+        const my = mp & 0xFFFF;
+        if (mx === 0 && my === 0) return;
+
+        // captureHold returns a bind ID for subsequent reads
+        const bindId = window.alt1.captureHold(
+          Math.max(0, mx - 20),
+          Math.max(0, my - 100),
+          300, 200
+        );
+        if (bindId === null || bindId === undefined) return;
+
+        // Try several y offsets to find the right-click text baseline
+        for (let y = 5; y < 180; y += 2) {
+          const result = window.alt1.bindReadRightClickString(bindId, 0, y);
+          if (result && typeof result === 'string' && result.length > 3) {
+            if (result !== lastRCText) {
+              lastRCText = result;
+              dbg('RC y=' + y + ': ' + result);
+            }
+            const name = parseExamineText(result);
+            if (name) {
+              flashBadge();
+              dbg('Auto-detected: ' + name);
+              lookup(name);
+              rcCooldown = Date.now() + 5000; // 5s cooldown after match
+              break;
+            }
+          }
+        }
+      } catch(e) { /* silent */ }
+    }, 500);
+    dbg('RC polling active (pixel+rsLinked)');
   } else {
-    dbg('alt1.events.alt1pressed not available');
+    dbg('RC polling skipped - pixel=' + window.alt1.permissionPixel + ' rsLinked=' + window.alt1.rsLinked);
   }
 }
 
@@ -1074,34 +1141,32 @@ function parseExamineText(text) {
   return null;
 }
 
-function handleAlt1Capture(mouseX, mouseY) {
-  setStatus('busy', 'Reading screen...');
+function handleAlt1Capture() {
+  if (!window.alt1 || !window.alt1.permissionPixel) {
+    setStatus('err', 'View Screen permission required in Alt1 settings');
+    return;
+  }
   try {
-    if (!window.alt1.permissionPixel) {
-      setStatus('err', 'View Screen permission required - enable in Alt1 settings');
-      return;
-    }
-    const cx = Math.max(0, mouseX - 20);
-    const cy = Math.max(0, mouseY - 80);
-    const w = 350, h = 250;
-    const bindId = window.alt1.captureHold(cx, cy, w, h);
-    dbg('captureHold bindId=' + bindId + ' at ' + cx + ',' + cy);
-    if (!bindId && bindId !== 0) { setStatus('err', 'Screen capture failed'); return; }
+    const mp = window.alt1.mousePosition;
+    const mx = (mp >> 16) & 0xFFFF;
+    const my = mp & 0xFFFF;
+    const bindId = window.alt1.captureHold(Math.max(0, mx - 20), Math.max(0, my - 100), 300, 200);
+    if (bindId === null || bindId === undefined) { setStatus('err', 'Capture failed'); return; }
     let found = null;
-    for (let testY = 10; testY < h && !found; testY += 3) {
+    for (let y = 5; y < 180 && !found; y += 2) {
       try {
-        const result = window.alt1.bindReadRightClickString(bindId, 0, testY);
-        if (result && typeof result === 'string' && result.length > 2) {
-          dbg('y=' + testY + ': ' + result);
-          const name = parseExamineText(result);
+        const r = window.alt1.bindReadRightClickString(bindId, 0, y);
+        if (r && typeof r === 'string' && r.length > 3) {
+          dbg('manual y=' + y + ': ' + r);
+          const name = parseExamineText(r);
           if (name) found = name;
         }
       } catch(e) {}
     }
     if (found) { lookup(found); }
-    else { setStatus('err', 'Could not read Examine text - hover over Examine option and press Alt+1'); }
+    else { setStatus('err', 'No Examine text found - hover over Examine option first'); }
   } catch(e) {
-    dbg('handleAlt1Capture error: ' + e.message);
+    dbg('capture error: ' + e.message);
     setStatus('err', 'Error: ' + e.message);
   }
 }
