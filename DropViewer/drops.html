@@ -297,7 +297,6 @@ async function loadMonsterList() {
       .filter(m => { if (seen.has(m.name)) return false; seen.add(m.name); return true; })
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    dbg(`Final monster count: ${allMonsters.length}`);
     document.getElementById('list-status').textContent = '';
     document.getElementById('list-label').textContent = 'All RS3 monsters';
     document.getElementById('list-count').textContent = allMonsters.length + ' total';
@@ -1020,157 +1019,91 @@ if (isAlt1) {
   badge.textContent = 'ALT1';
   document.body.appendChild(badge);
 
-  setStatus('ok', '✅ Alt1 — right-click NPC → hover Examine → press Alt+1');
+  dbg('alt1 version: ' + window.alt1.version);
+  dbg('permissionPixel: ' + window.alt1.permissionPixel);
+  dbg('permissionInstalled: ' + window.alt1.permissionInstalled);
 
-  // bindReadRightClickString reads the RS3 right-click context menu text.
-  // We bind it once, then poll it via setInterval.
-  // When it contains "Examine", we extract the NPC name and look it up.
-  let rcBind = null;
-  let lastExamine = '';
-  let alt1Listening = false;
-
-  function setupAlt1Polling() {
-    try {
-      rcBind = window.alt1.bindReadRightClickString(0, 0, 400, 600);
-      dbg('bindReadRightClickString bind id: ' + rcBind);
-
-      // Poll every 500ms for right-click menu text containing "Examine"
-      setInterval(function() {
-        if (!alt1Listening) return;
-        try {
-          const text = window.alt1.bindGetRegion(rcBind, 0, 0, 400, 600);
-          if (text && text !== lastExamine) {
-            dbg('RC text: ' + text);
-            const name = parseExamineText(text);
-            if (name) {
-              lastExamine = text;
-              dbg('Examine found: ' + name);
-              lookup(name);
-            }
-          }
-        } catch(e) { /* silent */ }
-      }, 500);
-
-      dbg('Right-click polling set up');
-    } catch(e) {
-      dbg('bindReadRightClickString error: ' + e.message);
+  if (window.alt1.openInfo) {
+    const info = window.alt1.openInfo;
+    dbg('openInfo raw: ' + JSON.stringify(info));
+    let text = info;
+    if (typeof info === 'string' && info.startsWith('{')) {
+      try { text = JSON.parse(info).text || info; } catch(e) {}
     }
-  }
-
-  // Alt+1 toggles listening mode on/off
-  // Since alt1.events isn't available, we use window keydown as fallback
-  // and also hook the window alt1pressed event in every form we can find
-  function onAlt1Press() {
-    alt1Listening = !alt1Listening;
-    if (alt1Listening) {
-      lastExamine = '';
-      setStatus('busy', '👂 Listening — hover Examine on right-click menu...');
-      dbg('Listening started');
-      // Auto-stop after 8 seconds
-      setTimeout(function() {
-        if (alt1Listening) {
-          alt1Listening = false;
-          setStatus('ok', '✅ Alt1 — right-click NPC → hover Examine → press Alt+1');
-          dbg('Listening timed out');
-        }
-      }, 8000);
+    dbg('openInfo text: ' + text);
+    const name = parseExamineText(text);
+    if (name) {
+      setStatus('busy', 'Detected: ' + name);
+      setTimeout(() => lookup(name), 300);
     } else {
-      setStatus('ok', '✅ Alt1 — right-click NPC → hover Examine → press Alt+1');
-      dbg('Listening stopped');
+      setStatus('ok', 'Alt1 - right-click NPC then hover Examine then press Alt+1');
     }
+  } else {
+    setStatus('ok', 'Alt1 - right-click NPC then hover Examine then press Alt+1');
   }
 
-  // Try every known event hook
-  window.addEventListener('alt1pressed', onAlt1Press);
-  window.addEventListener('keydown', function(e) {
-    if (e.altKey && e.key === '1') { e.preventDefault(); onAlt1Press(); }
-  });
-
-  // Also try the direct bindReadRightClickString approach —
-  // read on a 200ms interval always, look for Examine text
-  // This way it works even without the event firing
-  function setupPassiveRead() {
-    try {
-      let lastRead = '';
-      setInterval(function() {
-        try {
-          const mp = window.alt1.mousePosition;
-          if (!mp) return;
-          const text = window.alt1.bindReadRightClickString(mp.x - 10, mp.y - 10, 300, 200);
-          if (text && typeof text === 'string' && text !== lastRead) {
-            lastRead = text;
-            dbg('passive RC: ' + text);
-            const name = parseExamineText(text);
-            if (name && name !== lastExamine) {
-              lastExamine = name;
-              dbg('passive Examine: ' + name);
-              lookup(name);
-            }
-          }
-        } catch(e) { /* silent */ }
-      }, 300);
-      dbg('Passive right-click reading active');
-    } catch(e) {
-      dbg('Passive read error: ' + e.message);
-    }
+  if (!window.alt1.permissionInstalled) {
+    dbg('App not installed - alt1pressed events will not fire.');
+    dbg('Open this page in Alt1 browser and click Add App to install.');
+    setStatus('err', 'Install this app in Alt1 to enable Alt+1 detection');
   }
 
-  setupPassiveRead();
+  if (window.alt1.events && window.alt1.events.alt1pressed) {
+    window.alt1.events.alt1pressed.push(function(e) {
+      dbg('alt1pressed! ' + JSON.stringify(e));
+      const text = e.text || e.match || e.string || '';
+      if (text) {
+        const name = parseExamineText(text);
+        if (name) { lookup(name); return; }
+      }
+      const mp = window.alt1.mousePosition;
+      const mx = mp >> 16;
+      const my = mp & 0xFFFF;
+      handleAlt1Capture(mx, my);
+    });
+    dbg('alt1pressed handler registered');
+  } else {
+    dbg('alt1.events.alt1pressed not available');
+  }
 }
 
 function parseExamineText(text) {
   if (!text) return null;
-  const m = text.match(/\bExamine[:\s]+(.+)/i);
+  var m = text.match(/Examine[^a-z]+(.+)/i);
   if (m) return m[1].trim();
   return null;
 }
 
-function handleAlt1Press(mouseX, mouseY) {
-  setStatus('busy', '🔍 Reading screen...');
+function handleAlt1Capture(mouseX, mouseY) {
+  setStatus('busy', 'Reading screen...');
   try {
-    // Capture 400x300 region around mouse to cover the context menu
-    const cx = Math.max(0, mouseX - 20);
-    const cy = Math.max(0, mouseY - 60);
-    const img = window.alt1.captureHold(cx, cy, 400, 300);
-
-    if (!img) {
-      setStatus('err', '❌ Capture failed — enable "View Screen" permission in Alt1');
+    if (!window.alt1.permissionPixel) {
+      setStatus('err', 'View Screen permission required - enable in Alt1 settings');
       return;
     }
-
-    dbg('Captured ' + img.byteLength + ' bytes at ' + cx + ',' + cy);
-
-    // Use Alt1's built-in text reading — getTooltip reads the RS context menu text
-    // This is the simplest reliable method without needing the npm OCR library
-    const tooltip = window.alt1.getTooltip ? window.alt1.getTooltip() : null;
-    dbg('tooltip: ' + tooltip);
-
-    if (tooltip) {
-      const name = parseExamineText(tooltip);
-      if (name) { lookup(name); return; }
+    const cx = Math.max(0, mouseX - 20);
+    const cy = Math.max(0, mouseY - 80);
+    const w = 350, h = 250;
+    const bindId = window.alt1.captureHold(cx, cy, w, h);
+    dbg('captureHold bindId=' + bindId + ' at ' + cx + ',' + cy);
+    if (!bindId && bindId !== 0) { setStatus('err', 'Screen capture failed'); return; }
+    let found = null;
+    for (let testY = 10; testY < h && !found; testY += 3) {
+      try {
+        const result = window.alt1.bindReadRightClickString(bindId, 0, testY);
+        if (result && typeof result === 'string' && result.length > 2) {
+          dbg('y=' + testY + ': ' + result);
+          const name = parseExamineText(result);
+          if (name) found = name;
+        }
+      } catch(e) {}
     }
-
-    // Fallback: scan the BGRA pixel buffer for yellow text (RS3 context menu colour)
-    // and try to read the word "Examine" then the NPC name after it
-    const name = scanPixelsForExamine(new Uint8Array(img), 400, 300);
-    dbg('pixel scan result: ' + name);
-    if (name) { lookup(name); return; }
-
-    setStatus('err', '❌ Could not read Examine text. Hover over "Examine" in the menu, then Alt+1');
+    if (found) { lookup(found); }
+    else { setStatus('err', 'Could not read Examine text - hover over Examine option and press Alt+1'); }
   } catch(e) {
-    dbg('handleAlt1Press error: ' + e.message + '\n' + e.stack);
-    setStatus('err', '❌ Error: ' + e.message);
+    dbg('handleAlt1Capture error: ' + e.message);
+    setStatus('err', 'Error: ' + e.message);
   }
-}
-
-function scanPixelsForExamine(pixels, w, h) {
-  // RS3 right-click menu: yellow text = RGB(255,255,0), white = RGB(255,255,255)
-  // BGRA format from Alt1: B=pixels[i], G=pixels[i+1], R=pixels[i+2], A=pixels[i+3]
-  // We look for rows with yellow pixels (the "Examine" label colour)
-  // then sample the text region to the right of it (white = NPC name)
-  // This is a heuristic — real OCR needs the full alt1 library
-  // For now just signal we need the tooltip API
-  return null;
 }
 
 // ── Init ───────────────────────────────────────────────────
