@@ -1092,41 +1092,54 @@ if (isAlt1) {
   if (window.alt1.permissionPixel && window.alt1.rsLinked) {
     let lastRCText = '';
     let rcCooldown = 0;
+    let pollCount = 0;
     setInterval(function() {
       if (Date.now() < rcCooldown) return;
+      pollCount++;
       try {
-        const mp = window.alt1.mousePosition;
-        const mx = (mp >> 16) & 0xFFFF;
-        const my = mp & 0xFFFF;
+        const mpRaw = window.alt1.mousePosition;
+        const mx = (mpRaw >> 16) & 0xFFFF;
+        const my = mpRaw & 0xFFFF;
+
+        // Log every 10 polls so we can see mouse pos and bindId
+        const doLog = (pollCount % 10 === 1);
+        if (doLog) dbg('poll#' + pollCount + ' mp=' + mx + ',' + my + ' raw=' + mpRaw);
         if (mx === 0 && my === 0) return;
 
-        // captureHold returns a bind ID for subsequent reads
-        const bindId = window.alt1.captureHold(
-          Math.max(0, mx - 20),
-          Math.max(0, my - 100),
-          300, 200
-        );
+        const cx = Math.max(0, mx - 20);
+        const cy = Math.max(0, my - 100);
+        const bindId = window.alt1.captureHold(cx, cy, 300, 200);
+
+        if (doLog) dbg('captureHold(' + cx + ',' + cy + ',300,200)=' + JSON.stringify(bindId) + ' type=' + typeof bindId);
         if (bindId === null || bindId === undefined) return;
 
-        // Try several y offsets to find the right-click text baseline
+        // Try several y offsets
+        let gotAny = false;
         for (let y = 5; y < 180; y += 2) {
-          const result = window.alt1.bindReadRightClickString(bindId, 0, y);
-          if (result && typeof result === 'string' && result.length > 3) {
+          let result;
+          try { result = window.alt1.bindReadRightClickString(bindId, 0, y); }
+          catch(e2) { if (doLog && y === 5) dbg('bindReadRightClickString err: ' + e2.message); break; }
+
+          if (result !== null && result !== undefined && result !== '' && result !== '0') {
+            gotAny = true;
             if (result !== lastRCText) {
               lastRCText = result;
-              dbg('RC y=' + y + ': ' + result);
+              dbg('RC y=' + y + ' result=' + JSON.stringify(result) + ' type=' + typeof result);
             }
-            const name = parseExamineText(result);
-            if (name) {
-              flashBadge();
-              dbg('Auto-detected: ' + name);
-              lookup(name);
-              rcCooldown = Date.now() + 5000; // 5s cooldown after match
-              break;
+            if (typeof result === 'string' && result.length > 3) {
+              const name = parseExamineText(result);
+              if (name) {
+                flashBadge();
+                dbg('Auto-detected: ' + name);
+                lookup(name);
+                rcCooldown = Date.now() + 5000;
+                break;
+              }
             }
           }
         }
-      } catch(e) { /* silent */ }
+        if (doLog && !gotAny) dbg('no RC results at any y offset');
+      } catch(e) { dbg('RC poll error: ' + e.message); }
     }, 500);
     dbg('RC polling active (pixel+rsLinked)');
   } else {
