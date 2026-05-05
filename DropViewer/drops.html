@@ -1108,9 +1108,12 @@ if (isAlt1) {
 
         const cx = Math.max(0, mx - 20);
         const cy = Math.max(0, my - 100);
-        const bindId = window.alt1.captureHold(cx, cy, 300, 200);
-
-        if (doLog) dbg('captureHold(' + cx + ',' + cy + ',300,200)=' + JSON.stringify(bindId) + ' type=' + typeof bindId);
+        // bindScreenRegion creates a persistent bind — call bindGetRegion to refresh pixels
+        const bindId = window.alt1.bindScreenRegion(cx, cy, 300, 200);
+        if (doLog) dbg('bindScreenRegion=' + JSON.stringify(bindId) + ' type=' + typeof bindId);
+        if (bindId === null || bindId === undefined) return;
+        // Refresh the bound region with current screen pixels
+        try { window.alt1.bindGetRegion(bindId, 0, 0, 300, 200); } catch(e2) { if (doLog) dbg('bindGetRegion err: ' + e2.message); }
         if (bindId === null || bindId === undefined) return;
 
         // Try several y offsets
@@ -1163,7 +1166,7 @@ function handleAlt1Capture() {
     const mp = window.alt1.mousePosition;
     const mx = (mp >> 16) & 0xFFFF;
     const my = mp & 0xFFFF;
-    const bindId = window.alt1.captureHold(Math.max(0, mx - 20), Math.max(0, my - 100), 300, 200);
+    const bindId = window.alt1.bindScreenRegion(Math.max(0, mx - 20), Math.max(0, my - 100), 300, 200);
     if (bindId === null || bindId === undefined) { setStatus('err', 'Capture failed'); return; }
     let found = null;
     for (let y = 5; y < 180 && !found; y += 2) {
