@@ -1027,6 +1027,14 @@ if (isAlt1) {
   }
 
   dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel);
+  dbg('permInstalled=' + window.alt1.permissionInstalled);
+  dbg('permGameState=' + window.alt1.permissionGameState);
+  dbg('permOverlay=' + window.alt1.permissionOverlay);
+  dbg('rsLinked=' + window.alt1.rsLinked);
+
+  // Call identifyApp so Alt1 knows our config and grants correct permissions
+  try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
+  catch(e) { dbg('identifyApp err: ' + e.message); }
 
   // Load the @alt1/base bundle which sets up captureHold, events etc.
   var a1lib = null;
