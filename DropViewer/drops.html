@@ -1013,45 +1013,37 @@ window.addEventListener('message', evt => {
 const isAlt1 = typeof window.alt1 !== 'undefined';
 
 if (isAlt1) {
-  // Badge — flashes green when Alt+1 fires
+  // Badge
   const badge = document.createElement('div');
   badge.id = 'alt1badge';
   badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
     'font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;cursor:pointer;';
   badge.textContent = 'ALT1';
-  badge.title = 'Click to manually trigger screen read';
+  badge.title = 'Click to manually read screen';
   document.body.appendChild(badge);
 
-  function flashBadge() {
-    badge.style.background = '#4caf50';
-    setTimeout(function() { badge.style.background = '#e94560'; }, 1000);
+  function flashBadge(color) {
+    badge.style.background = color || '#4caf50';
+    setTimeout(function() { badge.style.background = '#e94560'; }, 1500);
   }
 
   dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel + ' installed=' + window.alt1.permissionInstalled);
 
-  // ── Read openInfo on load ─────────────────────────────────
-  // When Alt+1 is pressed, Alt1 reads the text under the cursor.
-  // If the app is already open, Alt1 RELOADS it with the new openInfo.
-  // So we just read openInfo every time the page loads.
+  // Process openInfo — when activator fires, Alt1 passes matched text here
   function processOpenInfo(info) {
     if (!info) return false;
-    dbg('openInfo: ' + JSON.stringify(info));
-    // openInfo can be a JSON string like {"openMethod":"alt1","text":"Examine Goblin"}
-    // or just a plain string
     let text = info;
     if (typeof info === 'string') {
       try {
-        const parsed = JSON.parse(info);
-        // Check for the matched text in various fields
-        text = parsed.text || parsed.match || parsed.string || JSON.stringify(parsed);
-      } catch(e) {
-        text = info; // plain string
-      }
+        const p = JSON.parse(info);
+        // Alt1 puts the matched text in different fields depending on version
+        text = p.text || p.match || p.string || p.openMethod || JSON.stringify(p);
+      } catch(e) {}
     }
     dbg('openInfo text: ' + text);
     const name = parseExamineText(text);
     if (name) {
-      flashBadge();
+      flashBadge('#4caf50');
       setStatus('busy', 'Detected: ' + name);
       setTimeout(function() { lookup(name); }, 200);
       return true;
@@ -1064,90 +1056,70 @@ if (isAlt1) {
     setStatus('ok', 'Alt1 ready - right-click NPC, hover Examine, press Alt+1');
   }
 
-  // ── Poll openInfo for changes ─────────────────────────────
-  // In some Alt1 versions the page isn't reloaded — openInfo updates in place.
-  // Poll every 250ms to catch this case.
+  // Poll openInfo for changes every 200ms
   let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
   setInterval(function() {
-    const current = JSON.stringify(window.alt1.openInfo);
-    if (current !== lastOpenInfo) {
-      lastOpenInfo = current;
-      dbg('openInfo changed: ' + current);
+    const cur = JSON.stringify(window.alt1.openInfo);
+    if (cur !== lastOpenInfo) {
+      lastOpenInfo = cur;
+      dbg('openInfo changed: ' + cur);
       processOpenInfo(window.alt1.openInfo);
     }
-  }, 250);
+  }, 200);
 
-  // ── Manual screen capture via badge click ─────────────────
-  // Click the ALT1 badge to manually trigger a screen read.
-  // This is the fallback when the activator doesn't fire.
+  // Badge click = manual screen read
   badge.addEventListener('click', function() {
-    flashBadge();
-    dbg('Manual capture triggered');
-    handleAlt1Capture();
+    flashBadge('#f5c518');
+    readScreenNow();
   });
 
-  // ── Also try captureHold on an interval when RS is active ─
-  // bindReadRightClickString reads the right-click menu directly.
-  // We poll it continuously and trigger when Examine is found.
-  if (window.alt1.permissionPixel && window.alt1.rsLinked) {
-    let lastRCText = '';
-    let rcCooldown = 0;
-    let pollCount = 0;
-    setInterval(function() {
-      if (Date.now() < rcCooldown) return;
-      pollCount++;
-      try {
-        const mpRaw = window.alt1.mousePosition;
-        const mx = (mpRaw >> 16) & 0xFFFF;
-        const my = mpRaw & 0xFFFF;
+  // Pixel scanning using getRegion (returns raw BGRA ArrayBuffer directly)
+  // This is the correct low-level API when not using the npm wrapper
+  var lastDetected = '';
+  var scanCooldown = 0;
 
-        // Log every 10 polls so we can see mouse pos and bindId
-        const doLog = (pollCount % 10 === 1);
-        if (doLog) dbg('poll#' + pollCount + ' mp=' + mx + ',' + my + ' raw=' + mpRaw);
-        if (mx === 0 && my === 0) return;
+  setInterval(function() {
+    if (Date.now() < scanCooldown) return;
+    if (!window.alt1.permissionPixel || !window.alt1.rsLinked) return;
+    try {
+      var mp  = window.alt1.mousePosition;
+      var mx  = (mp >> 16) & 0xFFFF;
+      var my  = mp & 0xFFFF;
+      if (mx === 0 && my === 0) return;
 
-        const cx = Math.max(0, mx - 20);
-        const cy = Math.max(0, my - 100);
-        // bindScreenRegion creates a persistent bind — call bindGetRegion to refresh pixels
-        const bindId = window.alt1.bindScreenRegion(cx, cy, 300, 200);
-        if (doLog) dbg('bindScreenRegion=' + JSON.stringify(bindId) + ' type=' + typeof bindId);
-        if (bindId === null || bindId === undefined) return;
-        // Refresh the bound region with current screen pixels
-        try { window.alt1.bindGetRegion(bindId, 0, 0, 300, 200); } catch(e2) { if (doLog) dbg('bindGetRegion err: ' + e2.message); }
-        if (bindId === null || bindId === undefined) return;
+      // getRegion(x, y, w, h) returns raw BGRA pixel data as Int32Array
+      var cx  = Math.max(0, mx - 10);
+      var cy  = Math.max(0, my - 80);
+      var img = window.alt1.getRegion(cx, cy, 250, 150);
+      if (!img) return;
 
-        // Try several y offsets
-        let gotAny = false;
-        for (let y = 5; y < 180; y += 2) {
-          let result;
-          try { result = window.alt1.bindReadRightClickString(bindId, 0, y); }
-          catch(e2) { if (doLog && y === 5) dbg('bindReadRightClickString err: ' + e2.message); break; }
-
-          if (result !== null && result !== undefined && result !== '' && result !== '0') {
-            gotAny = true;
-            if (result !== lastRCText) {
-              lastRCText = result;
-              dbg('RC y=' + y + ' result=' + JSON.stringify(result) + ' type=' + typeof result);
-            }
-            if (typeof result === 'string' && result.length > 3) {
-              const name = parseExamineText(result);
-              if (name) {
-                flashBadge();
-                dbg('Auto-detected: ' + name);
-                lookup(name);
-                rcCooldown = Date.now() + 5000;
-                break;
-              }
-            }
-          }
+      // Scan for yellow pixels (RS3 right-click menu text color: R=255,G=255,B=0)
+      // BGRA layout: B=byte0, G=byte1, R=byte2, A=byte3
+      var bytes = new Uint8Array(img);
+      var yellowRows = [];
+      for (var y = 0; y < 150; y++) {
+        var yellowCount = 0;
+        for (var x = 0; x < 250; x++) {
+          var i = (y * 250 + x) * 4;
+          var b = bytes[i], g = bytes[i+1], r = bytes[i+2];
+          // Yellow: high R, high G, low B
+          if (r > 200 && g > 200 && b < 80) yellowCount++;
         }
-        if (doLog && !gotAny) dbg('no RC results at any y offset');
-      } catch(e) { dbg('RC poll error: ' + e.message); }
-    }, 500);
-    dbg('RC polling active (pixel+rsLinked)');
-  } else {
-    dbg('RC polling skipped - pixel=' + window.alt1.permissionPixel + ' rsLinked=' + window.alt1.rsLinked);
-  }
+        if (yellowCount > 3) yellowRows.push(y);
+      }
+
+      if (yellowRows.length > 0) {
+        dbg('Yellow rows found: ' + yellowRows.slice(0,5).join(',') + ' count=' + yellowRows.length);
+        flashBadge('#f5c518');
+        // Yellow text found — likely a right-click menu
+        // Trigger manual read to attempt text extraction
+        readScreenNow();
+        scanCooldown = Date.now() + 3000;
+      }
+    } catch(e) { /* silent */ }
+  }, 300);
+
+  dbg('Pixel scan active');
 }
 
 function parseExamineText(text) {
@@ -1157,33 +1129,50 @@ function parseExamineText(text) {
   return null;
 }
 
-function handleAlt1Capture() {
-  if (!window.alt1 || !window.alt1.permissionPixel) {
-    setStatus('err', 'View Screen permission required in Alt1 settings');
-    return;
-  }
+function readScreenNow() {
+  if (!window.alt1 || !window.alt1.permissionPixel) return;
   try {
-    const mp = window.alt1.mousePosition;
-    const mx = (mp >> 16) & 0xFFFF;
-    const my = mp & 0xFFFF;
-    const bindId = window.alt1.bindScreenRegion(Math.max(0, mx - 20), Math.max(0, my - 100), 300, 200);
-    if (bindId === null || bindId === undefined) { setStatus('err', 'Capture failed'); return; }
-    let found = null;
-    for (let y = 5; y < 180 && !found; y += 2) {
+    var mp = window.alt1.mousePosition;
+    var mx = (mp >> 16) & 0xFFFF;
+    var my = mp & 0xFFFF;
+    var cx = Math.max(0, mx - 10);
+    var cy = Math.max(0, my - 80);
+
+    // bindScreenRegion + bindReadRightClickString
+    var bindId = window.alt1.bindScreenRegion(cx, cy, 250, 150);
+    dbg('readScreenNow bindId=' + bindId + ' at ' + cx + ',' + cy);
+    if (bindId === null || bindId === undefined) return;
+
+    var found = null;
+    for (var y = 0; y < 150 && !found; y += 2) {
       try {
-        const r = window.alt1.bindReadRightClickString(bindId, 0, y);
-        if (r && typeof r === 'string' && r.length > 3) {
-          dbg('manual y=' + y + ': ' + r);
-          const name = parseExamineText(r);
+        var r = window.alt1.bindReadRightClickString(bindId, cx, cy + y);
+        if (r && typeof r === 'string' && r.length > 2) {
+          dbg('bindReadRC y=' + y + ': ' + r);
+          var name = parseExamineText(r);
           if (name) found = name;
         }
-      } catch(e) {}
+      } catch(e2) {}
+
+      try {
+        var r2 = window.alt1.bindReadString(bindId, cx, cy + y);
+        if (r2 && typeof r2 === 'string' && r2.length > 2) {
+          dbg('bindReadStr y=' + y + ': ' + r2);
+          var name2 = parseExamineText(r2);
+          if (name2) found = name2;
+        }
+      } catch(e3) {}
     }
-    if (found) { lookup(found); }
-    else { setStatus('err', 'No Examine text found - hover over Examine option first'); }
+
+    if (found) {
+      dbg('Found: ' + found);
+      lookup(found);
+    } else {
+      dbg('No examine text found at ' + cx + ',' + cy);
+      setStatus('err', 'No Examine text found - hover over Examine in menu then click ALT1 badge');
+    }
   } catch(e) {
-    dbg('capture error: ' + e.message);
-    setStatus('err', 'Error: ' + e.message);
+    dbg('readScreenNow error: ' + e.message);
   }
 }
 
