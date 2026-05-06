@@ -1153,14 +1153,20 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     var img = a1lib.captureHold(cx, cy, 250, 150);
     if (!img) { dbg('capture returned null'); return; }
 
-    // Log all methods on the ImgRefBind object so we know what's available
-    var methods = [];
-    for (var k in img) { if (typeof img[k] === 'function') methods.push(k); }
-    dbg('ImgRefBind methods: ' + methods.join(', '));
-
-    // Try reading right-click text using the bind
-    // ImgRefBind has x,y,width,height properties
-    dbg('ImgRef props: x=' + img.x + ' y=' + img.y + ' w=' + img.width + ' h=' + img.height);
+    // Deep inspect the ImgRefBind object
+    var allProps = [];
+    var obj = img;
+    while (obj && obj !== Object.prototype) {
+      Object.getOwnPropertyNames(obj).forEach(function(k) { allProps.push(k); });
+      obj = Object.getPrototypeOf(obj);
+    }
+    dbg('ImgRefBind all props: ' + allProps.join(', '));
+    dbg('img.ref=' + img.ref + ' img.id=' + img.id + ' img.bindid=' + img.bindid);
+    // Try reading pixel at center of capture
+    try {
+      var px = window.alt1.bindGetPixel(img.ref || img.id || 1, 125, 75);
+      dbg('bindGetPixel center: ' + px + ' type=' + typeof px);
+    } catch(e2) { dbg('bindGetPixel err: ' + e2.message); }
 
     // bindReadRightClickString needs the absolute screen coords and y offset
     var found = null;
