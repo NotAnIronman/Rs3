@@ -1083,8 +1083,8 @@ if (isAlt1) {
     if (!window.alt1.permissionPixel || !window.alt1.rsLinked) return;
     try {
       var mp  = window.alt1.mousePosition;
-      var mx  = (mp >> 16) & 0xFFFF;
-      var my  = mp & 0xFFFF;
+      var mx  = ((mp >> 16) & 0xFFFF) + window.alt1.rsX;
+      var my  = (mp & 0xFFFF) + window.alt1.rsY;
       if (mx === 0 && my === 0) return;
 
       // getRegion(x, y, w, h) returns raw BGRA pixel data as Int32Array
@@ -1153,8 +1153,8 @@ function readScreenNow() {
   if (!window.alt1 || !window.alt1.permissionPixel) return;
   try {
     var mp = window.alt1.mousePosition;
-    var mx = (mp >> 16) & 0xFFFF;
-    var my = mp & 0xFFFF;
+    var mx = ((mp >> 16) & 0xFFFF) + window.alt1.rsX;
+    var my = (mp & 0xFFFF) + window.alt1.rsY;
     var cx = Math.max(0, mx - 10);
     var cy = Math.max(0, my - 80);
 
