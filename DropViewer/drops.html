@@ -1119,8 +1119,7 @@ function initAlt1(a1lib) {
   });
   dbg('alt1pressed event hooked via A1lib');
 
-  // Passive pixel scan every 500ms
-  var lastFound = '';
+  // Passive pixel scan every 500ms - uses absolute screen coords
   var scanCooldown = 0;
   setInterval(function() {
     if (Date.now() < scanCooldown) return;
@@ -1128,60 +1127,84 @@ function initAlt1(a1lib) {
     try {
       var mp = a1lib.getMousePosition();
       if (!mp) return;
-      // Capture region around mouse
-      var cx = Math.max(0, mp.x - 10);
-      var cy = Math.max(0, mp.y - 80);
-      var img = a1lib.captureHold(cx, cy, 250, 150);
+      // Convert RS coords to absolute screen coords
+      var ax = mp.x + window.alt1.rsX;
+      var ay = mp.y + window.alt1.rsY;
+      var cx = Math.max(0, ax - 10);
+      var cy = Math.max(0, ay - 80);
+      var img = a1lib.captureHoldScreen(cx, cy, 300, 200);
       if (!img) return;
-      dbg('captureHold ok at ' + cx + ',' + cy);
-      scanCooldown = Date.now() + 2000;
+      var imageData = img.toData(0, 0, 300, 200);
+      if (!imageData || !imageData.data) return;
+      var data = imageData.data;
+      // Count yellow pixels
+      var yellowCount = 0;
+      for (var i = 0; i < data.length; i += 4) {
+        if (data[i] > 220 && data[i+1] > 220 && data[i+2] < 50) yellowCount++;
+      }
+      if (yellowCount > 20) {
+        dbg('Yellow pixels detected: ' + yellowCount + ' - right-click menu visible!');
+        flashBadge('#f5c518');
+        readScreenWithLib(a1lib, mp.x, mp.y);
+        scanCooldown = Date.now() + 4000;
+      }
     } catch(e) { /* silent */ }
   }, 500);
 }
 
 function readScreenWithLib(a1lib, mouseX, mouseY) {
   try {
-    var mx = mouseX, my = mouseY;
-    if (!mx) {
-      var mp = a1lib.getMousePosition();
-      if (!mp) { dbg('no mouse position'); return; }
-      mx = mp.x; my = mp.y;
-    }
-    dbg('readScreen at ' + mx + ',' + my);
-    var cx = Math.max(0, mx - 10);
-    var cy = Math.max(0, my - 80);
-    var img = a1lib.captureHold(cx, cy, 250, 150);
-    if (!img) { dbg('capture returned null'); return; }
+    var ax = mouseX + window.alt1.rsX;
+    var ay = mouseY + window.alt1.rsY;
+    dbg('readScreen RS=(' + mouseX + ',' + mouseY + ') abs=(' + ax + ',' + ay + ')');
+    var cx = Math.max(0, ax - 10);
+    var cy = Math.max(0, ay - 80);
 
-    // Deep inspect the ImgRefBind object
-    var allProps = [];
-    var obj = img;
-    while (obj && obj !== Object.prototype) {
-      Object.getOwnPropertyNames(obj).forEach(function(k) { allProps.push(k); });
-      obj = Object.getPrototypeOf(obj);
-    }
-    dbg('ImgRefBind all props: ' + allProps.join(', '));
-    dbg('img.ref=' + img.ref + ' img.id=' + img.id + ' img.bindid=' + img.bindid);
-    // Try reading pixel at center of capture
-    try {
-      var px = window.alt1.bindGetPixel(img.ref || img.id || 1, 125, 75);
-      dbg('bindGetPixel center: ' + px + ' type=' + typeof px);
-    } catch(e2) { dbg('bindGetPixel err: ' + e2.message); }
+    // captureHoldScreen uses absolute screen coords
+    var img = a1lib.captureHoldScreen(cx, cy, 300, 200);
+    if (!img) { dbg('captureHoldScreen returned null'); return; }
+    dbg('captureHoldScreen ok handle=' + img.handle);
 
-    // bindReadRightClickString needs the absolute screen coords and y offset
+    // toData() returns ImageData with RGBA .data
+    var imageData = img.toData(0, 0, 300, 200);
+    if (!imageData || !imageData.data) { dbg('toData failed'); return; }
+
+    var data = imageData.data;
+    var ci = (100 * 300 + 150) * 4;
+    dbg('center px: R=' + data[ci] + ' G=' + data[ci+1] + ' B=' + data[ci+2]);
+
+    // Scan for yellow pixels (RS3 right-click menu text: R=255,G=255,B=0)
+    var yellowRows = {};
+    for (var py = 0; py < 200; py++) {
+      for (var px2 = 0; px2 < 300; px2++) {
+        var i = (py * 300 + px2) * 4;
+        if (data[i] > 220 && data[i+1] > 220 && data[i+2] < 50) {
+          yellowRows[py] = (yellowRows[py] || 0) + 1;
+        }
+      }
+    }
+    var yRows = Object.keys(yellowRows).filter(function(k) { return yellowRows[k] > 5; });
+    dbg('Yellow rows (>5px): ' + yRows.join(','));
+
+    if (yRows.length === 0) {
+      setStatus('err', 'No right-click menu found. Right-click NPC, hover Examine, press Alt+1');
+      return;
+    }
+
+    // Try bindReadRightClickString with the handle and absolute coords
     var found = null;
-    for (var ty = 5; ty < 150 && !found; ty += 2) {
+    for (var ty = 0; ty < 200 && !found; ty += 2) {
       try {
-        var r = window.alt1.bindReadRightClickString(img.ref || img.id || 1, cx, cy + ty);
-        if (r && typeof r === 'string' && r.length > 2) {
-          dbg('RC y=' + ty + ': ' + r);
-          var name = parseExamineText(r);
+        var result = window.alt1.bindReadRightClickString(img.handle, cx, cy + ty);
+        if (result && typeof result === 'string' && result.length > 2) {
+          dbg('RC y=' + ty + ': ' + result);
+          var name = parseExamineText(result);
           if (name) found = name;
         }
       } catch(e2) {}
     }
-    if (found) { lookup(found); }
-    else { dbg('No examine text found via bindReadRightClickString'); }
+    if (found) { dbg('Found: ' + found); lookup(found); }
+    else { setStatus('err', 'Found menu but could not read text - hover directly over "Examine"'); }
   } catch(e) {
     dbg('readScreenWithLib error: ' + e.message);
   }
