@@ -1090,13 +1090,24 @@ if (isAlt1) {
 function initAlt1(a1lib) {
   // Hook alt1pressed event via the wrapper
   a1lib.on('alt1pressed', function(e) {
-    dbg('alt1pressed! ' + JSON.stringify(e));
-    var text = e && (e.text || e.match || e.string || '');
-    if (text) {
-      var name = parseExamineText(text);
-      if (name) { document.getElementById('alt1badge').style.background = '#4caf50'; lookup(name); return; }
+    dbg('alt1pressed! text="' + e.text + '" x=' + e.x + ' y=' + e.y);
+    // e.text is what Alt1 read under the cursor
+    // Log it regardless so we can see what's there
+    if (e.text && e.text.length > 0) {
+      dbg('Alt1 read: "' + e.text + '"');
+      var name = parseExamineText(e.text);
+      if (name) {
+        document.getElementById('alt1badge').style.background = '#4caf50';
+        lookup(name);
+        return;
+      } else {
+        dbg('Text found but no Examine match: "' + e.text + '"');
+      }
+    } else {
+      dbg('Alt1 read empty text - cursor may not be over RS3 text');
     }
-    readScreenWithLib(a1lib);
+    // Fall back to pixel capture
+    readScreenWithLib(a1lib, e.x, e.y);
   });
   dbg('alt1pressed event hooked via A1lib');
 
@@ -1120,20 +1131,43 @@ function initAlt1(a1lib) {
   }, 500);
 }
 
-function readScreenWithLib(a1lib) {
+function readScreenWithLib(a1lib, mouseX, mouseY) {
   try {
-    var mp = a1lib.getMousePosition();
-    if (!mp) { dbg('no mouse position'); return; }
-    dbg('readScreen at ' + mp.x + ',' + mp.y);
-    var cx = Math.max(0, mp.x - 10);
-    var cy = Math.max(0, mp.y - 80);
+    var mx = mouseX, my = mouseY;
+    if (!mx) {
+      var mp = a1lib.getMousePosition();
+      if (!mp) { dbg('no mouse position'); return; }
+      mx = mp.x; my = mp.y;
+    }
+    dbg('readScreen at ' + mx + ',' + my);
+    var cx = Math.max(0, mx - 10);
+    var cy = Math.max(0, my - 80);
     var img = a1lib.captureHold(cx, cy, 250, 150);
-    if (!img) { dbg('capture returned null'); setStatus('err', 'Capture failed'); return; }
-    dbg('captured ok, type=' + typeof img);
-    // img is an ImgRefBind - try to get pixel data
-    var data = img.toData ? img.toData() : null;
-    dbg('toData: ' + (data ? data.byteLength + ' bytes' : 'null'));
-    setStatus('ok', 'Captured - need OCR library to read text');
+    if (!img) { dbg('capture returned null'); return; }
+
+    // Log all methods on the ImgRefBind object so we know what's available
+    var methods = [];
+    for (var k in img) { if (typeof img[k] === 'function') methods.push(k); }
+    dbg('ImgRefBind methods: ' + methods.join(', '));
+
+    // Try reading right-click text using the bind
+    // ImgRefBind has x,y,width,height properties
+    dbg('ImgRef props: x=' + img.x + ' y=' + img.y + ' w=' + img.width + ' h=' + img.height);
+
+    // bindReadRightClickString needs the absolute screen coords and y offset
+    var found = null;
+    for (var ty = 5; ty < 150 && !found; ty += 2) {
+      try {
+        var r = window.alt1.bindReadRightClickString(img.ref || img.id || 1, cx, cy + ty);
+        if (r && typeof r === 'string' && r.length > 2) {
+          dbg('RC y=' + ty + ': ' + r);
+          var name = parseExamineText(r);
+          if (name) found = name;
+        }
+      } catch(e2) {}
+    }
+    if (found) { lookup(found); }
+    else { dbg('No examine text found via bindReadRightClickString'); }
   } catch(e) {
     dbg('readScreenWithLib error: ' + e.message);
   }
