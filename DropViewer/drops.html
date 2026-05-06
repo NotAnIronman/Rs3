@@ -1134,7 +1134,9 @@ function initAlt1(a1lib) {
       var cy = Math.max(0, ay - 80);
       var img = a1lib.captureHoldScreen(cx, cy, 300, 200);
       if (!img) return;
-      var imageData = img.toData(0, 0, 300, 200);
+      var imageData;
+      try { imageData = img.toData(cx, cy, cx+300, cy+200); }
+      catch(e2) { try { imageData = img.toData(); } catch(e3) { return; } }
       if (!imageData || !imageData.data) return;
       var data = imageData.data;
       // Count yellow pixels
@@ -1165,9 +1167,24 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     if (!img) { dbg('captureHoldScreen returned null'); return; }
     dbg('captureHoldScreen ok handle=' + img.handle);
 
-    // toData() returns ImageData with RGBA .data
-    var imageData = img.toData(0, 0, 300, 200);
-    if (!imageData || !imageData.data) { dbg('toData failed'); return; }
+    dbg('captureHoldScreen ok handle=' + img.handle + ' img.x=' + img.x + ' img.y=' + img.y + ' img.w=' + img.width + ' img.h=' + img.height);
+
+    // toData takes coords in screen space (same as the capture coords)
+    // NOT relative to the capture — use the exact cx,cy we captured at
+    var imageData;
+    try {
+      imageData = img.toData(cx, cy, cx + 300, cy + 200);
+      if (!imageData || !imageData.data) throw new Error('null');
+    } catch(e1) {
+      dbg('toData(cx,cy) failed: ' + e1.message + ' - trying no args');
+      try { imageData = img.toData(); }
+      catch(e2) {
+        dbg('toData() failed: ' + e2.message + ' - trying (0,0,300,200)');
+        try { imageData = img.toData(0, 0, 300, 200); }
+        catch(e3) { dbg('all toData failed: ' + e3.message); return; }
+      }
+    }
+    if (!imageData || !imageData.data) { dbg('toData returned no data'); return; }
 
     var data = imageData.data;
     var ci = (100 * 300 + 150) * 4;
