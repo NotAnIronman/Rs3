@@ -1091,7 +1091,25 @@ if (isAlt1) {
       var cx  = Math.max(0, mx - 10);
       var cy  = Math.max(0, my - 80);
       var img = window.alt1.getRegion(cx, cy, 250, 150);
-      if (!img) return;
+      if (!img) { if (Date.now() % 5000 < 300) dbg('getRegion returned null'); return; }
+
+      var bytes = new Uint8Array(img);
+      // Log first few pixels and some stats every 10 seconds so we can see what's captured
+      if (Date.now() % 10000 < 300) {
+        dbg('getRegion at ' + cx + ',' + cy + ' bytes=' + bytes.length);
+        // Sample pixels at corners and center
+        var samples = [0, 100, 500, bytes.length/2, bytes.length-4].map(function(i) {
+          i = Math.floor(i/4)*4;
+          return 'rgb(' + bytes[i+2] + ',' + bytes[i+1] + ',' + bytes[i] + ')';
+        });
+        dbg('sample pixels: ' + samples.join(' '));
+        // Count non-black pixels
+        var nonBlack = 0;
+        for (var si = 0; si < bytes.length; si += 4) {
+          if (bytes[si] > 10 || bytes[si+1] > 10 || bytes[si+2] > 10) nonBlack++;
+        }
+        dbg('non-black pixels: ' + nonBlack + ' / ' + (bytes.length/4));
+      }
 
       // Scan for yellow pixels (RS3 right-click menu text color: R=255,G=255,B=0)
       // BGRA layout: B=byte0, G=byte1, R=byte2, A=byte3
@@ -1120,6 +1138,8 @@ if (isAlt1) {
   }, 300);
 
   dbg('Pixel scan active');
+  dbg('RS window: x=' + window.alt1.rsX + ' y=' + window.alt1.rsY + ' w=' + window.alt1.rsWidth + ' h=' + window.alt1.rsHeight);
+  dbg('Screen: ' + window.alt1.screenWidth + 'x' + window.alt1.screenHeight);
 }
 
 function parseExamineText(text) {
