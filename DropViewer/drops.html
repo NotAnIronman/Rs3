@@ -1083,17 +1083,27 @@ if (isAlt1) {
     if (!window.alt1.permissionPixel || !window.alt1.rsLinked) return;
     try {
       var mp  = window.alt1.mousePosition;
-      var mx  = ((mp >> 16) & 0xFFFF) + window.alt1.rsX;
-      var my  = (mp & 0xFFFF) + window.alt1.rsY;
-      if (mx === 0 && my === 0) return;
+      // mousePosition is a packed int - handle sign extension properly
+      var raw = mp >>> 0; // treat as unsigned
+      var mx  = (raw >>> 16) + window.alt1.rsX;
+      var my  = (raw & 0xFFFF) + window.alt1.rsY;
+      if (mx < window.alt1.rsX || my < window.alt1.rsY) return; // invalid
 
-      // getRegion(x, y, w, h) returns raw BGRA pixel data as Int32Array
-      var cx  = Math.max(0, mx - 10);
-      var cy  = Math.max(0, my - 80);
-      var img = window.alt1.getRegion(cx, cy, 250, 150);
-      if (!img) { if (Date.now() % 5000 < 300) dbg('getRegion returned null'); return; }
+      var cx  = Math.max(window.alt1.rsX, mx - 10);
+      var cy  = Math.max(window.alt1.rsY, my - 80);
 
-      var bytes = new Uint8Array(img);
+      // Try bindGetRegion — we know bindScreenRegion returns id=1
+      // bindGetRegion(id, x, y, w, h) captures pixels into the bind
+      var bid = window.alt1.bindScreenRegion(cx, cy, 250, 150);
+      var img = null;
+      try { img = window.alt1.bindGetRegion(bid, 0, 0, 250, 150); } catch(e2) {}
+      if (!img) {
+        // Try getRegionMulti as fallback
+        try { img = window.alt1.getRegionMulti([[cx, cy, 250, 150]]); } catch(e3) {}
+      }
+      if (!img) { if (Date.now() % 5000 < 300) dbg('all capture methods returned null'); return; }
+
+      var bytes = new Uint8Array(img.buffer || img);
       // Log first few pixels and some stats every 10 seconds so we can see what's captured
       if (Date.now() % 10000 < 300) {
         dbg('getRegion at ' + cx + ',' + cy + ' bytes=' + bytes.length);
