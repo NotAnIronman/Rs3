@@ -1050,10 +1050,21 @@ if (isAlt1) {
   };
   a1script.onerror = function() {
     dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
-    // Fall back to activator-only mode
     setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
   };
   document.head.appendChild(a1script);
+
+  // Load OCR engine
+  var ocrScript = document.createElement('script');
+  ocrScript.src = './alt1ocr.bundle.js';
+  ocrScript.onload = function() { dbg('OCR loaded: ' + (typeof window.OCR !== 'undefined')); };
+  document.head.appendChild(ocrScript);
+
+  // Load RS3 chat font (used for right-click menu text)
+  var fontScript = document.createElement('script');
+  fontScript.src = './alt1font_chat8px.js';
+  fontScript.onload = function() { dbg('Font loaded: ' + (typeof window.OCR_chat_8px !== 'undefined')); };
+  document.head.appendChild(fontScript);
 
   // Handle openInfo (activator match)
   function processOpenInfo(info) {
@@ -1241,20 +1252,26 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     groups.push({ start: gStart, end: gEnd });
     dbg('Menu option groups: ' + groups.length);
 
-    // RS3 right-click menu format: [White "NpcName"] [Yellow "Examine"]
-    // The NPC name in WHITE appears to the LEFT of the yellow action word.
-    // Menu background is (219,203,166) tan/beige, separators are (29,29,29) dark grey.
-    // We find groups with yellow pixels, then find the LEFTMOST yellow pixel,
-    // and scan LEFT of it for white (255,255,255) text pixels.
+    // RS3 right-click menu: "Examine" in WHITE, NPC name in YELLOW (255,255,0)
+    // Use OCR.readLine with the chat_8px font to read the yellow text
+    // The yellow NPC name appears to the right of the white "Examine" word
 
+    var found = null;
+    var ocrLib = window.OCR;
+    var chatFont = window.OCR_chat_8px;
+
+    if (!ocrLib || !chatFont) {
+      dbg('OCR or font not loaded yet - ocrLib=' + !!ocrLib + ' chatFont=' + !!chatFont);
+    }
+
+    // Find yellow rows and try OCR on each group
     var found = null;
     for (var gi = 0; gi < groups.length && !found; gi++) {
       var g = groups[gi];
       var midY = Math.floor((g.start + g.end) / 2);
 
-      // Find leftmost and rightmost yellow pixel across all rows in group
-      var yellowStartX = W;
-      var yellowEndX = 0;
+      // Find leftmost and rightmost yellow pixel
+      var yellowStartX = W, yellowEndX = 0;
       for (var gy = g.start; gy <= g.end; gy++) {
         for (var x = 0; x < W; x++) {
           var idx = (gy * W + x) * 4;
@@ -1264,64 +1281,68 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
           }
         }
       }
+      if (yellowStartX >= W) continue;
 
-      // Count pure white pixels to the LEFT of yellow (NPC name)
-      var whiteLeftCount = 0;
-      for (var gy2 = g.start; gy2 <= g.end; gy2++) {
-        for (var x3 = 0; x3 < yellowStartX - 2; x3++) {
-          var idx3 = (gy2 * W + x3) * 4;
-          if (data[idx3] > 200 && data[idx3+1] > 200 && data[idx3+2] > 200) whiteLeftCount++;
+      dbg('Group ' + gi + ': yellowX=' + yellowStartX + '-' + yellowEndX + ' midY=' + midY);
+
+      // Try OCR if libraries are loaded
+      if (ocrLib && chatFont) {
+        try {
+          // Create ImageData from our pixel buffer for this row region
+          var roiY = Math.max(0, g.start - 2);
+          var roiH = (g.end - g.start) + 4;
+          var roiX = yellowStartX;
+          var roiW = Math.min(W - roiX, 200);
+
+          // Extract the ROI from data into a new ImageData
+          var roiData = new ImageData(roiW, roiH);
+          for (var ry = 0; ry < roiH; ry++) {
+            for (var rx = 0; rx < roiW; rx++) {
+              var si = ((roiY + ry) * W + roiX + rx) * 4;
+              var di = (ry * roiW + rx) * 4;
+              roiData.data[di]   = data[si];
+              roiData.data[di+1] = data[si+1];
+              roiData.data[di+2] = data[si+2];
+              roiData.data[di+3] = 255;
+            }
+          }
+
+          // Read yellow text [255,255,0] starting at x=0, y=2 in the ROI
+          var result = ocrLib.readLine(roiData, chatFont, [255,255,0], 0, 2, true, false);
+          dbg('OCR group ' + gi + ': "' + (result ? result.text : 'null') + '"');
+
+          if (result && result.text && result.text.length > 1) {
+            var name = result.text.trim();
+            // Filter out garbage reads
+            if (name.length > 1 && /^[A-Za-z0-9 '\-]+$/.test(name)) {
+              found = name;
+            }
+          }
+        } catch(ocrErr) {
+          dbg('OCR error: ' + ocrErr.message);
         }
-      }
-
-      // Count pure white pixels to the RIGHT of yellow (usually none for Examine rows)
-      var whiteRightCount = 0;
-      for (var gy3 = g.start; gy3 <= g.end; gy3++) {
-        for (var x4 = yellowEndX + 2; x4 < W; x4++) {
-          var idx4 = (gy3 * W + x4) * 4;
-          if (data[idx4] > 200 && data[idx4+1] > 200 && data[idx4+2] > 200) whiteRightCount++;
+      } else {
+        // OCR not available - detect examine row by yellow pixel presence
+        // and prompt user to type
+        if (yellowEndX - yellowStartX > 20) {
+          found = '__examine_detected__';
         }
-      }
-
-      dbg('Group ' + gi + ': yellowX=' + yellowStartX + '-' + yellowEndX +
-          ' whiteLeft=' + whiteLeftCount + ' whiteRight=' + whiteRightCount);
-
-      // "Examine NpcName" row: has white LEFT of yellow (the NPC name)
-      // and yellow in the middle (the word "Examine")
-      // Rows like "Walk here", "Cancel" have no white text at all
-      if (whiteLeftCount > 10) {
-        dbg('Group ' + gi + ' has white NPC name to left of yellow Examine — this is the Examine row!');
-        // We can detect this IS an examine row but still can't read the name from pixels.
-        // Signal the user and focus the search box.
-        found = '__examine_detected__';
       }
     }
 
-    if (found === '__examine_detected__') {
-      dbg('Examine row detected via pixel analysis!');
+    if (found && found !== '__examine_detected__') {
+      dbg('OCR SUCCESS: "' + found + '"');
       flashBadge('#4caf50');
-      setStatus('err', '✅ Examine detected! Type the NPC name in the search box above');
+      lookup(found);
+    } else if (found === '__examine_detected__' || groups.length > 0) {
+      dbg('Examine detected but OCR failed - prompting manual entry');
+      flashBadge('#4caf50');
+      setStatus('err', 'Examine detected! Type the NPC name in the search box above');
       document.getElementById('search-input').value = '';
       document.getElementById('search-input').focus();
-    } else if (found) {
-      dbg('SUCCESS: ' + found);
-      document.getElementById('alt1badge').style.background = '#4caf50';
-      lookup(found);
     } else {
-      // Dump pixel colors across first yellow row so we can see exact RGB values
-      if (groups.length > 0) {
-        var g0 = groups[0];
-        var midY0 = Math.floor((g0.start + g0.end) / 2);
-        var colorDump = [];
-        for (var dx = 0; dx < W; dx += 5) {
-          var di = (midY0 * W + dx) * 4;
-          colorDump.push(dx + ':(' + data[di] + ',' + data[di+1] + ',' + data[di+2] + ')');
-        }
-        dbg('Row ' + midY0 + ' px: ' + colorDump.slice(0, 25).join(' '));
-      }
-      dbg('Could not decode text from pixels - prompting manual entry');
-      setStatus('err', 'Detected Examine menu! Could not decode NPC name — type it in the search box');
-      document.getElementById('search-input').focus();
+      dbg('No examine row detected');
+      setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
     }
   } catch(e) {
     dbg('readScreenWithLib error: ' + e.message);
