@@ -1306,17 +1306,8 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
       }
     }
 
-    // Dump pixel colors around the first yellow row group for diagnosis
-    if (groups.length > 0 && !found) {
-      var g0 = groups[0];
-      var midY0 = Math.floor((g0.start + g0.end) / 2);
-      var colorDump = [];
-      for (var dx = 0; dx < W; dx += 5) {
-        var di = (midY0 * W + dx) * 4;
-        colorDump.push(dx + ':(' + data[di] + ',' + data[di+1] + ',' + data[di+2] + ')');
-      }
-      dbg('Row ' + midY0 + ' colors: ' + colorDump.slice(0, 20).join(' '));
-    }
+    if (found) {
+      dbg('SUCCESS: ' + found);
       document.getElementById('alt1badge').style.background = '#4caf50';
       lookup(found);
     } else {
