@@ -1311,8 +1311,17 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
       document.getElementById('alt1badge').style.background = '#4caf50';
       lookup(found);
     } else {
-      // We detected the menu and found yellow+white rows but couldn't read the text.
-      // Show a prompt asking user to type the name instead.
+      // Dump pixel colors across first yellow row so we can see exact values
+      if (groups.length > 0) {
+        var g0 = groups[0];
+        var midY0 = Math.floor((g0.start + g0.end) / 2);
+        var colorDump = [];
+        for (var dx = 0; dx < W; dx += 5) {
+          var di = (midY0 * W + dx) * 4;
+          colorDump.push(dx + ':(' + data[di] + ',' + data[di+1] + ',' + data[di+2] + ')');
+        }
+        dbg('Row ' + midY0 + ' px: ' + colorDump.slice(0, 25).join(' '));
+      }
       dbg('Could not decode text from pixels - prompting manual entry');
       setStatus('err', 'Detected Examine menu! Could not decode NPC name — type it in the search box');
       document.getElementById('search-input').focus();
