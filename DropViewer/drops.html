@@ -1191,41 +1191,113 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     if (!imageData || !imageData.data) { dbg('all toData attempts failed'); return; }
 
     var data = imageData.data;
-    var ci = (100 * 300 + 150) * 4;
+    var W = 300, H = 200;
+    var ci = (100 * W + 150) * 4;
     dbg('center px: R=' + data[ci] + ' G=' + data[ci+1] + ' B=' + data[ci+2]);
 
-    // Scan for yellow pixels (RS3 right-click menu text: R=255,G=255,B=0)
-    var yellowRows = {};
-    for (var py = 0; py < 200; py++) {
-      for (var px2 = 0; px2 < 300; px2++) {
-        var i = (py * 300 + px2) * 4;
-        if (data[i] > 220 && data[i+1] > 220 && data[i+2] < 50) {
-          yellowRows[py] = (yellowRows[py] || 0) + 1;
-        }
+    // Find yellow rows (RS3 right-click menu option labels are yellow)
+    // Yellow = R>200, G>200, B<60
+    var rowYellowCount = new Array(H).fill(0);
+    var rowWhiteCount  = new Array(H).fill(0);
+    for (var py = 0; py < H; py++) {
+      for (var px2 = 0; px2 < W; px2++) {
+        var i = (py * W + px2) * 4;
+        var r = data[i], g = data[i+1], b = data[i+2];
+        if (r > 200 && g > 200 && b < 60)  rowYellowCount[py]++;
+        if (r > 200 && g > 200 && b > 200)  rowWhiteCount[py]++;
       }
     }
-    var yRows = Object.keys(yellowRows).filter(function(k) { return yellowRows[k] > 5; });
-    dbg('Yellow rows (>5px): ' + yRows.join(','));
 
-    if (yRows.length === 0) {
-      setStatus('err', 'No right-click menu found. Right-click NPC, hover Examine, press Alt+1');
+    // Find rows with significant yellow pixels
+    var menuRows = [];
+    for (var y = 0; y < H; y++) {
+      if (rowYellowCount[y] > 5) menuRows.push(y);
+    }
+    dbg('Yellow rows: ' + menuRows.join(','));
+    dbg('White counts at yellow rows: ' + menuRows.slice(0,5).map(function(y) { return y+':'+rowWhiteCount[y]; }).join(' '));
+
+    if (menuRows.length === 0) {
+      setStatus('err', 'No right-click menu found — right-click NPC then hover Examine and press Alt+1');
       return;
     }
 
-    // Try bindReadRightClickString with the handle and absolute coords
-    var found = null;
-    for (var ty = 0; ty < 200 && !found; ty += 2) {
-      try {
-        var result = window.alt1.bindReadRightClickString(img.handle, cx, cy + ty);
-        if (result && typeof result === 'string' && result.length > 2) {
-          dbg('RC y=' + ty + ': ' + result);
-          var name = parseExamineText(result);
-          if (name) found = name;
-        }
-      } catch(e2) {}
+    // For each yellow row, find the rightmost yellow pixel cluster
+    // then scan right of it for white pixels which spell the NPC name
+    // The menu format is: [yellow "Examine"][white " NpcName"]
+    // We look for rows where yellow pixels are on the LEFT and white pixels follow
+
+    // Cluster yellow rows into groups (one group per menu option, ~10px tall)
+    var groups = [];
+    var gStart = menuRows[0];
+    var gEnd = menuRows[0];
+    for (var mi = 1; mi < menuRows.length; mi++) {
+      if (menuRows[mi] - menuRows[mi-1] <= 3) {
+        gEnd = menuRows[mi];
+      } else {
+        groups.push({ start: gStart, end: gEnd });
+        gStart = gEnd = menuRows[mi];
+      }
     }
-    if (found) { dbg('Found: ' + found); lookup(found); }
-    else { setStatus('err', 'Found menu but could not read text - hover directly over "Examine"'); }
+    groups.push({ start: gStart, end: gEnd });
+    dbg('Menu option groups: ' + groups.length);
+
+    // For each group, find the x-extent of yellow pixels, then look for
+    // white pixels to the right on the same rows
+    var found = null;
+    for (var gi = 0; gi < groups.length && !found; gi++) {
+      var g = groups[gi];
+      var midY = Math.floor((g.start + g.end) / 2);
+
+      // Find rightmost yellow pixel on this row
+      var yellowEndX = 0;
+      for (var x = 0; x < W; x++) {
+        var idx = (midY * W + x) * 4;
+        if (data[idx] > 200 && data[idx+1] > 200 && data[idx+2] < 60) yellowEndX = x;
+      }
+
+      // Collect white pixels to the right of yellow
+      var whitePixels = [];
+      for (var x2 = yellowEndX + 1; x2 < W; x2++) {
+        var idx2 = (midY * W + x2) * 4;
+        var pr = data[idx2], pg = data[idx2+1], pb = data[idx2+2];
+        if (pr > 200 && pg > 200 && pb > 200) whitePixels.push(x2);
+        else if (pr < 30 && pg < 30 && pb < 30 && whitePixels.length > 0) break; // black gap = end of text
+      }
+
+      dbg('Group ' + gi + ': yellowEndX=' + yellowEndX + ' whitePixels=' + whitePixels.length + ' spanning x=' + (whitePixels[0]||'?') + '-' + (whitePixels[whitePixels.length-1]||'?'));
+
+      // If we have white pixels after yellow, this is likely an "Examine NpcName" row
+      // We can't directly decode the font but we can use bindReadRightClickString
+      // with the y coordinate of this row relative to the RS client
+      if (whitePixels.length > 10) {
+        // This row has substantial white text after yellow — very likely "Examine NpcName"
+        // Try bindReadRightClickString at this y in RS coords
+        var rsY = img.y - window.alt1.rsY + midY;
+        dbg('Trying bindReadRightClickString at rsY=' + rsY);
+        try {
+          var result = window.alt1.bindReadRightClickString(img.handle, 0, rsY);
+          if (result && typeof result === 'string' && result.length > 1) {
+            dbg('bindReadRC result: "' + result + '"');
+            var name = parseExamineText(result);
+            if (name) { found = name; break; }
+          } else {
+            dbg('bindReadRC empty at rsY=' + rsY);
+          }
+        } catch(e3) { dbg('bindReadRC err: ' + e3.message.slice(0,60)); }
+      }
+    }
+
+    if (found) {
+      dbg('SUCCESS: ' + found);
+      document.getElementById('alt1badge').style.background = '#4caf50';
+      lookup(found);
+    } else {
+      // We detected the menu and found yellow+white rows but couldn't read the text.
+      // Show a prompt asking user to type the name instead.
+      dbg('Could not decode text from pixels - prompting manual entry');
+      setStatus('err', 'Detected Examine menu! Could not decode NPC name — type it in the search box');
+      document.getElementById('search-input').focus();
+    }
   } catch(e) {
     dbg('readScreenWithLib error: ' + e.message);
   }
