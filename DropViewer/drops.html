@@ -1288,28 +1288,29 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
       // Try OCR if libraries are loaded
       if (ocrLib && chatFont) {
         try {
-          // Create ImageData from our pixel buffer for this row region
-          var roiY = Math.max(0, g.start - 2);
-          var roiH = (g.end - g.start) + 4;
-          var roiX = yellowStartX;
-          var roiW = Math.min(W - roiX, 200);
+      // Use findReadLine on the FULL captured image with actual screen coordinates
+      // font basey=8 means y param should be top_of_text + 8
+      // The yellow text starts at g.start in our 300x200 capture
+      var textTopY = g.start;  // y of first yellow row in capture
+      var textBaseY = textTopY + chatFont.basey;  // baseline y for readLine
 
-          // Extract the ROI from data into a new ImageData
-          var roiData = new ImageData(roiW, roiH);
-          for (var ry = 0; ry < roiH; ry++) {
-            for (var rx = 0; rx < roiW; rx++) {
-              var si = ((roiY + ry) * W + roiX + rx) * 4;
-              var di = (ry * roiW + rx) * 4;
-              roiData.data[di]   = data[si];
-              roiData.data[di+1] = data[si+1];
-              roiData.data[di+2] = data[si+2];
-              roiData.data[di+3] = 255;
-            }
-          }
-
-          // Read yellow text [255,255,0] starting at x=0, y=2 in the ROI
-          var result = ocrLib.readLine(roiData, chatFont, [255,255,0], 0, 2, true, false);
-          dbg('OCR group ' + gi + ': "' + (result ? result.text : 'null') + '"');
+      // Use the full 300x200 imageData so bounds checks inside OCR pass
+      // x = yellowStartX, y = baseline
+      var result = null;
+      try {
+        // findReadLine searches for the character within a window around x,y
+        result = ocrLib.findReadLine(imageData, chatFont, [[255,255,0]], yellowStartX, textBaseY);
+        dbg('findReadLine group ' + gi + ': "' + (result ? result.text : 'null') + '" x=' + yellowStartX + ' y=' + textBaseY);
+      } catch(e1) {
+        dbg('findReadLine err: ' + e1.message);
+        try {
+          // Fall back to readLine with explicit coordinates
+          result = ocrLib.readLine(imageData, chatFont, [255,255,0], yellowStartX, textBaseY, true, false);
+          dbg('readLine group ' + gi + ': "' + (result ? result.text : 'null') + '"');
+        } catch(e2) {
+          dbg('readLine err: ' + e2.message);
+        }
+      }
 
           if (result && result.text && result.text.length > 1) {
             var name = result.text.trim();
