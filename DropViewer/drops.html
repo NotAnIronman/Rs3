@@ -1288,29 +1288,41 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
       // Try OCR if libraries are loaded
       if (ocrLib && chatFont) {
         try {
+      // Verify exact pixel colors at yellow locations
+      var yellowSamples = [];
+      for (var sx = yellowStartX; sx <= Math.min(yellowEndX, yellowStartX + 30); sx++) {
+        var si2 = (g.start * W + sx) * 4;
+        yellowSamples.push(sx + ':(' + imageData.data[si2] + ',' + imageData.data[si2+1] + ',' + imageData.data[si2+2] + ')');
+      }
+      dbg('Yellow px at row ' + g.start + ': ' + yellowSamples.slice(0,10).join(' '));
+
       // Use findReadLine on the FULL captured image with actual screen coordinates
       // font basey=8 means y param should be top_of_text + 8
-      // The yellow text starts at g.start in our 300x200 capture
-      var textTopY = g.start;  // y of first yellow row in capture
-      var textBaseY = textTopY + chatFont.basey;  // baseline y for readLine
+      var textTopY = g.start;
+      var textBaseY = textTopY + chatFont.basey;
+      dbg('OCR attempt: x=' + yellowStartX + ' y=' + textBaseY + ' basey=' + chatFont.basey + ' imgSize=' + imageData.width + 'x' + imageData.height);
 
       // Use the full 300x200 imageData so bounds checks inside OCR pass
       // x = yellowStartX, y = baseline
       var result = null;
-      try {
-        // findReadLine searches for the character within a window around x,y
-        result = ocrLib.findReadLine(imageData, chatFont, [[255,255,0]], yellowStartX, textBaseY);
-        dbg('findReadLine group ' + gi + ': "' + (result ? result.text : 'null') + '" x=' + yellowStartX + ' y=' + textBaseY);
-      } catch(e1) {
-        dbg('findReadLine err: ' + e1.message);
+      // Try multiple y baseline values — basey might not be exactly right
+      for (var tryY = g.start; tryY <= g.end + 12 && !result; tryY++) {
         try {
-          // Fall back to readLine with explicit coordinates
-          result = ocrLib.readLine(imageData, chatFont, [255,255,0], yellowStartX, textBaseY, true, false);
-          dbg('readLine group ' + gi + ': "' + (result ? result.text : 'null') + '"');
-        } catch(e2) {
-          dbg('readLine err: ' + e2.message);
-        }
+          var r = ocrLib.readLine(imageData, chatFont, [255,255,0], yellowStartX, tryY, true, false);
+          if (r && r.text && r.text.length > 0) {
+            dbg('readLine HIT at y=' + tryY + ': "' + r.text + '"');
+            result = r;
+          }
+        } catch(e1) { if (tryY === g.start) dbg('readLine err: ' + e1.message.slice(0,80)); }
       }
+      if (!result) {
+        // Try findReadLine with wider search
+        try {
+          result = ocrLib.findReadLine(imageData, chatFont, [[255,255,0]], yellowStartX, g.start + chatFont.basey, 50, 20);
+          if (result && result.text) dbg('findReadLine: "' + result.text + '"');
+        } catch(e2) { dbg('findReadLine err: ' + e2.message.slice(0,80)); }
+      }
+      dbg('OCR group ' + gi + ' final: "' + (result && result.text ? result.text : '') + '"');
 
           if (result && result.text && result.text.length > 1) {
             var name = result.text.trim();
