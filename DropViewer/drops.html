@@ -1141,16 +1141,15 @@ function initAlt1(a1lib) {
       // Convert RS coords to absolute screen coords
       var ax = mp.x + window.alt1.rsX;
       var ay = mp.y + window.alt1.rsY;
-      var cx = Math.max(0, ax - 10);
-      var cy = Math.max(0, ay - 80);
-      var img = a1lib.captureHoldScreen(cx, cy, 300, 200);
+      var cx = Math.max(0, ax - 50);
+      var cy = Math.max(0, ay - 100);
+      var img = a1lib.captureHoldScreen(cx, cy, 400, 250);
       if (!img) return;
       var imageData;
-      try { imageData = img.toData(img.x, img.y, img.x+300, img.y+200); }
+      try { imageData = img.toData(img.x, img.y, img.x+400, img.y+250); }
       catch(e2) { try { imageData = img.toData(0,0,img.width,img.height); } catch(e3) { try { imageData = img.toData(); } catch(e4) { return; } } }
       if (!imageData || !imageData.data || !imageData.data.length) return;
       var data = imageData.data;
-      // Count yellow pixels
       var yellowCount = 0;
       for (var i = 0; i < data.length; i += 4) {
         if (data[i] > 220 && data[i+1] > 220 && data[i+2] < 50) yellowCount++;
@@ -1170,21 +1169,21 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     var ax = mouseX + window.alt1.rsX;
     var ay = mouseY + window.alt1.rsY;
     dbg('readScreen RS=(' + mouseX + ',' + mouseY + ') abs=(' + ax + ',' + ay + ')');
-    var cx = Math.max(0, ax - 10);
-    var cy = Math.max(0, ay - 80);
+    // Capture 400px wide starting 50px left of mouse to ensure full menu is captured
+    var cx = Math.max(0, ax - 50);
+    var cy = Math.max(0, ay - 100);
+    var capW = 400, capH = 250;
 
     // captureHoldScreen uses absolute screen coords
-    var img = a1lib.captureHoldScreen(cx, cy, 300, 200);
+    var img = a1lib.captureHoldScreen(cx, cy, capW, capH);
     if (!img) { dbg('captureHoldScreen returned null'); return; }
-    dbg('captureHoldScreen ok handle=' + img.handle);
-
     dbg('captureHoldScreen ok handle=' + img.handle + ' img.x=' + img.x + ' img.y=' + img.y);
 
     // toData takes coords relative to the RS client window (not screen, not local)
     // img.x and img.y are the RS-relative coords of the capture origin
     var imageData;
     var attempts = [
-      function() { return img.toData(img.x, img.y, img.x + 300, img.y + 200); },
+      function() { return img.toData(img.x, img.y, img.x + capW, img.y + capH); },
       function() { return img.toData(0, 0, img.width, img.height); },
       function() { return img.toData(); }
     ];
@@ -1202,7 +1201,7 @@ function readScreenWithLib(a1lib, mouseX, mouseY) {
     if (!imageData || !imageData.data) { dbg('all toData attempts failed'); return; }
 
     var data = imageData.data;
-    var W = 300, H = 200;
+    var W = capW, H = capH;
     var ci = (100 * W + 150) * 4;
     dbg('center px: R=' + data[ci] + ' G=' + data[ci+1] + ' B=' + data[ci+2]);
 
