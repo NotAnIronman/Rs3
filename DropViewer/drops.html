@@ -1266,59 +1266,69 @@ async function readExamineWindow() {
     }
     dbg('Color rows: ' + (hitSummary.length ? hitSummary.join(' ') : 'none found'));
 
-    // font.basey=8: readLine expects y = pixelRow + font.basey
-    // readLine(imageData, font, color, startX, y, scanLeft, scanRight)
-    // We want scanRight=true (left-to-right from x=0), scanLeft=false
-    var basey = chatFont.basey || 8;
-    dbg('font basey=' + basey + ' height=' + chatFont.height);
+    var basey  = chatFont.basey  || 8;
+    var fh     = chatFont.height || 12;
+    dbg('font: basey=' + basey + ' height=' + fh + ' spacewidth=' + chatFont.spacewidth);
 
-    var bestResult = null;
+    // ── Pixel sampling: dump actual RGBA of first few bright pixels at y=4 ──
+    // This verifies the imageData buffer is real and tells us actual colors
+    var sampleOut = [];
+    for (var sx2 = 0; sx2 < Math.min(W, 60); sx2++) {
+      var si3 = (4 * W + sx2) * 4;   // row y=4
+      var sr = data[si3], sg = data[si3+1], sb2 = data[si3+2];
+      if (sr > 100 || sg > 100 || sb2 > 100) sampleOut.push(sx2+':('+sr+','+sg+','+sb2+')');
+    }
+    dbg('Pixels y=4: ' + (sampleOut.length ? sampleOut.slice(0,8).join(' ') : 'all dark!'));
 
-    // Group consecutive yellow rows into text-line bands
+    // ── Band detection ────────────────────────────────────────────────────────
     var bands = [];
     var inBand = false, bandStart = 0;
     for (var by = 0; by <= H; by++) {
       var hasYellow = rowHits[by] && rowHits[by].indexOf(0) !== -1;
-      if (hasYellow && !inBand) { inBand = true; bandStart = by; }
+      if (hasYellow && !inBand)      { inBand = true;  bandStart = by; }
       else if (!hasYellow && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
     }
     dbg('Text bands: ' + bands.map(function(b){ return b.start+'-'+b.end; }).join(', '));
 
+    // readChar boundary check: after h -= basey, needs h+fh < r.height
+    // → (pixelRow) + fh < H  →  pixelRow < H - fh
+    var maxRow = H - fh - 1;
+
+    var bestResult = null;
+    var colOrder = [
+      { col: [255, 255,   0], label: 'yellow' },
+      { col: [255, 255, 255], label: 'white'  },
+    ];
+
     for (var bi = 0; bi < bands.length && !bestResult; bi++) {
       var band = bands[bi];
-      // Try baseline at several offsets through the band
-      for (var tryRow = band.start; tryRow <= band.end + 2 && !bestResult; tryRow++) {
-        var baseline = tryRow + basey;
-        if (baseline >= H) continue;
+      if (band.start > maxRow) { dbg('band '+bi+' start='+band.start+' > maxRow='+maxRow+', skip'); continue; }
 
-        // Try yellow first, then white
-        var colOrder = [
-          { col: [255, 255,   0], label: 'yellow' },
-          { col: [255, 255, 255], label: 'white'  },
-        ];
+      // Pass y = pixelRow + basey to readLine (it subtracts basey internally)
+      // Try every row in the band so we hit the right pixel offset
+      for (var tryRow = band.start; tryRow <= Math.min(band.end, maxRow) && !bestResult; tryRow++) {
+        var baseline = tryRow + basey;
+
         for (var ci3 = 0; ci3 < colOrder.length && !bestResult; ci3++) {
           try {
-            // scanLeft=false, scanRight=true — reads left-to-right from x=0
+            // false=don't scan left, true=scan right from x=0
             var res = ocrLib.readLine(examineData, chatFont, colOrder[ci3].col, 0, baseline, false, true);
-            if (res && res.text && res.text.trim().length > 1) {
+            if (res && res.text && res.text.trim().length > 0) {
               var raw = res.text.trim();
-              dbg('band ' + bi + ' row ' + tryRow + ' base ' + baseline + ' ' + colOrder[ci3].label + ': "' + raw + '"');
-              // Prefer lines containing "Examine" — extract the NPC name after it
+              dbg('  band='+bi+' row='+tryRow+' base='+baseline+' '+colOrder[ci3].label+': "'+raw+'"');
               var examM = raw.match(/examine\s+(.+)/i);
-              if (examM) {
-                var candidate = examM[1].trim();
-                if (candidate.length > 1) { bestResult = candidate; break; }
-              }
-              // Skip pure action words
+              if (examM && examM[1].trim().length > 1) { bestResult = examM[1].trim(); break; }
               if (/^(walk here|cancel|choose option|pickpocket)$/i.test(raw)) continue;
               if (raw.length > 1 && /^[A-Za-z0-9 '\-,!]+$/.test(raw)) bestResult = raw;
             }
-          } catch(e) { /* skip */ }
+          } catch(readErr) {
+            dbg('  readLine throw band='+bi+' row='+tryRow+': '+readErr.message.slice(0,80));
+          }
         }
       }
     }
 
-    // Fallback: findReadLine across whole region
+    // ── Fallback: findReadLine ────────────────────────────────────────────────
     if (!bestResult && ocrLib.findReadLine) {
       try {
         var fbRes = ocrLib.findReadLine(examineData, chatFont, [[255,255,0],[255,255,255]], W/2|0, basey, W, H);
@@ -1328,7 +1338,7 @@ async function readExamineWindow() {
           fbRaw = fbRaw.replace(/^examine\s+/i,'').trim();
           if (fbRaw.length > 1) bestResult = fbRaw;
         }
-      } catch(e) { dbg('findReadLine err: ' + e.message); }
+      } catch(e) { dbg('findReadLine err: ' + e.message.slice(0,80)); }
     }
 
     if (bestResult) {
