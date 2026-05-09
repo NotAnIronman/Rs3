@@ -1329,38 +1329,97 @@ async function readExamineWindow() {
     });
     dbg('Colors to try: ' + dominantColors.slice(0,6).map(function(c){ return '('+c+')'; }).join(' '));
 
-    // ── readChar diagnostic with dominant color ───────────────────────────────
-    if (bands.length > 0 && ocrLib.readChar && dominantColors.length > 0) {
+    // ── Find leftmost bright pixel column per band (actual text start x) ──────
+    var bandTextX = [];  // first x with a dominant color pixel, per band
+    for (var bi2 = 0; bi2 < bands.length; bi2++) {
+      var bd = bands[bi2];
+      var firstX = -1;
+      outer: for (var tx = 0; tx < W; tx++) {
+        for (var ty = bd.start; ty <= bd.end; ty++) {
+          var ti = (ty * W + tx) * 4;
+          var tr = data[ti], tg = data[ti+1], tb2 = data[ti+2];
+          for (var tci = 0; tci < dominantColors.length; tci++) {
+            var tc2 = dominantColors[tci];
+            if (Math.abs(tr-tc2[0])<40 && Math.abs(tg-tc2[1])<40 && Math.abs(tb2-tc2[2])<40) {
+              firstX = tx; break outer;
+            }
+          }
+        }
+      }
+      bandTextX.push(firstX);
+      dbg('Band '+bi2+' (y='+bd.start+'-'+bd.end+'): text starts at x='+firstX);
+    }
+
+    // ── Debug canvas: draw captured region + overlay band boxes + first-x markers ─
+    try {
+      var dbgCanvas = document.getElementById('debug-canvas');
+      if (!dbgCanvas) {
+        dbgCanvas = document.createElement('canvas');
+        dbgCanvas.id = 'debug-canvas';
+        dbgCanvas.style.cssText = 'position:fixed;bottom:0;right:0;border:2px solid red;image-rendering:pixelated;z-index:9999;background:#000';
+        document.body.appendChild(dbgCanvas);
+      }
+      var scale2 = 3;
+      dbgCanvas.width  = W * scale2;
+      dbgCanvas.height = H * scale2;
+      var dctx = dbgCanvas.getContext('2d');
+
+      // Draw the captured image scaled up
+      var tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = W; tmpCanvas.height = H;
+      var tmpCtx = tmpCanvas.getContext('2d');
+      // Build ImageData from our pixel buffer
+      var idata = tmpCtx.createImageData(W, H);
+      for (var ip = 0; ip < data.length; ip++) idata.data[ip] = data[ip];
+      // Fix alpha channel — Alt1 pixel data may have alpha=0
+      for (var ia = 3; ia < idata.data.length; ia += 4) idata.data[ia] = 255;
+      tmpCtx.putImageData(idata, 0, 0);
+      dctx.imageSmoothingEnabled = false;
+      dctx.drawImage(tmpCanvas, 0, 0, W*scale2, H*scale2);
+
+      // Draw band boxes in semi-transparent blue
+      dctx.strokeStyle = 'rgba(0,120,255,0.9)';
+      dctx.lineWidth = 1;
+      for (var bi3 = 0; bi3 < bands.length; bi3++) {
+        var bbd = bands[bi3];
+        dctx.strokeRect(0, bbd.start*scale2, W*scale2, (bbd.end-bbd.start+1)*scale2);
+      }
+
+      // Draw text-start x markers in green
+      dctx.strokeStyle = 'rgba(0,255,0,0.9)';
+      for (var bi4 = 0; bi4 < bands.length; bi4++) {
+        if (bandTextX[bi4] >= 0) {
+          var bbd2 = bands[bi4];
+          dctx.beginPath();
+          dctx.moveTo(bandTextX[bi4]*scale2, bbd2.start*scale2);
+          dctx.lineTo(bandTextX[bi4]*scale2, (bbd2.end+1)*scale2);
+          dctx.stroke();
+        }
+      }
+
+      // Label each band
+      dctx.fillStyle = 'yellow';
+      dctx.font = '8px monospace';
+      for (var bi5 = 0; bi5 < bands.length; bi5++) {
+        dctx.fillText('band'+bi5+' x='+bandTextX[bi5], 2, bands[bi5].start*scale2 + 8);
+      }
+      dbg('Debug canvas rendered ('+W+'x'+H+' @ '+scale2+'x) — visible bottom-right');
+    } catch(canvasErr) {
+      dbg('Canvas debug err: '+canvasErr.message);
+    }
+
+    // ── readChar diagnostic at detected text x ────────────────────────────────
+    if (bands.length > 0 && ocrLib.readChar && bandTextX[0] >= 0) {
       var diagBand = bands[0];
       var diagY = diagBand.start + basey;
       var diagCol = dominantColors[0];
-      dbg('readChar diag band0 start='+diagBand.start+' baseline='+diagY+' col=('+diagCol+')');
-
-      // Dump actual pixel RGBA at the positions 'E' would check
-      // E font pixels: x_offsets=[1,2,3,4,5,6] at row y=2 (cell row), image_y = band.start+2
-      var eRow = diagBand.start + 2;  // where E's top row lands in image
-      var pixDump = [];
-      for (var pdx = 1; pdx <= 8; pdx++) {
-        var pdi = (eRow * W + pdx) * 4;
-        pixDump.push(pdx+':('+data[pdi]+','+data[pdi+1]+','+data[pdi+2]+')');
-      }
-      dbg('Image pixels at y='+eRow+': '+pixDump.join(' '));
-
-      // Dump pixels at the baseline row itself
-      var baseRow = diagBand.start;
-      var baseDump = [];
-      for (var bdx = 1; bdx <= 8; bdx++) {
-        var bdi = (baseRow * W + bdx) * 4;
-        baseDump.push(bdx+':('+data[bdi]+','+data[bdi+1]+','+data[bdi+2]+')');
-      }
-      dbg('Image pixels at band.start y='+baseRow+': '+baseDump.join(' '));
-
-      // Try readChar and log ALL results regardless of chr
-      for (var dx = 2; dx <= 30; dx += 4) {
+      var startX = bandTextX[0];
+      dbg('readChar diag: band0 y='+diagY+' textX='+startX+' col=('+diagCol+')');
+      for (var dx = startX; dx <= startX+40; dx += 4) {
         try {
           var dc = ocrLib.readChar(examineData, chatFont, diagCol, dx, diagY, false, false);
-          dbg('  readChar x='+dx+': '+(dc ? '"'+dc.chr+'" score='+dc.score.toFixed(2)+' size='+dc.sizescore.toFixed(2) : 'null'));
-        } catch(de) { dbg('  readChar x='+dx+' THREW: '+de.message.slice(0,60)); break; }
+          dbg('  x='+dx+': '+(dc ? '"'+dc.chr+'" score='+dc.score.toFixed(2)+' size='+dc.sizescore.toFixed(2) : 'null'));
+        } catch(de) { dbg('  x='+dx+' THREW: '+de.message.slice(0,60)); break; }
       }
     }
 
@@ -1370,17 +1429,19 @@ async function readExamineWindow() {
     for (var bi = 0; bi < bands.length && !bestResult; bi++) {
       var band = bands[bi];
       if (band.start > maxRow) continue;
+      var startX2 = Math.max(0, bandTextX[bi] >= 0 ? bandTextX[bi] : 0);
 
       for (var tryRow = band.start; tryRow <= Math.min(band.end, maxRow) && !bestResult; tryRow++) {
         var baseline = tryRow + basey;
 
         for (var ci3 = 0; ci3 < dominantColors.length && !bestResult; ci3++) {
           try {
-            var res = ocrLib.readLine(examineData, chatFont, dominantColors[ci3], 0, baseline, false, true);
+            // Pass startX2 so readLine begins scanning from where text actually is
+            var res = ocrLib.readLine(examineData, chatFont, dominantColors[ci3], startX2, baseline, false, true);
             if (res && res.text && res.text.trim().length > 0) {
               var raw = res.text.trim();
               if (raw === ' ' || raw === '') continue;
-              dbg('HIT band='+bi+' row='+tryRow+' base='+baseline+' col=('+dominantColors[ci3]+'): "'+raw+'"');
+              dbg('HIT band='+bi+' row='+tryRow+' x='+startX2+' col=('+dominantColors[ci3]+'): "'+raw+'"');
               var examM = raw.match(/examine\s+(.+)/i);
               if (examM && examM[1].trim().length > 1) { bestResult = examM[1].trim(); break; }
               if (/^(walk here|cancel|choose option|pickpocket|attack|talk-to|trade|use)$/i.test(raw)) continue;
