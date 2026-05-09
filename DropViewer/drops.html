@@ -1266,49 +1266,69 @@ async function readExamineWindow() {
     }
     dbg('Color rows: ' + (hitSummary.length ? hitSummary.join(' ') : 'none found'));
 
+    // font.basey=8: readLine expects y = pixelRow + font.basey
+    // readLine(imageData, font, color, startX, y, scanLeft, scanRight)
+    // We want scanRight=true (left-to-right from x=0), scanLeft=false
+    var basey = chatFont.basey || 8;
+    dbg('font basey=' + basey + ' height=' + chatFont.height);
+
     var bestResult = null;
 
-    for (var tryY = 0; tryY < H && !bestResult; tryY++) {
-      var hits = rowHits[tryY];
-      if (!hits || hits.length === 0) continue;
+    // Group consecutive yellow rows into text-line bands
+    var bands = [];
+    var inBand = false, bandStart = 0;
+    for (var by = 0; by <= H; by++) {
+      var hasYellow = rowHits[by] && rowHits[by].indexOf(0) !== -1;
+      if (hasYellow && !inBand) { inBand = true; bandStart = by; }
+      else if (!hasYellow && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
+    }
+    dbg('Text bands: ' + bands.map(function(b){ return b.start+'-'+b.end; }).join(', '));
 
-      for (var hi = 0; hi < hits.length && !bestResult; hi++) {
-        var col = colorsToTry[hits[hi]].col;
-        try {
-          var res = ocrLib.readLine(examineData, chatFont, col, 0, tryY, true, false);
-          if (res && res.text && res.text.trim().length > 2) {
-            var cleaned = res.text.trim();
-            dbg('readLine y=' + tryY + ' col=' + colorsToTry[hits[hi]].label + ': "' + cleaned + '"');
-            // If this line contains "Examine", strip it and use the remainder as the NPC name
-            var examineMatch = cleaned.match(/examine\s+(.+)/i);
-            if (examineMatch) {
-              var candidate = examineMatch[1].trim();
-              if (candidate.length > 1) { dbg('Examine row match: "' + candidate + '"'); bestResult = candidate; break; }
+    for (var bi = 0; bi < bands.length && !bestResult; bi++) {
+      var band = bands[bi];
+      // Try baseline at several offsets through the band
+      for (var tryRow = band.start; tryRow <= band.end + 2 && !bestResult; tryRow++) {
+        var baseline = tryRow + basey;
+        if (baseline >= H) continue;
+
+        // Try yellow first, then white
+        var colOrder = [
+          { col: [255, 255,   0], label: 'yellow' },
+          { col: [255, 255, 255], label: 'white'  },
+        ];
+        for (var ci3 = 0; ci3 < colOrder.length && !bestResult; ci3++) {
+          try {
+            // scanLeft=false, scanRight=true — reads left-to-right from x=0
+            var res = ocrLib.readLine(examineData, chatFont, colOrder[ci3].col, 0, baseline, false, true);
+            if (res && res.text && res.text.trim().length > 1) {
+              var raw = res.text.trim();
+              dbg('band ' + bi + ' row ' + tryRow + ' base ' + baseline + ' ' + colOrder[ci3].label + ': "' + raw + '"');
+              // Prefer lines containing "Examine" — extract the NPC name after it
+              var examM = raw.match(/examine\s+(.+)/i);
+              if (examM) {
+                var candidate = examM[1].trim();
+                if (candidate.length > 1) { bestResult = candidate; break; }
+              }
+              // Skip pure action words
+              if (/^(walk here|cancel|choose option|pickpocket)$/i.test(raw)) continue;
+              if (raw.length > 1 && /^[A-Za-z0-9 '\-,!]+$/.test(raw)) bestResult = raw;
             }
-            // Otherwise strip generic action words and use what's left
-            cleaned = cleaned.replace(/^(walk\s+here|pick\s*pocket|cancel|choose\s+option)[:\s]*/i, '').trim();
-            if (cleaned.length > 1 && /^[A-Za-z0-9 '\-,!]+$/.test(cleaned)) {
-              dbg('OCR HIT: "' + cleaned + '"');
-              bestResult = cleaned;
-            }
-          }
-        } catch(e) { /* skip bad rows */ }
+          } catch(e) { /* skip */ }
+        }
       }
     }
 
-    // Fallback: if row scanning found nothing, try findReadLine across the whole region
+    // Fallback: findReadLine across whole region
     if (!bestResult && ocrLib.findReadLine) {
-      var fbColors = [[255,255,0],[255,255,255]];
-      for (var fby = 0; fby < H && !bestResult; fby += 2) {
-        try {
-          var fbRes = ocrLib.findReadLine(examineData, chatFont, fbColors, 0, fby, W, H - fby);
-          if (fbRes && fbRes.text && fbRes.text.trim().length > 2) {
-            dbg('findReadLine fallback y=' + fby + ': "' + fbRes.text + '"');
-            var fbCleaned = fbRes.text.trim().replace(/^(examine|walk\s+here|pick\s*pocket|cancel|choose\s+option)[:\s]*/i,'').trim();
-            if (fbCleaned.length > 1) bestResult = fbCleaned;
-          }
-        } catch(e) { /* skip */ }
-      }
+      try {
+        var fbRes = ocrLib.findReadLine(examineData, chatFont, [[255,255,0],[255,255,255]], W/2|0, basey, W, H);
+        if (fbRes && fbRes.text && fbRes.text.trim().length > 1) {
+          var fbRaw = fbRes.text.trim();
+          dbg('findReadLine fallback: "' + fbRaw + '"');
+          fbRaw = fbRaw.replace(/^examine\s+/i,'').trim();
+          if (fbRaw.length > 1) bestResult = fbRaw;
+        }
+      } catch(e) { dbg('findReadLine err: ' + e.message); }
     }
 
     if (bestResult) {
