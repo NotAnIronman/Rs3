@@ -1182,17 +1182,26 @@ async function readExamineWindow() {
     var tl = tlMatches[0];
     var br = brMatches[0];
 
-    // The examine window region: starts at the inner edge of the TL anchor,
-    // ends at the inner edge of the BR anchor
-    var winX = tl.x + examineAnchorTL.width;
-    var winY = tl.y + examineAnchorTL.height;
-    var winW = br.x - winX;
-    var winH = br.y - winY;
+    // The examine window region spans from the TOP-LEFT of the TL anchor
+    // to the BOTTOM-RIGHT of the BR anchor.
+    //   TL anchor = top bar ("Choose Option")  → gives us left edge and top edge
+    //   BR anchor = bottom bar                 → gives us right edge and bottom edge
+    //
+    // We skip the header row (TL height) and footer row (BR height) since those
+    // are decorative bars and contain no NPC name text — the menu options
+    // (including "Examine <Name>") live in the rows between them.
+    var winX = tl.x;
+    var winY = tl.y + examineAnchorTL.height;          // below the top bar
+    var winRight  = br.x + examineAnchorBR.width;
+    var winBottom = br.y;                               // above the bottom bar
+    var winW = winRight - winX;
+    var winH = winBottom - winY;
 
-    dbg('Examine region: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH);
+    dbg('Examine region: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH +
+        '  (TL=' + tl.x + ',' + tl.y + ' BR=' + br.x + ',' + br.y + ')');
 
-    if (winW <= 0 || winH <= 0) {
-      setStatus('err', 'Anchor positions invalid — check TopLeft.png / BottomRight.png');
+    if (winW <= 10 || winH <= 4) {
+      setStatus('err', 'Anchor region too small (' + winW + 'x' + winH + ') — check TopLeft.png / BottomRight.png alignment');
       return;
     }
 
@@ -1218,32 +1227,87 @@ async function readExamineWindow() {
     var H = examineData.height;
     var data = examineData.data;
 
-    // Try reading yellow text (NPC name in right-click menu is yellow)
-    // and also cyan/white text which appears in the examine pop-up box
+    dbg('Scanning ' + W + 'x' + H + ' region for text rows...');
+
+    // RS3 right-click menu colours:
+    //   Yellow  [255,255,0]   — NPC/object name after "Examine"
+    //   White   [255,255,255] — action keywords like "Examine", "Walk here"
+    // We scan each row to find which rows actually contain each color,
+    // then only run the expensive OCR on those rows.
     var colorsToTry = [
-      [255, 255,   0],   // yellow  — right-click menu NPC name
-      [255, 255, 255],   // white   — examine box title
-      [  0, 255, 255],   // cyan    — some examine text
-      [255, 152,   0],   // orange  — some NPC names
+      { col: [255, 255,   0], label: 'yellow' },
+      { col: [255, 255, 255], label: 'white'  },
+      { col: [  0, 255, 255], label: 'cyan'   },
+      { col: [255, 152,   0], label: 'orange' },
     ];
+
+    // Build a map of which rows have a meaningful count of each color
+    var rowHits = [];
+    for (var py = 0; py < H; py++) rowHits[py] = [];
+
+    for (var ci2 = 0; ci2 < colorsToTry.length; ci2++) {
+      var tc = colorsToTry[ci2].col;
+      for (var py2 = 0; py2 < H; py2++) {
+        var count = 0;
+        for (var px2 = 0; px2 < W; px2++) {
+          var idx2 = (py2 * W + px2) * 4;
+          if (Math.abs(data[idx2]   - tc[0]) < 20 &&
+              Math.abs(data[idx2+1] - tc[1]) < 20 &&
+              Math.abs(data[idx2+2] - tc[2]) < 20) count++;
+        }
+        if (count >= 2) rowHits[py2].push(ci2);
+      }
+    }
+
+    var hitSummary = [];
+    for (var sy = 0; sy < H; sy++) {
+      if (rowHits[sy].length > 0)
+        hitSummary.push('y' + sy + ':' + rowHits[sy].map(function(i){ return colorsToTry[i].label; }).join('+'));
+    }
+    dbg('Color rows: ' + (hitSummary.length ? hitSummary.join(' ') : 'none found'));
 
     var bestResult = null;
 
     for (var tryY = 0; tryY < H && !bestResult; tryY++) {
-      for (var ci = 0; ci < colorsToTry.length && !bestResult; ci++) {
-        var col = colorsToTry[ci];
+      var hits = rowHits[tryY];
+      if (!hits || hits.length === 0) continue;
+
+      for (var hi = 0; hi < hits.length && !bestResult; hi++) {
+        var col = colorsToTry[hits[hi]].col;
         try {
           var res = ocrLib.readLine(examineData, chatFont, col, 0, tryY, true, false);
           if (res && res.text && res.text.trim().length > 2) {
             var cleaned = res.text.trim();
-            // Strip leading "Examine " prefix if present
-            cleaned = cleaned.replace(/^examine[:\s]+/i, '').trim();
+            dbg('readLine y=' + tryY + ' col=' + colorsToTry[hits[hi]].label + ': "' + cleaned + '"');
+            // If this line contains "Examine", strip it and use the remainder as the NPC name
+            var examineMatch = cleaned.match(/examine\s+(.+)/i);
+            if (examineMatch) {
+              var candidate = examineMatch[1].trim();
+              if (candidate.length > 1) { dbg('Examine row match: "' + candidate + '"'); bestResult = candidate; break; }
+            }
+            // Otherwise strip generic action words and use what's left
+            cleaned = cleaned.replace(/^(walk\s+here|pick\s*pocket|cancel|choose\s+option)[:\s]*/i, '').trim();
             if (cleaned.length > 1 && /^[A-Za-z0-9 '\-,!]+$/.test(cleaned)) {
-              dbg('OCR HIT col=[' + col + '] y=' + tryY + ': "' + cleaned + '"');
+              dbg('OCR HIT: "' + cleaned + '"');
               bestResult = cleaned;
             }
           }
         } catch(e) { /* skip bad rows */ }
+      }
+    }
+
+    // Fallback: if row scanning found nothing, try findReadLine across the whole region
+    if (!bestResult && ocrLib.findReadLine) {
+      var fbColors = [[255,255,0],[255,255,255]];
+      for (var fby = 0; fby < H && !bestResult; fby += 2) {
+        try {
+          var fbRes = ocrLib.findReadLine(examineData, chatFont, fbColors, 0, fby, W, H - fby);
+          if (fbRes && fbRes.text && fbRes.text.trim().length > 2) {
+            dbg('findReadLine fallback y=' + fby + ': "' + fbRes.text + '"');
+            var fbCleaned = fbRes.text.trim().replace(/^(examine|walk\s+here|pick\s*pocket|cancel|choose\s+option)[:\s]*/i,'').trim();
+            if (fbCleaned.length > 1) bestResult = fbCleaned;
+          }
+        } catch(e) { /* skip */ }
       }
     }
 
