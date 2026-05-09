@@ -1101,263 +1101,165 @@ if (isAlt1) {
 
   badge.addEventListener('click', function() {
     flashBadge('#f5c518');
-    if (a1lib) readScreenWithLib(a1lib);
+    if (a1lib) readExamineWindow();
     else dbg('A1lib not loaded yet');
   });
 }
 
-function initAlt1(a1lib) {
-  // Hook alt1pressed event via the wrapper
-  a1lib.on('alt1pressed', function(e) {
-    dbg('alt1pressed! text="' + e.text + '" x=' + e.x + ' y=' + e.y);
-    // e.text is what Alt1 read under the cursor
-    // Log it regardless so we can see what's there
-    if (e.text && e.text.length > 0) {
-      dbg('Alt1 read: "' + e.text + '"');
-      var name = parseExamineText(e.text);
-      if (name) {
-        document.getElementById('alt1badge').style.background = '#4caf50';
-        lookup(name);
-        return;
-      } else {
-        dbg('Text found but no Examine match: "' + e.text + '"');
-      }
-    } else {
-      dbg('Alt1 read empty text - cursor may not be over RS3 text');
-    }
-    // Fall back to pixel capture
-    readScreenWithLib(a1lib, e.x, e.y);
-  });
-  dbg('alt1pressed event hooked via A1lib');
+// ── Image-anchor templates (loaded once) ───────────────────
+var examineAnchorTL = null;   // TopLeft.png  ImageData
+var examineAnchorBR = null;   // BottomRight.png ImageData
+var anchorsLoading  = false;
 
-  // Passive pixel scan every 500ms - uses absolute screen coords
-  var scanCooldown = 0;
-  setInterval(function() {
-    if (Date.now() < scanCooldown) return;
-    if (!window.alt1.permissionPixel || !window.alt1.rsLinked) return;
-    try {
-      var mp = a1lib.getMousePosition();
-      if (!mp) return;
-      // Convert RS coords to absolute screen coords
-      var ax = mp.x + window.alt1.rsX;
-      var ay = mp.y + window.alt1.rsY;
-      var cx = Math.max(0, ax - 50);
-      var cy = Math.max(0, ay - 100);
-      var img = a1lib.captureHoldScreen(cx, cy, 400, 250);
-      if (!img) return;
-      var imageData;
-      try { imageData = img.toData(img.x, img.y, img.x+400, img.y+250); }
-      catch(e2) { try { imageData = img.toData(0,0,img.width,img.height); } catch(e3) { try { imageData = img.toData(); } catch(e4) { return; } } }
-      if (!imageData || !imageData.data || !imageData.data.length) return;
-      var data = imageData.data;
-      var yellowCount = 0;
-      for (var i = 0; i < data.length; i += 4) {
-        if (data[i] > 220 && data[i+1] > 220 && data[i+2] < 50) yellowCount++;
-      }
-      if (yellowCount > 20) {
-        dbg('Yellow pixels detected: ' + yellowCount + ' - right-click menu visible!');
-        flashBadge('#f5c518');
-        readScreenWithLib(a1lib, mp.x, mp.y);
-        scanCooldown = Date.now() + 4000;
-      }
-    } catch(e) { /* silent */ }
-  }, 500);
+async function loadAnchors() {
+  if (examineAnchorTL && examineAnchorBR) return true;
+  if (anchorsLoading) return false;
+  anchorsLoading = true;
+  try {
+    var ImageDetect = window.A1lib.ImageDetect;
+    examineAnchorTL = await ImageDetect.imageDataFromUrl('./TopLeft.png');
+    examineAnchorBR = await ImageDetect.imageDataFromUrl('./BottomRight.png');
+    dbg('Anchors loaded: TL=' + examineAnchorTL.width + 'x' + examineAnchorTL.height +
+        ' BR=' + examineAnchorBR.width + 'x' + examineAnchorBR.height);
+    return true;
+  } catch(e) {
+    dbg('Anchor load error: ' + e.message);
+    anchorsLoading = false;
+    return false;
+  }
 }
 
-function readScreenWithLib(a1lib, mouseX, mouseY) {
+function initAlt1(a1lib) {
+  // Pre-load anchor images as soon as A1lib is ready
+  loadAnchors();
+
+  // Hook Alt+1 keypress — fires whenever the user presses Alt+1 over RS
+  a1lib.on('alt1pressed', function(e) {
+    dbg('alt1pressed x=' + e.x + ' y=' + e.y);
+    readExamineWindow();
+  });
+  dbg('alt1pressed event hooked via A1lib');
+}
+
+// ── Core: find examine window via image anchors, then OCR ──
+async function readExamineWindow() {
+  if (!window.alt1 || !window.alt1.permissionPixel) {
+    setStatus('err', 'Pixel permission not granted');
+    return;
+  }
+
+  var a1lib = window.A1lib;
+  var ocrLib = window.OCR;
+  var chatFont = window.OCR_chat_8px;
+
+  // Ensure anchors are loaded
+  var anchorsOk = await loadAnchors();
+  if (!anchorsOk) {
+    setStatus('err', 'Anchor images not loaded — ensure TopLeft.png & BottomRight.png exist');
+    return;
+  }
+
+  setStatus('busy', '🔍 Scanning for examine window...');
+
   try {
-    var ax = mouseX + window.alt1.rsX;
-    var ay = mouseY + window.alt1.rsY;
-    dbg('readScreen RS=(' + mouseX + ',' + mouseY + ') abs=(' + ax + ',' + ay + ')');
-    // Capture 400px wide starting 50px left of mouse to ensure full menu is captured
-    var cx = Math.max(0, ax - 50);
-    var cy = Math.max(0, ay - 100);
-    var capW = 400, capH = 250;
+    // Capture the full RS client screen
+    var fullImg = a1lib.captureHoldFullRs();
+    if (!fullImg) { dbg('captureHoldFullRs returned null'); setStatus('err', 'Screen capture failed'); return; }
+    dbg('Full capture: w=' + fullImg.width + ' h=' + fullImg.height);
 
-    // captureHoldScreen uses absolute screen coords
-    var img = a1lib.captureHoldScreen(cx, cy, capW, capH);
-    if (!img) { dbg('captureHoldScreen returned null'); return; }
-    dbg('captureHoldScreen ok handle=' + img.handle + ' img.x=' + img.x + ' img.y=' + img.y);
+    // Search for both anchors in the full capture
+    var tlMatches = fullImg.findSubimage(examineAnchorTL);
+    var brMatches = fullImg.findSubimage(examineAnchorBR);
 
-    // toData takes coords relative to the RS client window (not screen, not local)
-    // img.x and img.y are the RS-relative coords of the capture origin
-    var imageData;
-    var attempts = [
-      function() { return img.toData(img.x, img.y, img.x + capW, img.y + capH); },
-      function() { return img.toData(0, 0, img.width, img.height); },
-      function() { return img.toData(); }
-    ];
-    for (var ai = 0; ai < attempts.length; ai++) {
-      try {
-        imageData = attempts[ai]();
-        if (imageData && imageData.data && imageData.data.length > 0) {
-          dbg('toData attempt ' + ai + ' succeeded: ' + imageData.data.length + ' bytes');
-          break;
-        }
-      } catch(e1) {
-        dbg('toData attempt ' + ai + ' failed: ' + e1.message.slice(0, 80));
-      }
-    }
-    if (!imageData || !imageData.data) { dbg('all toData attempts failed'); return; }
+    dbg('TL matches: ' + tlMatches.length + '  BR matches: ' + brMatches.length);
 
-    var data = imageData.data;
-    var W = capW, H = capH;
-    var ci = (100 * W + 150) * 4;
-    dbg('center px: R=' + data[ci] + ' G=' + data[ci+1] + ' B=' + data[ci+2]);
-
-    // Find yellow rows (RS3 right-click menu option labels are yellow)
-    // Yellow = R>200, G>200, B<60
-    var rowYellowCount = new Array(H).fill(0);
-    var rowWhiteCount  = new Array(H).fill(0);
-    for (var py = 0; py < H; py++) {
-      for (var px2 = 0; px2 < W; px2++) {
-        var i = (py * W + px2) * 4;
-        var r = data[i], g = data[i+1], b = data[i+2];
-        if (r > 200 && g > 200 && b < 60)  rowYellowCount[py]++;
-        if (r > 200 && g > 200 && b > 200)  rowWhiteCount[py]++;
-      }
-    }
-
-    // Find rows with significant yellow pixels
-    var menuRows = [];
-    for (var y = 0; y < H; y++) {
-      if (rowYellowCount[y] > 5) menuRows.push(y);
-    }
-    dbg('Yellow rows: ' + menuRows.join(','));
-    dbg('White counts at yellow rows: ' + menuRows.slice(0,5).map(function(y) { return y+':'+rowWhiteCount[y]; }).join(' '));
-
-    if (menuRows.length === 0) {
-      setStatus('err', 'No right-click menu found — right-click NPC then hover Examine and press Alt+1');
+    if (tlMatches.length === 0 || brMatches.length === 0) {
+      setStatus('err', 'Examine window not found — right-click an NPC and hover Examine first');
       return;
     }
 
-    // For each yellow row, find the rightmost yellow pixel cluster
-    // then scan right of it for white pixels which spell the NPC name
-    // The menu format is: [yellow "Examine"][white " NpcName"]
-    // We look for rows where yellow pixels are on the LEFT and white pixels follow
+    // Use the best (highest score) match for each anchor
+    var tl = tlMatches[0];
+    var br = brMatches[0];
 
-    // Cluster yellow rows into groups (one group per menu option, ~10px tall)
-    var groups = [];
-    var gStart = menuRows[0];
-    var gEnd = menuRows[0];
-    for (var mi = 1; mi < menuRows.length; mi++) {
-      if (menuRows[mi] - menuRows[mi-1] <= 3) {
-        gEnd = menuRows[mi];
-      } else {
-        groups.push({ start: gStart, end: gEnd });
-        gStart = gEnd = menuRows[mi];
-      }
+    // The examine window region: starts at the inner edge of the TL anchor,
+    // ends at the inner edge of the BR anchor
+    var winX = tl.x + examineAnchorTL.width;
+    var winY = tl.y + examineAnchorTL.height;
+    var winW = br.x - winX;
+    var winH = br.y - winY;
+
+    dbg('Examine region: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH);
+
+    if (winW <= 0 || winH <= 0) {
+      setStatus('err', 'Anchor positions invalid — check TopLeft.png / BottomRight.png');
+      return;
     }
-    groups.push({ start: gStart, end: gEnd });
-    dbg('Menu option groups: ' + groups.length);
 
-    // RS3 right-click menu: "Examine" in WHITE, NPC name in YELLOW (255,255,0)
-    // Use OCR.readLine with the chat_8px font to read the yellow text
-    // The yellow NPC name appears to the right of the white "Examine" word
+    // Read pixel data for just the examine window region
+    var examineData = fullImg.toData(winX, winY, winW, winH);
+    if (!examineData || !examineData.data || examineData.data.length === 0) {
+      setStatus('err', 'Failed to read examine window pixels');
+      return;
+    }
 
-    var found = null;
-    var ocrLib = window.OCR;
-    var chatFont = window.OCR_chat_8px;
+    dbg('examineData: ' + examineData.width + 'x' + examineData.height);
 
+    // ── OCR the examine window ──────────────────────────────
+    // The examine window contains text like "Examine: <NPC name>" or just
+    // the NPC/object name. We scan all rows for yellow text (NPC name colour)
+    // and white text, trying readLine on each.
     if (!ocrLib || !chatFont) {
-      dbg('OCR or font not loaded yet - ocrLib=' + !!ocrLib + ' chatFont=' + !!chatFont);
+      setStatus('err', 'OCR libraries not loaded yet — try again in a moment');
+      return;
     }
 
-    // Find yellow rows and try OCR on each group
-    var found = null;
-    for (var gi = 0; gi < groups.length && !found; gi++) {
-      var g = groups[gi];
-      var midY = Math.floor((g.start + g.end) / 2);
+    var W = examineData.width;
+    var H = examineData.height;
+    var data = examineData.data;
 
-      // Find leftmost and rightmost yellow pixel
-      var yellowStartX = W, yellowEndX = 0;
-      for (var gy = g.start; gy <= g.end; gy++) {
-        for (var x = 0; x < W; x++) {
-          var idx = (gy * W + x) * 4;
-          if (data[idx] > 200 && data[idx+1] > 200 && data[idx+2] < 60) {
-            if (x < yellowStartX) yellowStartX = x;
-            if (x > yellowEndX) yellowEndX = x;
-          }
-        }
-      }
-      if (yellowStartX >= W) continue;
+    // Try reading yellow text (NPC name in right-click menu is yellow)
+    // and also cyan/white text which appears in the examine pop-up box
+    var colorsToTry = [
+      [255, 255,   0],   // yellow  — right-click menu NPC name
+      [255, 255, 255],   // white   — examine box title
+      [  0, 255, 255],   // cyan    — some examine text
+      [255, 152,   0],   // orange  — some NPC names
+    ];
 
-      dbg('Group ' + gi + ': yellowX=' + yellowStartX + '-' + yellowEndX + ' midY=' + midY);
+    var bestResult = null;
 
-      // Try OCR if libraries are loaded
-      if (ocrLib && chatFont) {
+    for (var tryY = 0; tryY < H && !bestResult; tryY++) {
+      for (var ci = 0; ci < colorsToTry.length && !bestResult; ci++) {
+        var col = colorsToTry[ci];
         try {
-      // Verify exact pixel colors at yellow locations
-      var yellowSamples = [];
-      for (var sx = yellowStartX; sx <= Math.min(yellowEndX, yellowStartX + 30); sx++) {
-        var si2 = (g.start * W + sx) * 4;
-        yellowSamples.push(sx + ':(' + imageData.data[si2] + ',' + imageData.data[si2+1] + ',' + imageData.data[si2+2] + ')');
-      }
-      dbg('Yellow px at row ' + g.start + ': ' + yellowSamples.slice(0,10).join(' '));
-
-      // Use findReadLine on the FULL captured image with actual screen coordinates
-      // font basey=8 means y param should be top_of_text + 8
-      var textTopY = g.start;
-      var textBaseY = textTopY + chatFont.basey;
-      dbg('OCR attempt: x=' + yellowStartX + ' y=' + textBaseY + ' basey=' + chatFont.basey + ' imgSize=' + imageData.width + 'x' + imageData.height);
-
-      // Use the full 300x200 imageData so bounds checks inside OCR pass
-      // x = yellowStartX, y = baseline
-      var result = null;
-      // Try multiple y baseline values — basey might not be exactly right
-      for (var tryY = g.start; tryY <= g.end + 12 && !result; tryY++) {
-        try {
-          var r = ocrLib.readLine(imageData, chatFont, [255,255,0], yellowStartX, tryY, true, false);
-          if (r && r.text && r.text.length > 0) {
-            dbg('readLine HIT at y=' + tryY + ': "' + r.text + '"');
-            result = r;
-          }
-        } catch(e1) { if (tryY === g.start) dbg('readLine err: ' + e1.message.slice(0,80)); }
-      }
-      if (!result) {
-        // Try findReadLine with wider search
-        try {
-          result = ocrLib.findReadLine(imageData, chatFont, [[255,255,0]], yellowStartX, g.start + chatFont.basey, 50, 20);
-          if (result && result.text) dbg('findReadLine: "' + result.text + '"');
-        } catch(e2) { dbg('findReadLine err: ' + e2.message.slice(0,80)); }
-      }
-      dbg('OCR group ' + gi + ' final: "' + (result && result.text ? result.text : '') + '"');
-
-          if (result && result.text && result.text.length > 1) {
-            var name = result.text.trim();
-            // Filter out garbage reads
-            if (name.length > 1 && /^[A-Za-z0-9 '\-]+$/.test(name)) {
-              found = name;
+          var res = ocrLib.readLine(examineData, chatFont, col, 0, tryY, true, false);
+          if (res && res.text && res.text.trim().length > 2) {
+            var cleaned = res.text.trim();
+            // Strip leading "Examine " prefix if present
+            cleaned = cleaned.replace(/^examine[:\s]+/i, '').trim();
+            if (cleaned.length > 1 && /^[A-Za-z0-9 '\-,!]+$/.test(cleaned)) {
+              dbg('OCR HIT col=[' + col + '] y=' + tryY + ': "' + cleaned + '"');
+              bestResult = cleaned;
             }
           }
-        } catch(ocrErr) {
-          dbg('OCR error: ' + ocrErr.message);
-        }
-      } else {
-        // OCR not available - detect examine row by yellow pixel presence
-        // and prompt user to type
-        if (yellowEndX - yellowStartX > 20) {
-          found = '__examine_detected__';
-        }
+        } catch(e) { /* skip bad rows */ }
       }
     }
 
-    if (found && found !== '__examine_detected__') {
-      dbg('OCR SUCCESS: "' + found + '"');
+    if (bestResult) {
+      dbg('OCR SUCCESS: "' + bestResult + '"');
       flashBadge('#4caf50');
-      lookup(found);
-    } else if (found === '__examine_detected__' || groups.length > 0) {
-      dbg('Examine detected but OCR failed - prompting manual entry');
-      flashBadge('#4caf50');
-      setStatus('err', 'Examine detected! Type the NPC name in the search box above');
-      document.getElementById('search-input').value = '';
-      document.getElementById('search-input').focus();
+      setStatus('busy', 'Detected: ' + bestResult);
+      lookup(bestResult);
     } else {
-      dbg('No examine row detected');
-      setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
+      dbg('OCR found no readable text in examine region');
+      setStatus('err', 'Could not read examine text — try hovering the Examine option and pressing Alt+1');
     }
+
   } catch(e) {
-    dbg('readScreenWithLib error: ' + e.message);
+    dbg('readExamineWindow error: ' + e.message);
+    setStatus('err', 'Error reading screen: ' + e.message.slice(0, 60));
   }
 }
 
