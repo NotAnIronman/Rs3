@@ -1152,6 +1152,28 @@ async function readExamineWindow() {
   var ocrLib = window.OCR;
   var chatFont = window.OCR_chat_8px;
 
+  // The chat_8px font was captured with shadow:true, meaning pixels are stored as
+  // [x, y, fgAlpha, shadowAlpha] (4 values per pixel). When used against plain
+  // RS3 right-click menu text (no shadow), the shadow alpha distorts canblend()
+  // scoring and causes every readChar to return null.
+  // Fix: build a shadow-free copy of the font with pixels as [x, y, fgAlpha] (3 values).
+  if (chatFont && chatFont.shadow) {
+    var stripped = { chars: [], width: chatFont.width, spacewidth: chatFont.spacewidth,
+                     height: chatFont.height, basey: chatFont.basey, shadow: false };
+    for (var si = 0; si < chatFont.chars.length; si++) {
+      var origChar = chatFont.chars[si];
+      var newPixels = [];
+      for (var pi = 0; pi < origChar.pixels.length; pi += 4) {
+        // Keep x, y, fgAlpha — drop shadowAlpha
+        newPixels.push(origChar.pixels[pi], origChar.pixels[pi+1], origChar.pixels[pi+2]);
+      }
+      stripped.chars.push({ width: origChar.width, bonus: origChar.bonus,
+                             chr: origChar.chr, pixels: newPixels, secondary: origChar.secondary });
+    }
+    chatFont = stripped;
+    dbg('Font shadow stripped: ' + stripped.chars.length + ' chars, shadow=' + stripped.shadow);
+  }
+
   // Ensure anchors are loaded
   var anchorsOk = await loadAnchors();
   if (!anchorsOk) {
