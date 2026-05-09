@@ -1314,7 +1314,7 @@ async function readExamineWindow() {
         // Skip near-white (menu background highlight), skip pure grey
         if (pr > 230 && pg > 230 && pb > 230) continue;
         // Quantize to 32-step bins
-        var bkey = (Math.round(pr/32)*32) + '_' + (Math.round(pg/32)*32) + '_' + (Math.round(pb/32)*32);
+        var bkey = Math.min(255,Math.round(pr/32)*32) + '_' + Math.min(255,Math.round(pg/32)*32) + '_' + Math.min(255,Math.round(pb/32)*32);
         colorBins[bkey] = (colorBins[bkey]||0) + 1;
       }
     }
