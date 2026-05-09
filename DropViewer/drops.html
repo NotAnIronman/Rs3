@@ -1334,12 +1334,33 @@ async function readExamineWindow() {
       var diagBand = bands[0];
       var diagY = diagBand.start + basey;
       var diagCol = dominantColors[0];
-      dbg('readChar diag band0 y='+diagY+' col=('+diagCol+')');
+      dbg('readChar diag band0 start='+diagBand.start+' baseline='+diagY+' col=('+diagCol+')');
+
+      // Dump actual pixel RGBA at the positions 'E' would check
+      // E font pixels: x_offsets=[1,2,3,4,5,6] at row y=2 (cell row), image_y = band.start+2
+      var eRow = diagBand.start + 2;  // where E's top row lands in image
+      var pixDump = [];
+      for (var pdx = 1; pdx <= 8; pdx++) {
+        var pdi = (eRow * W + pdx) * 4;
+        pixDump.push(pdx+':('+data[pdi]+','+data[pdi+1]+','+data[pdi+2]+')');
+      }
+      dbg('Image pixels at y='+eRow+': '+pixDump.join(' '));
+
+      // Dump pixels at the baseline row itself
+      var baseRow = diagBand.start;
+      var baseDump = [];
+      for (var bdx = 1; bdx <= 8; bdx++) {
+        var bdi = (baseRow * W + bdx) * 4;
+        baseDump.push(bdx+':('+data[bdi]+','+data[bdi+1]+','+data[bdi+2]+')');
+      }
+      dbg('Image pixels at band.start y='+baseRow+': '+baseDump.join(' '));
+
+      // Try readChar and log ALL results regardless of chr
       for (var dx = 2; dx <= 30; dx += 4) {
         try {
           var dc = ocrLib.readChar(examineData, chatFont, diagCol, dx, diagY, false, false);
-          if (dc && dc.chr !== ' ') dbg('  x='+dx+': "'+dc.chr+'" score='+dc.score.toFixed(1));
-        } catch(de) { break; }
+          dbg('  readChar x='+dx+': '+(dc ? '"'+dc.chr+'" score='+dc.score.toFixed(2)+' size='+dc.sizescore.toFixed(2) : 'null'));
+        } catch(de) { dbg('  readChar x='+dx+' THREW: '+de.message.slice(0,60)); break; }
       }
     }
 
