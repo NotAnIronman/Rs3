@@ -1060,11 +1060,136 @@ if (isAlt1) {
   ocrScript.onload = function() { dbg('OCR loaded: ' + (typeof window.OCR !== 'undefined')); };
   document.head.appendChild(ocrScript);
 
-  // Load RS3 chat font (used for right-click menu text)
-  var fontScript = document.createElement('script');
-  fontScript.src = './alt1font_chat8px.js';
-  fontScript.onload = function() { dbg('Font loaded: ' + (typeof window.OCR_chat_8px !== 'undefined')); };
-  document.head.appendChild(fontScript);
+  // Generate RS3 right-click menu font from the TTF using canvas rendering.
+  // The menu uses "RuneScape Chat Bold" at 16px. We render each character onto
+  // a canvas and call OCR.generatefont() to build a proper pixel font object.
+  window.RS3MenuFont = null;
+
+  async function generateMenuFont() {
+    try {
+      // Load the TTF as a FontFace
+      const resp = await fetch('./runescape_chat_bold_2.ttf');
+      const ttfBuf = await resp.arrayBuffer();
+      const face = new FontFace('RS3MenuBold', ttfBuf);
+      await face.load();
+      document.fonts.add(face);
+      dbg('TTF loaded, generating OCR font...');
+
+      // Font metrics at 16px (derived from TTF: upem=1024, ascender=896, descender=128)
+      const PX        = 16;   // em size in pixels
+      const ASCENDER  = Math.round(896 / 1024 * PX);   // 14
+      const DESCENDER = Math.round(128 / 1024 * PX);   // 2
+      const CELL_H    = ASCENDER + DESCENDER;           // 16 total cell height
+      const BASEY     = ASCENDER;                       // baseline offset from glyph top = 14
+
+      // Characters present in the right-click menu
+      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 \'\"!@#$%^&*()-_=+[]{}|;:,.<>?/`~\\';
+
+      // Measure each character's advance width
+      const measCanvas = document.createElement('canvas');
+      measCanvas.width = 400; measCanvas.height = CELL_H + 4;
+      const measCtx = measCanvas.getContext('2d');
+      measCtx.font = PX + 'px RS3MenuBold';
+
+      // generatefont expects a single canvas image with chars laid out left-to-right,
+      // separated by a white pixel at the bottom row, with black pixel for end marker.
+      // Format: each char cell has a white pixel at (x, CELL_H) between chars.
+      // See OCR.generatefont signature: (imageData, chars, secondaryChars, bonuses,
+      //   basey, spacewidth, threshold, shadow)
+
+      // First pass: measure all char widths
+      const charWidths = [];
+      for (const ch of CHARS) {
+        const m = measCtx.measureText(ch);
+        charWidths.push(Math.ceil(m.width));
+      }
+
+      // Build the font strip canvas
+      const PAD = 1;  // 1px gap between chars (for generatefont separator)
+      let totalW = 0;
+      for (const w of charWidths) totalW += w + PAD;
+      totalW += PAD;
+
+      const stripH = CELL_H + 1;  // +1 for the separator row
+      const strip = document.createElement('canvas');
+      strip.width = totalW;
+      strip.height = stripH;
+      const ctx = strip.getContext('2d');
+
+      // Fill black
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, totalW, stripH);
+
+      // Draw separator markers (white pixel at bottom of each char cell boundary)
+      let cx = 0;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < CHARS.length; i++) {
+        // White pixel at left edge of each char, in the separator row
+        ctx.fillRect(cx, CELL_H, 1, 1);
+        cx += charWidths[i] + PAD;
+      }
+      // Final end marker
+      ctx.fillRect(cx, CELL_H, 1, 1);
+
+      // Draw characters in white
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold ' + PX + 'px RS3MenuBold';
+      ctx.textBaseline = 'alphabetic';
+      cx = 0;
+      for (let i = 0; i < CHARS.length; i++) {
+        const ch = CHARS[i];
+        if (ch !== ' ') {
+          ctx.fillText(ch, cx, ASCENDER);
+        }
+        cx += charWidths[i] + PAD;
+      }
+
+      // Get ImageData and call generatefont
+      const imgData = ctx.getImageData(0, 0, strip.width, strip.height);
+
+      // Wrap as A1lib ImageData
+      const A1ImageData = window.A1lib ? window.A1lib.ImageData : null;
+      let fontImgData;
+      if (A1ImageData) {
+        fontImgData = new A1ImageData(imgData.data, imgData.width, imgData.height);
+      } else {
+        fontImgData = imgData;
+      }
+
+      const spaceWidth = charWidths[CHARS.indexOf(' ')] || 4;
+      const secondaryChars = '';
+      const bonuses = null;
+      const threshold = 128;  // pixel brightness threshold for inclusion
+      const shadow = false;
+
+      const ocrLib = window.OCR;
+      if (!ocrLib || !ocrLib.generatefont) { dbg('OCR.generatefont not available'); return; }
+
+      window.RS3MenuFont = ocrLib.generatefont(
+        fontImgData, CHARS, secondaryChars, bonuses, BASEY, spaceWidth, threshold, shadow
+      );
+
+      if (window.RS3MenuFont) {
+        dbg('RS3MenuFont generated: ' + window.RS3MenuFont.chars.length + ' chars, basey=' +
+            window.RS3MenuFont.basey + ' height=' + window.RS3MenuFont.height +
+            ' shadow=' + window.RS3MenuFont.shadow);
+      } else {
+        dbg('RS3MenuFont generation returned null');
+      }
+    } catch(e) {
+      dbg('generateMenuFont error: ' + e.message);
+    }
+  }
+
+  // Kick off font generation once OCR is loaded (OCR needed for generatefont)
+  function waitForOcrAndGenerateFont() {
+    if (window.OCR && window.OCR.generatefont) {
+      generateMenuFont();
+    } else {
+      setTimeout(waitForOcrAndGenerateFont, 100);
+    }
+  }
+  setTimeout(waitForOcrAndGenerateFont, 200);
 
   // Handle openInfo (activator match)
   function processOpenInfo(info) {
@@ -1150,31 +1275,12 @@ async function readExamineWindow() {
 
   var a1lib = window.A1lib;
   var ocrLib = window.OCR;
-  var chatFont = window.OCR_chat_8px;
+  var chatFont = window.RS3MenuFont;
 
-  // The chat_8px font was captured with shadow:true, meaning pixels are stored as
-  // [x, y, fgAlpha, shadowAlpha] (4 values per pixel). When used against plain
-  // RS3 right-click menu text (no shadow), the shadow alpha distorts canblend()
-  // scoring and causes every readChar to return null.
-  // Fix: build a shadow-free copy of the font with pixels as [x, y, fgAlpha] (3 values).
-  if (chatFont && chatFont.shadow) {
-    var stripped = { chars: [], width: chatFont.width, spacewidth: chatFont.spacewidth,
-                     height: chatFont.height, basey: chatFont.basey, shadow: false };
-    for (var si = 0; si < chatFont.chars.length; si++) {
-      var origChar = chatFont.chars[si];
-      var newPixels = [];
-      for (var pi = 0; pi < origChar.pixels.length; pi += 4) {
-        // Keep x, y, fgAlpha — drop shadowAlpha
-        newPixels.push(origChar.pixels[pi], origChar.pixels[pi+1], origChar.pixels[pi+2]);
-      }
-      stripped.chars.push({ width: origChar.width, bonus: origChar.bonus,
-                             chr: origChar.chr, pixels: newPixels, secondary: origChar.secondary });
-    }
-    chatFont = stripped;
-    dbg('Font shadow stripped: ' + stripped.chars.length + ' chars, shadow=' + stripped.shadow);
+  if (!ocrLib || !chatFont) {
+    setStatus('err', 'Font not ready yet — wait a moment and try again (font=' + !!chatFont + ')');
+    return;
   }
-
-  // Ensure anchors are loaded
   var anchorsOk = await loadAnchors();
   if (!anchorsOk) {
     setStatus('err', 'Anchor images not loaded — ensure TopLeft.png & BottomRight.png exist');
@@ -1240,10 +1346,7 @@ async function readExamineWindow() {
     // The examine window contains text like "Examine: <NPC name>" or just
     // the NPC/object name. We scan all rows for yellow text (NPC name colour)
     // and white text, trying readLine on each.
-    if (!ocrLib || !chatFont) {
-      setStatus('err', 'OCR libraries not loaded yet — try again in a moment');
-      return;
-    }
+    if (!ocrLib || !chatFont) { return; }  // already checked above
 
     var W = examineData.width;
     var H = examineData.height;
