@@ -12,7 +12,1622 @@
   --green:  #4caf50; --blue: #64b5f6; --purple: #ba68c8;
   --orange: #ff9800;
 }
+body {<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Drop Viewer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:     #1a1a2e; --bg2: #16213e; --bg3: #0f3460;
+  --accent: #e94560; --gold: #f5c518; --text: #e0e0e0;
+  --dim:    #7a7a9a; --border: #2a2a4a;
+  --green:  #4caf50; --blue: #64b5f6; --purple: #ba68c8;
+  --orange: #ff9800;
+}
 body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px; height: 100vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#titlebar, .section-hdr, .drop-row, #status, .npc-item { user-select: none; }
+
+#titlebar {
+  background: linear-gradient(135deg, var(--bg3), var(--bg2));
+  border-bottom: 2px solid var(--accent);
+  padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+#npc-img {
+  width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated;
+  flex-shrink: 0; display: none; border-radius: 3px;
+}
+#titlebar .logo { font-size: 18px; }
+#titlebar .titles { flex: 1; min-width: 0; }
+#titlebar h1 { font-size: 13px; font-weight: 700; color: var(--gold); }
+#titlebar .subtitle { font-size: 11px; color: var(--dim); margin-top: 1px; }
+#close {
+  background: none; border: 1px solid var(--border); color: var(--dim);
+  width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
+  font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+#close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+#searchbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 7px 10px; display: flex; gap: 5px; flex-shrink: 0;
+}
+#search-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); padding: 5px 8px;
+  font-size: 12px; outline: none; cursor: text;
+  user-select: text; -webkit-user-select: text;
+}
+#search-input:focus { border-color: var(--accent); }
+#search-btn {
+  background: var(--accent); border: none; border-radius: 4px;
+  color: #fff; padding: 5px 12px; cursor: pointer; font-size: 12px; font-weight: 600;
+}
+#search-btn:hover { opacity: 0.85; }
+
+#status {
+  padding: 5px 12px; font-size: 11px; color: var(--dim);
+  border-bottom: 1px solid var(--border); min-height: 24px; flex-shrink: 0;
+}
+#status.ok   { color: var(--green); }
+#status.err  { color: var(--accent); }
+#status.busy { color: var(--gold); }
+
+#back-btn {
+  display: none; background: var(--bg3); border: none; color: var(--dim);
+  padding: 4px 10px; font-size: 11px; cursor: pointer;
+  border-bottom: 1px solid var(--border); width: 100%; text-align: left; flex-shrink: 0;
+}
+#back-btn:hover { color: var(--text); }
+
+#content { flex: 1; overflow-y: auto; position: relative; }
+#content::-webkit-scrollbar { width: 4px; }
+#content::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+
+/* ── NPC Browser ── */
+#npc-browser { display: flex; flex-direction: column; height: 100%; }
+#npc-list-header {
+  padding: 5px 12px; font-size: 10px; color: var(--dim);
+  border-bottom: 1px solid var(--border); background: var(--bg2);
+  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+}
+#npc-list { flex: 1; overflow-y: auto; }
+#npc-list::-webkit-scrollbar { width: 4px; }
+#npc-list::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+.npc-item {
+  padding: 7px 12px; border-bottom: 1px solid rgba(42,42,74,0.4);
+  cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.1s;
+}
+.npc-item:hover { background: rgba(233,69,96,0.1); }
+.npc-item .npc-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.npc-item .npc-name { font-size: 12px; color: var(--text); flex: 1; }
+.npc-item .npc-cat  { font-size: 10px; color: var(--dim); }
+#npc-empty  { padding: 20px; text-align: center; color: var(--dim); font-size: 11px; }
+#list-status { padding: 6px 12px; font-size: 10px; color: var(--gold); text-align: center; }
+
+/* ── Disambiguation ── */
+#disambig {
+  display: none; padding: 12px;
+}
+#disambig h3 { font-size: 12px; color: var(--gold); margin-bottom: 8px; }
+#disambig p  { font-size: 11px; color: var(--dim); margin-bottom: 10px; }
+.disambig-option {
+  padding: 7px 10px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; margin-bottom: 6px; cursor: pointer; font-size: 12px;
+  transition: background 0.1s;
+}
+.disambig-option:hover { background: var(--bg3); border-color: var(--accent); }
+
+/* ── Drops view ── */
+#drops { display: none; }
+.section-hdr {
+  background: var(--bg3); padding: 5px 12px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--gold); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+  transition: background 0.15s;
+}
+.section-hdr:hover { background: #143d6e; }
+.section-hdr .hdr-left { display: flex; align-items: center; gap: 6px; }
+.section-hdr .chevron {
+  font-size: 8px; transition: transform 0.2s; display: inline-block;
+  color: var(--dim);
+}
+.section-hdr.collapsed .chevron { transform: rotate(-90deg); }
+.section-hdr .row-count { font-size: 9px; color: var(--dim); font-weight: 400; }
+.section-body { overflow: hidden; transition: max-height 0.25s ease; }
+.section-body.collapsed { max-height: 0 !important; }
+.drop-row {
+  display: flex; align-items: center; padding: 4px 10px; gap: 8px;
+  border-bottom: 1px solid rgba(42,42,74,0.4); transition: background 0.1s;
+}
+.drop-row:hover { background: rgba(255,255,255,0.035); }
+.item-img {
+  width: 28px; height: 28px; flex-shrink: 0;
+  object-fit: contain; image-rendering: pixelated;
+}
+.item-placeholder {
+  width: 28px; height: 28px; flex-shrink: 0; background: var(--bg3);
+  border-radius: 3px; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--dim);
+}
+.item-info { flex: 1; min-width: 0; }
+.item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.item-qty  { font-size: 10px; color: var(--dim); margin-top: 1px; }
+.rarity    { flex-shrink: 0; }
+.badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+.b-always   { background: var(--green); color: #fff; }
+.b-common   { border: 1px solid var(--green);  color: var(--green); }
+.b-uncommon { border: 1px solid var(--blue);   color: var(--blue); }
+.b-rare     { border: 1px solid var(--purple); color: var(--purple); }
+.b-vr       { border: 1px solid var(--accent); color: var(--accent); }
+.b-ultra    { border: 1px solid var(--orange); color: var(--orange); }
+.b-unknown  { border: 1px solid var(--dim);    color: var(--dim); }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <img id="npc-img" alt="NPC"/>
+  <span class="logo" id="titlebar-logo">📜</span>
+  <div class="titles">
+    <h1>Drop Viewer</h1>
+    <div class="subtitle" id="subtitle">Search any NPC</div>
+  </div>
+  <button id="close">✕</button>
+</div>
+
+<div id="searchbar">
+  <input id="search-input" type="text" placeholder="Search NPCs..." autocomplete="off"/>
+  <button id="search-btn">Search</button>
+</div>
+
+<div id="status"></div>
+<button id="back-btn">← Back</button>
+
+<div id="content">
+  <div id="npc-browser">
+    <div id="npc-list-header">
+      <span id="list-label">Loading monster list from wiki...</span>
+      <span id="list-count"></span>
+    </div>
+    <div id="list-status"></div>
+    <div id="npc-list"></div>
+  </div>
+
+  <div id="disambig">
+    <h3>⚠️ Disambiguation</h3>
+    <p id="disambig-msg"></p>
+    <div id="disambig-options"></div>
+  </div>
+
+  <div id="drops"></div>
+</div>
+
+<script>
+const WIKI = 'https://runescape.wiki/api.php';
+
+// ── State ──────────────────────────────────────────────────
+let allMonsters = [];   // full list loaded from SMW
+let inDropsView = false;
+let searchTimer = null;
+
+// ── Debug ──────────────────────────────────────────────────
+function dbg(s) {
+  console.log('[DropViewer]', s);
+  let overlay = document.getElementById('section-debug');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'section-debug';
+    overlay.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#000c;color:#0f0;' +
+      'font-family:monospace;font-size:9px;padding:3px;max-height:60px;overflow-y:auto;z-index:999;';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML += s + '<br>';
+  overlay.scrollTop = overlay.scrollHeight;
+}
+
+// ── Status ─────────────────────────────────────────────────
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = type; el.textContent = msg;
+}
+
+// ── View switching ─────────────────────────────────────────
+function showBrowser() {
+  document.getElementById('npc-browser').style.display = 'flex';
+  document.getElementById('disambig').style.display = 'none';
+  document.getElementById('drops').style.display = 'none';
+  document.getElementById('back-btn').style.display = 'none';
+  document.getElementById('subtitle').textContent = 'Search any NPC';
+  // Reset NPC image back to logo
+  document.getElementById('npc-img').style.display = 'none';
+  document.getElementById('titlebar-logo').style.display = 'inline';
+  inDropsView = false;
+}
+function showDisambig() {
+  document.getElementById('npc-browser').style.display = 'none';
+  document.getElementById('disambig').style.display = 'block';
+  document.getElementById('drops').style.display = 'none';
+  document.getElementById('back-btn').style.display = 'block';
+  inDropsView = false;
+}
+function showDrops() {
+  document.getElementById('npc-browser').style.display = 'none';
+  document.getElementById('disambig').style.display = 'none';
+  document.getElementById('drops').style.display = 'block';
+  document.getElementById('back-btn').style.display = 'block';
+  inDropsView = true;
+}
+
+// ── Load full monster list from SMW ───────────────────────
+// Uses the Semantic MediaWiki API to get all pages with a
+// "Monster JSON" property (i.e. all monster pages on the wiki).
+async function loadMonsterList() {
+  document.getElementById('list-status').textContent = '⏳ Loading monster list...';
+  let monsters = [];
+  let offset = 0;
+  const limit = 500;
+
+  try {
+    while (true) {
+      const query = `[[Monster JSON::+]]|?Has name|limit=${limit}|offset=${offset}`;
+      const url = `${WIKI}?action=ask&query=${encodeURIComponent(query)}&format=json&origin=*`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const results = d?.query?.results;
+      if (!results) break;
+
+      const keys = Object.keys(results);
+      if (keys.length === 0) break;
+
+      for (const key of keys) {
+        const page = results[key];
+        const name = page?.printouts?.['Has name']?.[0] || page.fulltext;
+        if (name && !name.includes('/')) {  // skip subpages
+          monsters.push({ name, fulltext: page.fulltext });
+        }
+      }
+
+      dbg(`Loaded ${monsters.length} monsters so far (offset ${offset})`);
+      document.getElementById('list-status').textContent =
+        `⏳ Loading... ${monsters.length} monsters found`;
+
+      if (keys.length < limit) break;
+      offset += limit;
+    }
+
+    // Deduplicate and sort
+    const seen = new Set();
+    allMonsters = monsters
+      .filter(m => { if (seen.has(m.name)) return false; seen.add(m.name); return true; })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    document.getElementById('list-status').textContent = '';
+    document.getElementById('list-label').textContent = 'All RS3 monsters';
+    document.getElementById('list-count').textContent = allMonsters.length + ' total';
+    renderNpcList('');
+
+  } catch(e) {
+    dbg('Monster list load error: ' + e.message);
+    document.getElementById('list-status').textContent =
+      '⚠️ Could not load full list — use search box above';
+    // Fall back to popular list
+    allMonsters = POPULAR_NPCS.map(n => ({ name: n.name, fulltext: n.name, cat: n.cat, icon: n.icon }));
+    renderNpcList('');
+  }
+}
+
+// ── Popular NPC fallback list ──────────────────────────────
+const POPULAR_NPCS = [
+//-Bosses-
+  { name:'Abomination',icon:'⚔️',cat:'Boss' },
+  { name:'Amascut, the Devourer',icon:'🐱',cat:'Boss' },
+  { name:'The Ambassador',icon:'🪼',cat:'Boss' },
+  { name:'Araxxi',icon:'🕷️',cat:'Boss' },
+  { name:'Arch-Glacor',icon:'❄️',cat:'Boss' },
+  { name:'Barrows - Rise of the Six',icon:'👻',cat:'Boss' },
+  { name:'Beastmaster Durzag',icon:'⚔️',cat:'Boss' },
+  { name:'Black stone dragon',icon:'🐉',cat:'Boss' },
+  { name:'Chaos Elemental',icon:'👻',cat:'Boss' },
+  { name:'Commander Zilyana',icon:'⚔️',cat:'Boss' },
+  { name:'Corporeal Beast',icon:'👻',cat:'Boss' },
+  { name:'Croesus',icon:'🌳',cat:'Boss' },
+  { name:'Dagannoth Kings',icon:'🦖',cat:'Boss' },
+  { name:'Exiled Kalphite Queen',icon:'🦂',cat:'Boss' },
+  { name:'Flesh-hatcher Mhekarnahz',icon:'😈',cat:'Boss' },
+  { name:'Gate of Elidinis',icon:'⚒️',cat:'Boss' },
+  { name:'General Graardor',icon:'⚔️',cat:'Boss' },
+  { name:'Giant mole',icon:'🐭',cat:'Boss' },
+  { name:'Gregorovic',icon:'⚔️',cat:'Boss' },
+  { name:'Har-Aken',icon:'🔥',cat:'Boss' },
+  { name:'Helwyr',icon:'🐺',cat:'Boss' },
+  { name:'Hermod',icon:'⚔️',cat:'Boss' },
+  { name:'Ivar, King of Bones',icon:'💀',cat:'Boss' },
+  { name:'Kalphite King',icon:'🦂',cat:'Boss' },
+  { name:'Kalphite Queen',icon:'🦂',cat:'Boss' },
+  { name:'King Black Dragon',icon:'🐉',cat:'Boss' },
+  { name:'Kerapac, the Bound',icon:'🐉',cat:'Boss' },
+  { name:"K'ril Tsutsaroth",icon:'😈',cat:'Boss' },
+  { name:"Kree'arra",icon:'🦅',cat:'Boss' },
+  { name:'Legio Primus',icon:'⚔️',cat:'Boss' },
+  { name:'Magister',icon:'👻',cat:'Boss' },
+  { name:'Nakatra',icon:'⚔️',cat:'Boss' },
+  { name:'Nex',icon:'⚔️',cat:'Boss' },
+  { name:'Nex: Angel of Death',icon:'💀',cat:'Boss' },
+  { name:'Queen Black Dragon',icon:'🐉',cat:'Boss' },
+  { name:'Raksha',icon:'🦖',cat:'Boss' },
+  { name:'Rasial',icon:'💀',cat:'Boss' },
+  { name:'Rex Matriarchs',icon:'🦖',cat:'Boss' },
+  { name:'Seiryu',icon:'🐉',cat:'Boss' },
+  { name:'Silverquill, the Dreadhog',icon:'⚔️',cat:'Boss' },
+  { name:'Solak, Guardian of the Grove',icon:'🌳',cat:'Boss' },
+  { name:'Telos, the Warden',icon:'⚔️',cat:'Boss' },
+  { name:'TzKal-Zuk',icon:'🔥',cat:'Boss' },
+  { name:'Twin Furies',icon:'⚔️',cat:'Boss' },
+  { name:'Vindicta',icon:'🐉',cat:'Boss' },
+  { name:'Vorago',icon:'🪨',cat:'Boss' },
+  { name:'Vorkath',icon:'🐉',cat:'Boss' },
+  { name:'Yakamaru',icon:'🪼',cat:'Boss' },
+  { name:"Zamorak, Lord of Chaos",icon:'😈',cat:'Boss' },
+//-Slayer-
+  { name:'Aberrant spectre', icon:'👻', cat:'Slayer' },
+  { name:'Abyssal beast', icon:'😈', cat:'Slayer' },
+  { name:'Abyssal demon', icon:'😈', cat:'Slayer' },
+  { name:'Abyssal lord', icon:'😈', cat:'Slayer' },
+  { name:'Abyssal savage', icon:'😈', cat:'Slayer' },
+  { name:'Acheron mammoth', icon:'🐘', cat:'Slayer' },
+  { name:'Airut', icon:'🐗', cat:'Slayer' },
+  { name:'Anagami', icon:'🐲', cat:'Slayer' },
+  { name:'Aquanite', icon:'💧', cat:'Slayer' },
+  { name:'Arhat', icon:'🐲', cat:'Slayer' },
+  { name:'Armoured phantom', icon:'👻', cat:'Slayer' },
+  { name:'Automaton Generator', icon:'🤖', cat:'Slayer' },
+  { name:'Automaton Guardian', icon:'🤖', cat:'Slayer' },
+  { name:'Automaton Tracer', icon:'🤖', cat:'Slayer' },
+
+  { name:'Banshee', icon:'👻', cat:'Slayer' },
+  { name:'Basilisk', icon:'🐍', cat:'Slayer' },
+  { name:'Beastmasters hound', icon:'🐕', cat:'Slayer' },
+  { name:'Bladed muspah', icon:'🧛', cat:'Slayer' },
+  { name:'Blood nihil', icon:'🩸', cat:'Slayer' },
+  { name:'Bloodveld', icon:'🩸', cat:'Slayer' },
+  { name:'Brine rat', icon:'🐀', cat:'Slayer' },
+  { name:'Brutish dinosaur', icon:'🦕', cat:'Slayer' },
+  { name:'Bulbour crawler', icon:'⚔️', cat:'Slayer' },
+
+  { name:'Camel warrior', icon:'🐪', cat:'Slayer' },
+  { name:'Capsarius', icon:'💎', cat:'Slayer' },
+  { name:'Cave bug', icon:'🐛', cat:'Slayer' },
+  { name:'Cave crawler', icon:'🐜', cat:'Slayer' },
+  { name:'Cave horror', icon:'😱', cat:'Slayer' },
+  { name:'Cave slime', icon:'🟢', cat:'Slayer' },
+  { name:'Cockatrice', icon:'🐔', cat:'Slayer' },
+  { name:'Corrupted kalphite guardian', icon:'🪲', cat:'Slayer' },  
+  { name:'Corrupted kalphite marauder', icon:'🪲', cat:'Slayer' },
+  { name:'Corrupted lizard', icon:'🦎', cat:'Slayer' },
+  { name:'Corrupted scarab', icon:'🪲', cat:'Slayer' },
+  { name:'Corrupted scorpion', icon:'🦂', cat:'Slayer' },
+  { name:'Corrupted worker', icon:'👨‍🌾', cat:'Slayer' },
+  { name:'Crawling hand', icon:'✋', cat:'Slayer' },
+  { name:'Crocodile akh', icon:'🐊', cat:'Slayer' },
+
+  { name:'Dark beast', icon:'🐺', cat:'Slayer' },
+  { name:'Desert lizard', icon:'🦎', cat:'Slayer' },
+  { name:'Desert strykewyrm', icon:'🐍', cat:'Slayer' },
+  { name:'Devil snare', icon:'🥀', cat:'Slayer' },
+  { name:'Dragonstone dragon', icon:'🐲', cat:'Slayer' },
+  { name:'Dust devil', icon:'🌪️', cat:'Slayer' },
+
+  { name:'Edimmu', icon:'🧟', cat:'Slayer' },
+
+  { name:'Feline akh', icon:'🐈', cat:'Slayer' },
+  { name:'Feral Dinosaur', icon:'🦕', cat:'Slayer' },
+  { name:'Fever spider', icon:'🕷️', cat:'Slayer' },
+  { name:'Force muspah', icon:'🧛', cat:'Slayer' },
+
+  { name:'Ganodermic beast', icon:'🍄', cat:'Slayer' },
+  { name:'Ganodermic runt', icon:'🍄', cat:'Slayer' },
+  { name:'Gargoyle', icon:'🗿', cat:'Slayer' },
+  { name:'Gelatinous abomination', icon:'🪼', cat:'Slayer' },
+  { name:'Gladius', icon:'🤺', cat:'Slayer' },
+  { name:'Gorilla akh', icon:'🦍', cat:'Slayer' },
+  { name:'Grifolapine', icon:'🍄', cat:'Slayer' },
+  { name:'Grifolaroo', icon:'🍄', cat:'Slayer' },
+
+  { name:'Harpie bug swarm', icon:'🪰', cat:'Slayer' },
+  { name:'Hydrix dragon', icon:'🐲', cat:'Slayer' },
+
+  { name:'Ice nihil', icon:'❄️', cat:'Slayer' },
+  { name:'Ice strykewyrm', icon:'❄️', cat:'Slayer' },
+  { name:'Imperial mage akh', icon:'✨', cat:'Slayer' },
+  { name:'Imperial ranger akh', icon:'🏹', cat:'Slayer' },
+  { name:'Imperial warrior akh', icon:'⚔️', cat:'Slayer' },
+  { name:'Infernal mage', icon:'🧙‍♂️', cat:'Slayer' },
+
+  { name:'Jelly', icon:'🧊', cat:'Slayer' },
+  { name:'Jungle strykewyrm', icon:'🐍', cat:'Slayer' },
+
+  { name:'Killerwatt', icon:'⚡', cat:'Slayer' },
+  { name:'Kurask', icon:'🌿', cat:'Slayer' },
+
+  { name:'Lampenflora', icon:'🪔', cat:'Slayer' },
+  { name:'Lava strykewyrm', icon:'🌋', cat:'Slayer' },
+  { name:'Legiones', icon:'💎', cat:'Slayer' },
+  { name:'Liverworts', icon:'🌺', cat:'Slayer' },
+  { name:'Luminous snaggler', icon:'🌿', cat:'Slayer' },
+
+  { name:'Mighty banshee', icon:'🎧', cat:'Slayer' },
+  { name:'Mogre', icon:'👹', cat:'Slayer' },
+  { name:'Molanisk', icon:'🐌', cat:'Slayer' },
+  { name:'Moss golem', icon:'🗿', cat:'Slayer' },
+  { name:'Mutated bloodveld', icon:'🩸', cat:'Slayer' },
+  { name:'Mutated jadinko baby', icon:'🦎', cat:'Slayer' },
+  { name:'Mutated jadinko guard', icon:'🦎', cat:'Slayer' },
+  { name:'Mutated jadinko male', icon:'🦎', cat:'Slayer' },
+  { name:'Mutated zygomite', icon:'🍄', cat:'Slayer' },
+
+  { name:'Nechryael', icon:'😈', cat:'Slayer' },
+  { name:'Night spider', icon:'🕷️', cat:'Slayer' },
+  { name:'Nightmare', icon:'🌙', cat:'Slayer' },
+  { name:'Nodon artificer', icon:'🐉', cat:'Slayer' },
+  { name:'Nodon enforcer', icon:'🐲', cat:'Slayer' },
+  { name:'Nodon engineer', icon:'🐉', cat:'Slayer' },
+  { name:'Nodon guard', icon:'🐲', cat:'Slayer' },
+  { name:'Nodon hunter', icon:'🐉', cat:'Slayer' },
+
+  { name:'Onyx dragon', icon:'🐲', cat:'Slayer' },
+
+  { name:'Profane Scabarite', icon:'🔥', cat:'Slayer' },
+  { name:'Pyrefiend', icon:'🐞', cat:'Slayer' },
+
+  { name:'Ripper demon', icon:'👹', cat:'Slayer' },
+  { name:'Ripper dinosaur', icon:'🦖', cat:'Slayer' },  
+  { name:'Risen ghost', icon:'👻', cat:'Slayer' },
+  { name:'Rockslug', icon:'🐌', cat:'Slayer' },
+  { name:'Rorarius', icon:'💎', cat:'Slayer' },
+
+  { name:'Sakadagami', icon:'💧', cat:'Slayer' },
+  { name:'Salawa akh', icon:'🐩', cat:'Slayer' },
+  { name:'Scarab akh', icon:'🪲', cat:'Slayer' },
+  { name:'Scutarius', icon:'🛡️', cat:'Slayer' },
+  { name:'Seeker', icon:'👁️', cat:'Slayer' },
+  { name:'Shadow nihil', icon:'🌑', cat:'Slayer' },
+  { name:'Siege engine', icon:'🚂', cat:'Slayer' },
+  { name:'Skeletal wyvern', icon:'☠️', cat:'Slayer' },
+  { name:'Slasher Demon', icon:'👹', cat:'Slayer' },
+  { name:'Smoke nihil', icon:'💨', cat:'Slayer' },
+  { name:'Sotapanna', icon:'💧', cat:'Slayer' },
+  { name:'Soulgazer', icon:'👁️', cat:'Slayer' },
+  { name:'Spiritual guardian', icon:'🧝', cat:'Slayer' },
+  { name:'Spiritual mage', icon:'🧝‍♂️', cat:'Slayer' },
+  { name:'Spiritual ranger', icon:'🧝‍♀️', cat:'Slayer' },
+  { name:'Spiritual warrior', icon:'🧞', cat:'Slayer' },
+
+  { name:'Terror dog', icon:'🐕', cat:'Slayer' },
+  { name:'Throwing muspah', icon:'🧛', cat:'Slayer' },
+  { name:'Turoth', icon:'🐉', cat:'Slayer' },
+
+  { name:'Unspeakable horror', icon:'🎭', cat:'Slayer' },
+
+  { name:'Venomous dinosaur', icon:'🦖', cat:'Slayer' },
+  { name:'Vinecrawler', icon:'🌿', cat:'Slayer' },
+
+  { name:'Wall beast', icon:'🧱', cat:'Slayer' },
+  { name:'Warped terrorbird', icon:'🐓', cat:'Slayer' },
+  { name:'Warped tortoise', icon:'🐢', cat:'Slayer' },
+  { name:'Wyvern', icon:'🐲', cat:'Slayer' },
+
+//-Dungeons-
+  { name:'Dragonkin Laboratory',icon:'⚔️',cat:'Dungeon' },
+  { name:'Sanctum of Rebirth',icon:'⚔️',cat:'Dungeon' },
+  { name:'Temple of Aminishi',icon:'⚔️',cat:'Dungeon' },
+  { name:'The Shadow Reef',icon:'⚔️',cat:'Dungeon' },
+  { name:'The Zamorakian Undercity',icon:'⚔️',cat:'Dungeon' },
+];
+
+// ── Render NPC list ────────────────────────────────────────
+function renderNpcList(filter) {
+  const list = document.getElementById('npc-list');
+  const q = filter.toLowerCase().trim();
+  const source = allMonsters.length > 0 ? allMonsters : POPULAR_NPCS;
+
+  const filtered = q
+    ? source.filter(n => n.name.toLowerCase().includes(q)).slice(0, 100)
+    : source.slice(0, 200);
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div id="npc-empty">No matches for "<strong>${filter}</strong>"<br>
+      <small>Press Search to look it up directly on the wiki</small></div>`;
+    return;
+  }
+
+  // Use a document fragment for performance
+  const frag = document.createDocumentFragment();
+  for (const npc of filtered) {
+    const el = document.createElement('div');
+    el.className = 'npc-item';
+    el.innerHTML = `
+      <span class="npc-icon">${npc.icon || '👾'}</span>
+      <span class="npc-name">${npc.name}</span>
+      ${npc.cat ? `<span class="npc-cat">${npc.cat}</span>` : ''}`;
+    el.addEventListener('click', () => lookup(npc.fulltext || npc.name));
+    frag.appendChild(el);
+  }
+
+  list.innerHTML = '';
+  list.appendChild(frag);
+
+  if (q && allMonsters.length > 0 && filtered.length === 100) {
+    const more = document.createElement('div');
+    more.id = 'npc-empty';
+    more.textContent = `Showing first 100 matches — type more to narrow down`;
+    list.appendChild(more);
+  }
+}
+
+// ── Disambiguation detection ───────────────────────────────
+async function checkDisambig(title) {
+  const url = `${WIKI}?action=query&titles=${encodeURIComponent(title)}&prop=pageprops&ppprop=disambiguation&format=json&origin=*`;
+  const r = await fetch(url);
+  const d = await r.json();
+  const pages = d?.query?.pages;
+  if (!pages) return false;
+  const page = Object.values(pages)[0];
+  // 'disambiguation' key present (even if empty string) means it's a disambig page
+  return page?.pageprops?.hasOwnProperty('disambiguation') ?? false;
+}
+
+async function getDisambigLinks(title) {
+  // Get all links on the disambiguation page
+  const url = `${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=links&format=json&origin=*`;
+  const r = await fetch(url);
+  const d = await r.json();
+  return (d?.parse?.links || [])
+    .filter(l => l.ns === 0)  // main namespace only
+    .map(l => l['*'])
+    .filter(l => !l.includes('disambiguation') && !l.includes('(disambiguation)'));
+}
+
+function showDisambigOptions(title, links) {
+  document.getElementById('disambig-msg').textContent =
+    `"${title}" refers to multiple pages. Which one are you looking for?`;
+  const container = document.getElementById('disambig-options');
+  container.innerHTML = '';
+  for (const link of links) {
+    const el = document.createElement('div');
+    el.className = 'disambig-option';
+    el.textContent = link;
+    el.addEventListener('click', () => lookupPage(link));
+    container.appendChild(el);
+  }
+  showDisambig();
+  document.getElementById('subtitle').textContent = 'Choose a page';
+  setStatus('', '');
+}
+
+// ── Icon URL fixer ─────────────────────────────────────────
+function fixIconUrl(src) {
+  if (!src) return '';
+  let url = src;
+  if (url.startsWith('/')) url = 'https://runescape.wiki' + url;
+  url = url.replace(/\/thumb\//, '/').replace(/\/\d+px-[^/]+$/, '');
+  return url;
+}
+
+// ── Rarity classifier ──────────────────────────────────────
+function rarityClass(r) {
+  if (!r) return { label: '?', cls: 'b-unknown' };
+  const s = r.toLowerCase().trim();
+  if (s === 'always') return { label: 'Always', cls: 'b-always' };
+  const m = s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
+  if (m) {
+    const chance = parseFloat(m[1].replace(/,/g,'')) / parseFloat(m[2].replace(/,/g,''));
+    const label = r.split(/[;(]/)[0].trim();
+    if (chance >= 0.25)   return { label, cls: 'b-common' };
+    if (chance >= 0.03)   return { label, cls: 'b-uncommon' };
+    if (chance >= 0.003)  return { label, cls: 'b-rare' };
+    if (chance >= 0.0003) return { label, cls: 'b-vr' };
+    return                       { label, cls: 'b-ultra' };
+  }
+  if (s.includes('very rare')||s.includes('ultra')) return { label:r, cls:'b-vr' };
+  if (s.includes('rare'))     return { label:r, cls:'b-rare' };
+  if (s.includes('uncommon')) return { label:r, cls:'b-uncommon' };
+  if (s.includes('common'))   return { label:r, cls:'b-common' };
+  return { label:r, cls:'b-unknown' };
+}
+
+// ── Main lookup ────────────────────────────────────────────
+async function lookup(name) {
+  if (!name) return;
+  setStatus('busy', `🔍 Searching for "${name}"...`);
+  showDrops();
+  document.getElementById('subtitle').textContent = name;
+  document.getElementById('search-input').value = name;
+  document.getElementById('drops').innerHTML = '';
+
+  // 1. OpenSearch to get best title match
+  let title = null;
+  try {
+    const r = await fetch(`${WIKI}?action=opensearch&search=${encodeURIComponent(name)}&limit=5&format=json&origin=*`);
+    const d = await r.json();
+    if (d[1]?.length) title = d[1][0];
+  } catch(e) {
+    setStatus('err', '❌ Network error: ' + e.message);
+    return;
+  }
+  if (!title) { setStatus('err', `⚠️ "${name}" not found on the RS Wiki.`); return; }
+
+  await lookupPage(title);
+}
+
+async function lookupPage(title) {
+  setStatus('busy', `📄 Loading: ${title}...`);
+  document.getElementById('subtitle').textContent = title;
+
+  // Reset NPC image
+  const npcImg = document.getElementById('npc-img');
+  const logo   = document.getElementById('titlebar-logo');
+  npcImg.style.display = 'none';
+  logo.style.display   = 'inline';
+
+  // Check disambiguation
+  try {
+    const isDisambig = await checkDisambig(title);
+    if (isDisambig) {
+      setStatus('busy', `🔀 "${title}" is a disambiguation page...`);
+      const links = await getDisambigLinks(title);
+      showDisambigOptions(title, links);
+      return;
+    }
+  } catch(e) { /* continue */ }
+
+  // Fetch NPC image and page HTML in parallel
+  const [imgUrl, html] = await Promise.all([
+    fetchNpcImage(title),
+    fetchPageHtml(title),
+  ]);
+
+  // Show NPC image if found
+  if (imgUrl) {
+    npcImg.src = imgUrl;
+    npcImg.style.display = 'block';
+    logo.style.display   = 'none';
+    npcImg.onerror = () => { npcImg.style.display='none'; logo.style.display='inline'; };
+  }
+
+  if (!html) { setStatus('err', '❌ Empty page.'); return; }
+
+  // Extract drops — returns { normal: sections[], hard: sections[] }
+  const { normal, hard } = extractDrops(html);
+  const totalNormal = normal.reduce((s,sec) => s + sec.rows.length, 0);
+  const totalHard   = hard.reduce((s,sec)   => s + sec.rows.length, 0);
+  const total = totalNormal + totalHard;
+
+  if (total === 0) {
+    setStatus('err', `⚠️ No drop table found for "${title}".`);
+    return;
+  }
+
+  setStatus('ok', `✅ ${total} drops for ${title}` + (hard.length ? ' (Normal + Hard mode)' : ''));
+  showDrops();
+  renderAllSections(normal, hard);
+}
+
+async function fetchNpcImage(title) {
+  try {
+    const url = `${WIKI}?action=query&prop=pageimages&titles=${encodeURIComponent(title)}&pithumbsize=80&piprop=thumbnail&format=json&origin=*`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const pages = d?.query?.pages;
+    if (!pages) return null;
+    const page = Object.values(pages)[0];
+    return page?.thumbnail?.source || null;
+  } catch(e) { return null; }
+}
+
+async function fetchPageHtml(title) {
+  try {
+    const r = await fetch(`${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=text&format=json&origin=*`);
+    const d = await r.json();
+    return d?.parse?.text?.['*'] || '';
+  } catch(e) { return ''; }
+}
+
+// ── Drop table parser ──────────────────────────────────────
+// Strip footnote markers like [1], [d1], [s2] etc
+function stripNotes(text) {
+  return text.replace(/\[\s*[a-z]?\s*\d+\s*\]/gi, '').trim();
+}
+
+function extractDrops(rawHtml) {
+  const div = document.createElement('div');
+  div.innerHTML = rawHtml;
+
+  // Find ALL drop headings - check both span IDs and heading text
+  // MediaWiki encodes parentheses in IDs as .28 and .29, so
+  // "Drops (hard mode)" becomes id="Drops_.28hard_mode.29"
+  const dropHeadings = [];
+  const seenEls = new Set();
+
+  // Method 1: span IDs containing "drop" (case insensitive)
+  for (const span of div.querySelectorAll('span[id]')) {
+    if (span.id.toLowerCase().includes('drop')) {
+      const el = span.closest('h2,h3,h4');
+      if (el && !seenEls.has(el)) {
+        seenEls.add(el);
+        dropHeadings.push({ el, text: el.textContent.trim() });
+      }
+    }
+  }
+
+  // Method 2: heading text contains "drop" — catches any missed by ID search
+  for (const h of div.querySelectorAll('h2,h3,h4')) {
+    if (h.textContent.toLowerCase().includes('drop') && !seenEls.has(h)) {
+      seenEls.add(h);
+      dropHeadings.push({ el: h, text: h.textContent.trim() });
+    }
+  }
+
+  // Log all span IDs found for diagnosis
+  const allSpanIds = Array.from(div.querySelectorAll('span[id]')).map(s=>s.id);
+  dbg('Span IDs with "drop": ' + allSpanIds.filter(id=>id.toLowerCase().includes('drop')).join(', '));
+
+  dbg('Drop headings: ' + dropHeadings.map(h=>h.text).join(' | '));
+  if (dropHeadings.length === 0) return { normal: [], hard: [] };
+
+  const normal = [], hard = [];
+  for (const heading of dropHeadings) {
+    const isHard = heading.text.toLowerCase().includes('hard');
+    const sections = parseSectionsFromHeading(div, heading.el);
+    dbg((isHard?'Hard':'Normal') + ': ' + sections.length + ' sections');
+    if (isHard) hard.push(...sections);
+    else        normal.push(...sections);
+  }
+  return { normal, hard };
+}
+
+function parseSectionsFromHeading(div, startEl) {
+  const startLevel = parseInt(startEl.tagName[1]);
+  const allEls = Array.from(div.querySelectorAll('h2,h3,h4,table'));
+
+  // Use contains() instead of indexOf() — closest() can return the same node
+  // but reference equality may fail across different query results
+  let startIdx = allEls.indexOf(startEl);
+  if (startIdx === -1) {
+    // Fallback: find by DOM position using contains
+    startIdx = allEls.findIndex(el =>
+      el === startEl || el.contains(startEl) || startEl.contains(el)
+    );
+  }
+
+  dbg('  parseSections: startEl=' + startEl.textContent.trim().slice(0,30) +
+      ' level=h' + startLevel + ' idx=' + startIdx + ' of ' + allEls.length);
+
+  if (startIdx === -1) return [];
+
+  const sections = [];
+  let sectionName = 'Drops';
+
+  for (let i = startIdx + 1; i < allEls.length; i++) {
+    const el  = allEls[i];
+    const tag = el.tagName.toLowerCase();
+    const level = parseInt(tag[1]);
+
+    if ((tag==='h2'||tag==='h3'||tag==='h4') && level <= startLevel) {
+      dbg('  stopping at: ' + el.textContent.trim().slice(0,30));
+      break;
+    }
+    if (tag==='h3'||tag==='h4') {
+      sectionName = stripNotes(el.textContent);
+      dbg('  section: "' + sectionName + '"');
+    }
+    if (tag==='table') {
+      const rows = parseTable(el);
+      if (rows.length > 0) {
+        const existing = sections.find(s => s.name === sectionName);
+        if (existing) existing.rows.push(...rows);
+        else sections.push({ name: sectionName, rows });
+      }
+    }
+  }
+  return sections;
+}
+
+function parseTable(table) {
+  const rows = [];
+  for (const tr of table.querySelectorAll('tr')) {
+    const tds = Array.from(tr.querySelectorAll('td'));
+    if (tds.length < 2) continue;
+    let name='', qty='', rarity='', img='';
+    for (const td of tds) {
+      const text = stripNotes(td.textContent.trim());
+      if (!img) {
+        const i = td.querySelector('img');
+        if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
+      }
+      if (!name && td.querySelector('a')) {
+        const a = td.querySelector('a');
+        const c = stripNotes(a.textContent.trim());
+        if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
+      }
+      if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
+      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
+        rarity = stripNotes(text.split(';')[0].trim());
+      }
+    }
+    if (!name || name.length > 80) continue;
+    if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
+    rows.push({ name, qty, rarity, img });
+  }
+  // Deduplicate rows with the same name (caused by multi-note table rows)
+  const seen = new Set();
+  return rows.filter(r => {
+    if (seen.has(r.name)) return false;
+    seen.add(r.name);
+    return true;
+  });
+}
+
+// ── Render drops ───────────────────────────────────────────
+function renderModeBlock(container, modeLabel, modeColor, sections) {
+  if (sections.length === 0) return;
+
+  // Mode header (e.g. "Normal Mode" / "Hard Mode")
+  const modeHdr = document.createElement('div');
+  modeHdr.style.cssText = `background:${modeColor};padding:5px 12px;font-size:11px;` +
+    `font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
+    `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
+  modeHdr.textContent = modeLabel;
+  container.appendChild(modeHdr);
+
+  for (const sec of sections) {
+    if (sec.rows.length === 0) continue;
+    container.appendChild(makeSectionBlock(sec));
+  }
+}
+
+function renderAllSections(normal, hard) {
+  const container = document.getElementById('drops');
+  container.innerHTML = '';
+
+  if (hard.length > 0) {
+    // Has both modes — show mode headers
+    renderModeBlock(container, '⚔ Normal Mode', '#1a5c2a', normal);
+    renderModeBlock(container, '💀 Hard Mode',  '#5c1a1a', hard);
+  } else {
+    // Single mode — just render sections directly
+    for (const sec of normal) {
+      if (sec.rows.length === 0) continue;
+      container.appendChild(makeSectionBlock(sec));
+    }
+  }
+}
+
+function makeSectionBlock(sec) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'section-wrapper';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'section-hdr';
+  hdr.innerHTML = `
+    <span class="hdr-left">
+      <span class="chevron">▼</span>
+      <span>${sec.name}</span>
+    </span>
+    <span class="row-count">${sec.rows.length} items</span>`;
+
+  const body = document.createElement('div');
+  body.className = 'section-body';
+  for (const row of sec.rows) body.appendChild(makeDropRow(row));
+
+  requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+
+  hdr.addEventListener('click', () => {
+    const collapsed = hdr.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => body.classList.add('collapsed'));
+    } else {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', () => {
+        if (!hdr.classList.contains('collapsed')) body.style.maxHeight = 'none';
+      }, { once: true });
+    }
+  });
+
+  wrapper.appendChild(hdr);
+  wrapper.appendChild(body);
+  return wrapper;
+}
+
+function makeDropRow(row) {
+  const el = document.createElement('div');
+  el.className = 'drop-row';
+  if (row.img) {
+    const img = document.createElement('img');
+    img.className = 'item-img'; img.src = row.img; img.alt = row.name;
+    img.onerror = function() { this.replaceWith(placeholder(row.name)); };
+    el.appendChild(img);
+  } else { el.appendChild(placeholder(row.name)); }
+  const info = document.createElement('div'); info.className = 'item-info';
+  const nm = document.createElement('div'); nm.className = 'item-name'; nm.textContent = row.name;
+  info.appendChild(nm);
+  if (row.qty) {
+    const q = document.createElement('div'); q.className = 'item-qty'; q.textContent = 'x' + row.qty;
+    info.appendChild(q);
+  }
+  el.appendChild(info);
+  if (row.rarity) {
+    const { label, cls } = rarityClass(row.rarity);
+    const wrap = document.createElement('div'); wrap.className = 'rarity';
+    const badge = document.createElement('span'); badge.className = 'badge ' + cls; badge.textContent = label;
+    wrap.appendChild(badge); el.appendChild(wrap);
+  }
+  return el;
+}
+
+function placeholder(name) {
+  const d = document.createElement('div'); d.className = 'item-placeholder';
+  d.textContent = (name||'?').charAt(0).toUpperCase(); return d;
+}
+
+// ── UI events ──────────────────────────────────────────────
+const searchInput = document.getElementById('search-input');
+
+searchInput.addEventListener('input', () => {
+  if (inDropsView) return;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => renderNpcList(searchInput.value), 150);
+});
+
+document.getElementById('search-btn').addEventListener('click', () => {
+  const v = searchInput.value.trim(); if (v) lookup(v);
+});
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const v = searchInput.value.trim(); if (v) lookup(v); }
+});
+document.getElementById('back-btn').addEventListener('click', () => {
+  showBrowser();
+  searchInput.value = '';
+  renderNpcList('');
+  setStatus('', '');
+});
+document.getElementById('close').addEventListener('click', () => {
+  fetch('https://bolt-api/close', { method:'POST' }).catch(()=>{});
+});
+
+// ── Message handler (from Lua) ─────────────────────────────
+function handleMsg(text) {
+  if (text.startsWith('LOOKUP:')) lookup(text.slice(7));
+  else if (text === 'FOCUS_SEARCH') {
+    searchInput.value = ''; searchInput.focus();
+    if (inDropsView) { showBrowser(); renderNpcList(''); }
+  }
+}
+window.addEventListener('message', evt => {
+  if (!evt.data) return;
+  if (evt.data.type === 'pluginMessage' && evt.data.content) {
+    handleMsg(new TextDecoder().decode(new Uint8Array(evt.data.content)).trim());
+  } else if (typeof evt.data === 'string') {
+    handleMsg(evt.data.trim());
+  }
+});
+
+// ── Alt1 Integration ───────────────────────────────────────
+const isAlt1 = typeof window.alt1 !== 'undefined';
+
+if (isAlt1) {
+  const badge = document.createElement('div');
+  badge.id = 'alt1badge';
+  badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
+    'font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;cursor:pointer;';
+  badge.textContent = 'ALT1';
+  badge.title = 'Click to manually read screen';
+  document.body.appendChild(badge);
+
+  function flashBadge(color) {
+    badge.style.background = color || '#4caf50';
+    setTimeout(function() { badge.style.background = '#e94560'; }, 1500);
+  }
+
+  dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel);
+  dbg('permInstalled=' + window.alt1.permissionInstalled);
+  dbg('permGameState=' + window.alt1.permissionGameState);
+  dbg('permOverlay=' + window.alt1.permissionOverlay);
+  dbg('rsLinked=' + window.alt1.rsLinked);
+
+  // Call identifyApp so Alt1 knows our config and grants correct permissions
+  try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
+  catch(e) { dbg('identifyApp err: ' + e.message); }
+
+  // Load the @alt1/base bundle which sets up captureHold, events etc.
+  var a1lib = null;
+  var a1script = document.createElement('script');
+  a1script.src = './alt1base.bundle.js';
+  a1script.onload = function() {
+    a1lib = window.A1lib;
+    dbg('A1lib loaded: ' + (a1lib ? 'yes' : 'no'));
+    if (a1lib) {
+      dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
+      initAlt1(a1lib);
+    }
+  };
+  a1script.onerror = function() {
+    dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
+    setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
+  };
+  document.head.appendChild(a1script);
+
+  // Load OCR engine
+  var ocrScript = document.createElement('script');
+  ocrScript.src = './alt1ocr.bundle.js';
+  ocrScript.onload = function() { dbg('OCR loaded: ' + (typeof window.OCR !== 'undefined')); };
+  document.head.appendChild(ocrScript);
+
+  // Font data embedded directly (from RuneScape Chat Bold 2 TTF at 16px)
+  // Inline to avoid any file caching issues
+  (function() {
+
+window.RS3MenuFont={chars:[
+{width:9,bonus:210,chr:"A",pixels:[3, 2, 255, 4, 2, 255, 5, 2, 255, 2, 3, 255, 3, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 6, 4, 255, 7, 4, 255, 1, 5, 255, 2, 5, 255, 6, 5, 255, 7, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 6, 7, 255, 7, 7, 255, 1, 8, 255, 2, 8, 255, 6, 8, 255, 7, 8, 255, 1, 9, 255, 2, 9, 255, 6, 9, 255, 7, 9, 255, 1, 10, 255, 2, 10, 255, 6, 10, 255, 7, 10, 255, 1, 11, 255, 2, 11, 255, 6, 11, 255, 7, 11, 255],secondary:false},
+{width:8,bonus:215,chr:"B",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:140,chr:"C",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:210,chr:"D",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:7,bonus:150,chr:"E",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:7,bonus:130,chr:"F",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255],secondary:false},
+{width:9,bonus:175,chr:"G",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 4, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:210,chr:"H",pixels:[1, 2, 255, 2, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:4,bonus:120,chr:"I",pixels:[0, 2, 255, 1, 2, 255, 2, 2, 255, 3, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 0, 11, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255],secondary:false},
+{width:8,bonus:130,chr:"J",pixels:[4, 2, 255, 5, 2, 255, 6, 2, 255, 7, 2, 255, 5, 3, 255, 6, 3, 255, 5, 4, 255, 6, 4, 255, 5, 5, 255, 6, 5, 255, 5, 6, 255, 6, 6, 255, 5, 7, 255, 6, 7, 255, 5, 8, 255, 6, 8, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:200,chr:"K",pixels:[1, 2, 255, 2, 2, 255, 6, 2, 255, 7, 2, 255, 1, 3, 255, 2, 3, 255, 6, 3, 255, 7, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 4, 5, 255, 5, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 1, 7, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 1, 8, 255, 2, 8, 255, 4, 8, 255, 5, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 6, 10, 255, 7, 10, 255, 1, 11, 255, 2, 11, 255, 6, 11, 255, 7, 11, 255],secondary:false},
+{width:7,bonus:120,chr:"L",pixels:[1, 2, 255, 2, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:11,bonus:275,chr:"M",pixels:[1, 2, 255, 2, 2, 255, 8, 2, 255, 9, 2, 255, 1, 3, 255, 2, 3, 255, 3, 3, 255, 7, 3, 255, 8, 3, 255, 9, 3, 255, 1, 4, 255, 2, 4, 255, 3, 4, 255, 4, 4, 255, 6, 4, 255, 7, 4, 255, 8, 4, 255, 9, 4, 255, 1, 5, 255, 2, 5, 255, 3, 5, 255, 4, 5, 255, 5, 5, 255, 6, 5, 255, 7, 5, 255, 8, 5, 255, 9, 5, 255, 1, 6, 255, 2, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 8, 6, 255, 9, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 8, 7, 255, 9, 7, 255, 1, 8, 255, 2, 8, 255, 8, 8, 255, 9, 8, 255, 1, 9, 255, 2, 9, 255, 8, 9, 255, 9, 9, 255, 1, 10, 255, 2, 10, 255, 8, 10, 255, 9, 10, 255, 1, 11, 255, 2, 11, 255, 8, 11, 255, 9, 11, 255],secondary:false},
+{width:9,bonus:245,chr:"N",pixels:[1, 2, 255, 2, 2, 255, 6, 2, 255, 7, 2, 255, 1, 3, 255, 2, 3, 255, 3, 3, 255, 6, 3, 255, 7, 3, 255, 1, 4, 255, 2, 4, 255, 3, 4, 255, 6, 4, 255, 7, 4, 255, 1, 5, 255, 2, 5, 255, 3, 5, 255, 4, 5, 255, 6, 5, 255, 7, 5, 255, 1, 6, 255, 2, 6, 255, 4, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 4, 7, 255, 5, 7, 255, 6, 7, 255, 7, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 7, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 7, 9, 255, 1, 10, 255, 2, 10, 255, 6, 10, 255, 7, 10, 255, 1, 11, 255, 2, 11, 255, 6, 11, 255, 7, 11, 255],secondary:false},
+{width:9,bonus:210,chr:"O",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 6, 3, 255, 7, 3, 255, 1, 4, 255, 2, 4, 255, 6, 4, 255, 7, 4, 255, 1, 5, 255, 2, 5, 255, 6, 5, 255, 7, 5, 255, 1, 6, 255, 2, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 6, 7, 255, 7, 7, 255, 1, 8, 255, 2, 8, 255, 6, 8, 255, 7, 8, 255, 1, 9, 255, 2, 9, 255, 6, 9, 255, 7, 9, 255, 1, 10, 255, 2, 10, 255, 6, 10, 255, 7, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:170,chr:"P",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255],secondary:false},
+{width:9,bonus:225,chr:"Q",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 6, 3, 255, 7, 3, 255, 1, 4, 255, 2, 4, 255, 6, 4, 255, 7, 4, 255, 1, 5, 255, 2, 5, 255, 6, 5, 255, 7, 5, 255, 1, 6, 255, 2, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 6, 7, 255, 7, 7, 255, 1, 8, 255, 2, 8, 255, 6, 8, 255, 7, 8, 255, 1, 9, 255, 2, 9, 255, 4, 9, 255, 5, 9, 255, 6, 9, 255, 7, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 7, 11, 255, 8, 11, 255],secondary:false},
+{width:8,bonus:210,chr:"R",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:160,chr:"S",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 3, 5, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 4, 7, 255, 5, 7, 255, 6, 7, 255, 5, 8, 255, 6, 8, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:6,bonus:120,chr:"T",pixels:[0, 2, 255, 1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 2, 3, 255, 3, 3, 255, 2, 4, 255, 3, 4, 255, 2, 5, 255, 3, 5, 255, 2, 6, 255, 3, 6, 255, 2, 7, 255, 3, 7, 255, 2, 8, 255, 3, 8, 255, 2, 9, 255, 3, 9, 255, 2, 10, 255, 3, 10, 255, 2, 11, 255, 3, 11, 255],secondary:false},
+{width:9,bonus:200,chr:"U",pixels:[1, 2, 255, 2, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:180,chr:"V",pixels:[1, 2, 255, 2, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 2, 8, 255, 3, 8, 255, 4, 8, 255, 5, 8, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 3, 10, 255, 4, 10, 255, 3, 11, 255, 4, 11, 255],secondary:false},
+{width:12,bonus:240,chr:"W",pixels:[1, 2, 255, 2, 2, 255, 9, 2, 255, 10, 2, 255, 1, 3, 255, 2, 3, 255, 9, 3, 255, 10, 3, 255, 1, 4, 255, 2, 4, 255, 9, 4, 255, 10, 4, 255, 2, 5, 255, 3, 5, 255, 8, 5, 255, 9, 5, 255, 2, 6, 255, 3, 6, 255, 5, 6, 255, 6, 6, 255, 8, 6, 255, 9, 6, 255, 2, 7, 255, 3, 7, 255, 5, 7, 255, 6, 7, 255, 8, 7, 255, 9, 7, 255, 2, 8, 255, 3, 8, 255, 5, 8, 255, 6, 8, 255, 8, 8, 255, 9, 8, 255, 3, 9, 255, 5, 9, 255, 6, 9, 255, 8, 9, 255, 3, 10, 255, 4, 10, 255, 5, 10, 255, 6, 10, 255, 7, 10, 255, 8, 10, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255, 7, 11, 255],secondary:false},
+{width:8,bonus:195,chr:"X",pixels:[0, 2, 255, 1, 2, 255, 5, 2, 255, 6, 2, 255, 0, 3, 255, 1, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 4, 4, 255, 5, 4, 255, 1, 5, 255, 2, 5, 255, 3, 5, 255, 4, 5, 255, 5, 5, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 1, 8, 255, 2, 8, 255, 4, 8, 255, 5, 8, 255, 1, 9, 255, 2, 9, 255, 4, 9, 255, 5, 9, 255, 0, 10, 255, 1, 10, 255, 5, 10, 255, 6, 10, 255, 0, 11, 255, 1, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:170,chr:"Y",pixels:[1, 2, 255, 2, 2, 255, 5, 2, 255, 6, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 1, 4, 255, 2, 4, 255, 5, 4, 255, 6, 4, 255, 1, 5, 255, 2, 5, 255, 5, 5, 255, 6, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 3, 8, 255, 4, 8, 255, 3, 9, 255, 4, 9, 255, 3, 10, 255, 4, 10, 255, 3, 11, 255, 4, 11, 255],secondary:false},
+{width:8,bonus:140,chr:"Z",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 5, 3, 255, 6, 3, 255, 4, 4, 255, 5, 4, 255, 4, 5, 255, 5, 5, 255, 3, 6, 255, 4, 6, 255, 2, 7, 255, 3, 7, 255, 2, 8, 255, 3, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:130,chr:"a",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 2, 8, 255, 3, 8, 255, 4, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:170,chr:"b",pixels:[1, 2, 255, 2, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:7,bonus:80,chr:"c",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255],secondary:false},
+{width:8,bonus:170,chr:"d",pixels:[5, 2, 255, 6, 2, 255, 5, 3, 255, 6, 3, 255, 5, 4, 255, 6, 4, 255, 5, 5, 255, 6, 5, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:125,chr:"e",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:7,bonus:135,chr:"f",pixels:[3, 4, 255, 4, 4, 255, 5, 4, 255, 2, 5, 255, 3, 5, 255, 5, 5, 255, 6, 5, 255, 2, 6, 255, 3, 6, 255, 2, 7, 255, 3, 7, 255, 1, 8, 255, 2, 8, 255, 3, 8, 255, 4, 8, 255, 2, 9, 255, 3, 9, 255, 2, 10, 255, 3, 10, 255, 2, 11, 255, 3, 11, 255, 2, 12, 255, 3, 12, 255, 2, 13, 255, 3, 13, 255, 1, 14, 255, 2, 14, 255],secondary:false},
+{width:8,bonus:185,chr:"g",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255, 5, 12, 255, 6, 12, 255, 5, 13, 255, 6, 13, 255, 1, 14, 255, 2, 14, 255, 5, 14, 255, 6, 14, 255, 2, 15, 255, 3, 15, 255, 4, 15, 255, 5, 15, 255],secondary:false},
+{width:8,bonus:165,chr:"h",pixels:[1, 2, 255, 2, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:4,bonus:60,chr:"i",pixels:[1, 5, 255, 2, 5, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255],secondary:false},
+{width:7,bonus:125,chr:"j",pixels:[4, 5, 255, 5, 5, 255, 4, 7, 255, 5, 7, 255, 4, 8, 255, 5, 8, 255, 4, 9, 255, 5, 9, 255, 4, 10, 255, 5, 10, 255, 4, 11, 255, 5, 11, 255, 4, 12, 255, 5, 12, 255, 1, 13, 255, 2, 13, 255, 4, 13, 255, 5, 13, 255, 1, 14, 255, 2, 14, 255, 4, 14, 255, 5, 14, 255, 2, 15, 255, 3, 15, 255, 4, 15, 255],secondary:false},
+{width:7,bonus:155,chr:"k",pixels:[1, 2, 255, 2, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 1, 8, 255, 2, 8, 255, 3, 8, 255, 1, 9, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 1, 10, 255, 2, 10, 255, 4, 10, 255, 5, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:4,bonus:100,chr:"l",pixels:[1, 2, 255, 2, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255],secondary:false},
+{width:10,bonus:180,chr:"m",pixels:[1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 4, 7, 255, 5, 7, 255, 7, 7, 255, 8, 7, 255, 1, 8, 255, 2, 8, 255, 4, 8, 255, 5, 8, 255, 7, 8, 255, 8, 8, 255, 1, 9, 255, 2, 9, 255, 4, 9, 255, 5, 9, 255, 7, 9, 255, 8, 9, 255, 1, 10, 255, 2, 10, 255, 4, 10, 255, 5, 10, 255, 7, 10, 255, 8, 10, 255, 1, 11, 255, 2, 11, 255, 4, 11, 255, 5, 11, 255, 7, 11, 255, 8, 11, 255],secondary:false},
+{width:8,bonus:125,chr:"n",pixels:[1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:120,chr:"o",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:155,chr:"p",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 1, 12, 255, 2, 12, 255, 1, 13, 255, 2, 13, 255, 1, 14, 255, 2, 14, 255],secondary:false},
+{width:8,bonus:155,chr:"q",pixels:[3, 6, 255, 4, 6, 255, 5, 6, 255, 2, 7, 255, 3, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 2, 10, 255, 3, 10, 255, 5, 10, 255, 6, 10, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255, 5, 12, 255, 6, 12, 255, 5, 13, 255, 6, 13, 255, 7, 13, 255, 5, 14, 255, 6, 14, 255, 5, 15, 255],secondary:false},
+{width:6,bonus:75,chr:"r",pixels:[1, 6, 255, 2, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 3, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255],secondary:false},
+{width:8,bonus:100,chr:"s",pixels:[2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 2, 8, 255, 3, 8, 255, 4, 8, 255, 5, 8, 255, 5, 9, 255, 6, 9, 255, 5, 10, 255, 6, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:6,bonus:105,chr:"t",pixels:[1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 0, 6, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255],secondary:false},
+{width:8,bonus:125,chr:"u",pixels:[1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:100,chr:"v",pixels:[1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 2, 8, 255, 3, 8, 255, 4, 8, 255, 5, 8, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 3, 10, 255, 4, 10, 255, 3, 11, 255, 4, 11, 255],secondary:false},
+{width:9,bonus:140,chr:"w",pixels:[1, 6, 255, 2, 6, 255, 6, 6, 255, 7, 6, 255, 1, 7, 255, 2, 7, 255, 6, 7, 255, 7, 7, 255, 1, 8, 255, 2, 8, 255, 4, 8, 255, 6, 8, 255, 7, 8, 255, 1, 9, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 6, 9, 255, 7, 9, 255, 1, 10, 255, 2, 10, 255, 3, 10, 255, 5, 10, 255, 6, 10, 255, 7, 10, 255, 2, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:110,chr:"x",pixels:[1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 3, 8, 255, 4, 8, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 2, 10, 255, 3, 10, 255, 4, 10, 255, 5, 10, 255, 1, 11, 255, 2, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:8,bonus:165,chr:"y",pixels:[1, 6, 255, 2, 6, 255, 5, 6, 255, 6, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 2, 10, 255, 3, 10, 255, 4, 10, 255, 5, 10, 255, 6, 10, 255, 5, 11, 255, 6, 11, 255, 5, 12, 255, 6, 12, 255, 1, 13, 255, 2, 13, 255, 5, 13, 255, 6, 13, 255, 2, 14, 255, 3, 14, 255, 4, 14, 255, 5, 14, 255],secondary:false},
+{width:8,bonus:100,chr:"z",pixels:[1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 4, 7, 255, 5, 7, 255, 3, 8, 255, 4, 8, 255, 2, 9, 255, 3, 9, 255, 1, 10, 255, 2, 10, 255, 1, 11, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:9,bonus:180,chr:"0",pixels:[4, 2, 255, 5, 2, 255, 3, 3, 255, 4, 3, 255, 5, 3, 255, 6, 3, 255, 2, 4, 255, 3, 4, 255, 6, 4, 255, 7, 4, 255, 2, 5, 255, 3, 5, 255, 6, 5, 255, 7, 5, 255, 2, 6, 255, 3, 6, 255, 6, 6, 255, 7, 6, 255, 2, 7, 255, 3, 7, 255, 6, 7, 255, 7, 7, 255, 2, 8, 255, 3, 8, 255, 6, 8, 255, 7, 8, 255, 2, 9, 255, 3, 9, 255, 6, 9, 255, 7, 9, 255, 3, 10, 255, 4, 10, 255, 5, 10, 255, 6, 10, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:7,bonus:115,chr:"1",pixels:[3, 2, 255, 4, 2, 255, 2, 3, 255, 3, 3, 255, 4, 3, 255, 3, 4, 255, 4, 4, 255, 3, 5, 255, 4, 5, 255, 3, 6, 255, 4, 6, 255, 3, 7, 255, 4, 7, 255, 3, 8, 255, 4, 8, 255, 3, 9, 255, 4, 9, 255, 3, 10, 255, 4, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:9,bonus:145,chr:"2",pixels:[3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 2, 3, 255, 3, 3, 255, 6, 3, 255, 7, 3, 255, 6, 4, 255, 7, 4, 255, 6, 5, 255, 7, 5, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 3, 7, 255, 4, 7, 255, 2, 8, 255, 3, 8, 255, 2, 9, 255, 3, 9, 255, 2, 10, 255, 3, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255, 7, 11, 255],secondary:false},
+{width:8,bonus:145,chr:"3",pixels:[2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 5, 3, 255, 6, 3, 255, 5, 4, 255, 6, 4, 255, 5, 5, 255, 6, 5, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 5, 7, 255, 6, 7, 255, 5, 8, 255, 6, 8, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:190,chr:"4",pixels:[3, 2, 255, 4, 2, 255, 5, 2, 255, 2, 3, 255, 3, 3, 255, 4, 3, 255, 5, 3, 255, 2, 4, 255, 3, 4, 255, 4, 4, 255, 5, 4, 255, 1, 5, 255, 2, 5, 255, 4, 5, 255, 5, 5, 255, 1, 6, 255, 2, 6, 255, 4, 6, 255, 5, 6, 255, 0, 7, 255, 1, 7, 255, 4, 7, 255, 5, 7, 255, 0, 8, 255, 1, 8, 255, 4, 8, 255, 5, 8, 255, 0, 9, 255, 1, 9, 255, 2, 9, 255, 3, 9, 255, 4, 9, 255, 5, 9, 255, 6, 9, 255, 4, 10, 255, 5, 10, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:8,bonus:150,chr:"5",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 1, 3, 255, 2, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 3, 5, 255, 4, 5, 255, 5, 5, 255, 5, 6, 255, 6, 6, 255, 5, 7, 255, 6, 7, 255, 5, 8, 255, 6, 8, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:9,bonus:165,chr:"6",pixels:[3, 2, 255, 4, 2, 255, 2, 3, 255, 3, 3, 255, 2, 4, 255, 3, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 1, 7, 255, 2, 7, 255, 5, 7, 255, 6, 7, 255, 1, 8, 255, 2, 8, 255, 5, 8, 255, 6, 8, 255, 1, 9, 255, 2, 9, 255, 5, 9, 255, 6, 9, 255, 1, 10, 255, 2, 10, 255, 5, 10, 255, 6, 10, 255, 2, 11, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:7,bonus:125,chr:"7",pixels:[1, 2, 255, 2, 2, 255, 3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 5, 3, 255, 6, 3, 255, 5, 4, 255, 6, 4, 255, 4, 5, 255, 5, 5, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 3, 7, 255, 4, 7, 255, 2, 8, 255, 3, 8, 255, 2, 9, 255, 3, 9, 255, 2, 10, 255, 3, 10, 255, 2, 11, 255, 3, 11, 255],secondary:false},
+{width:9,bonus:200,chr:"8",pixels:[3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 2, 3, 255, 3, 3, 255, 6, 3, 255, 7, 3, 255, 2, 4, 255, 3, 4, 255, 6, 4, 255, 7, 4, 255, 2, 5, 255, 3, 5, 255, 6, 5, 255, 7, 5, 255, 3, 6, 255, 4, 6, 255, 5, 6, 255, 6, 6, 255, 2, 7, 255, 3, 7, 255, 6, 7, 255, 7, 7, 255, 2, 8, 255, 3, 8, 255, 6, 8, 255, 7, 8, 255, 2, 9, 255, 3, 9, 255, 6, 9, 255, 7, 9, 255, 2, 10, 255, 3, 10, 255, 6, 10, 255, 7, 10, 255, 3, 11, 255, 4, 11, 255, 5, 11, 255, 6, 11, 255],secondary:false},
+{width:9,bonus:165,chr:"9",pixels:[3, 2, 255, 4, 2, 255, 5, 2, 255, 6, 2, 255, 2, 3, 255, 3, 3, 255, 6, 3, 255, 7, 3, 255, 2, 4, 255, 3, 4, 255, 6, 4, 255, 7, 4, 255, 2, 5, 255, 3, 5, 255, 6, 5, 255, 7, 5, 255, 2, 6, 255, 3, 6, 255, 6, 6, 255, 7, 6, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 6, 7, 255, 7, 7, 255, 6, 8, 255, 7, 8, 255, 5, 9, 255, 6, 9, 255, 5, 10, 255, 6, 10, 255, 4, 11, 255, 5, 11, 255],secondary:false},
+{width:4,bonus:30,chr:"'",pixels:[1, 0, 255, 2, 0, 255, 1, 1, 255, 2, 1, 255, 2, 2, 255, 1, 3, 255],secondary:false},
+{width:4,bonus:0,chr:" ",pixels:[],secondary:false},
+{width:8,bonus:30,chr:"-",pixels:[1, 7, 255, 2, 7, 255, 3, 7, 255, 4, 7, 255, 5, 7, 255, 6, 7, 255],secondary:false},
+{width:5,bonus:110,chr:"(",pixels:[3, 2, 255, 4, 2, 255, 2, 3, 255, 3, 3, 255, 1, 4, 255, 2, 4, 255, 1, 5, 255, 2, 5, 255, 1, 6, 255, 2, 6, 255, 1, 7, 255, 2, 7, 255, 1, 8, 255, 2, 8, 255, 1, 9, 255, 2, 9, 255, 1, 10, 255, 2, 10, 255, 2, 11, 255, 3, 11, 255, 3, 12, 255, 4, 12, 255],secondary:false},
+{width:5,bonus:110,chr:")",pixels:[0, 2, 255, 1, 2, 255, 1, 3, 255, 2, 3, 255, 2, 4, 255, 3, 4, 255, 2, 5, 255, 3, 5, 255, 2, 6, 255, 3, 6, 255, 2, 7, 255, 3, 7, 255, 2, 8, 255, 3, 8, 255, 2, 9, 255, 3, 9, 255, 2, 10, 255, 3, 10, 255, 1, 11, 255, 2, 11, 255, 0, 12, 255, 1, 12, 255],secondary:false}
+],width:12,spacewidth:4,height:16,basey:14,shadow:false,maxspaces:2};
+    var f = window.RS3MenuFont;
+    if (f && f.chars[0]) {
+      dbg('RS3MenuFont inline: ' + f.chars.length + ' chars | chars[0]="' + f.chars[0].chr + '" bonus=' + f.chars[0].bonus + ' pixels=' + (f.chars[0].pixels.length/3));
+    } else {
+      dbg('RS3MenuFont inline FAILED');
+    }
+  })();
+
+  // Pure-JS OCR engine (no library dependency)
+  var RS3Font={"basey":14,"height":16,"spacewidth":4,"chars":[{"chr":"A","width":9,"pixels":[[3,2],[4,2],[5,2],[2,3],[3,3],[5,3],[6,3],[1,4],[2,4],[6,4],[7,4],[1,5],[2,5],[6,5],[7,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[1,7],[2,7],[6,7],[7,7],[1,8],[2,8],[6,8],[7,8],[1,9],[2,9],[6,9],[7,9],[1,10],[2,10],[6,10],[7,10],[1,11],[2,11],[6,11],[7,11]]},{"chr":"B","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"C","width":8,"pixels":[[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"D","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"E","width":7,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"F","width":7,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"G","width":9,"pixels":[[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[4,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"H","width":8,"pixels":[[1,2],[2,2],[5,2],[6,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"I","width":4,"pixels":[[0,2],[1,2],[2,2],[3,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[0,11],[1,11],[2,11],[3,11]]},{"chr":"J","width":8,"pixels":[[4,2],[5,2],[6,2],[7,2],[5,3],[6,3],[5,4],[6,4],[5,5],[6,5],[5,6],[6,6],[5,7],[6,7],[5,8],[6,8],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"K","width":8,"pixels":[[1,2],[2,2],[6,2],[7,2],[1,3],[2,3],[6,3],[7,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[4,5],[5,5],[1,6],[2,6],[3,6],[4,6],[1,7],[2,7],[3,7],[4,7],[1,8],[2,8],[4,8],[5,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[6,10],[7,10],[1,11],[2,11],[6,11],[7,11]]},{"chr":"L","width":7,"pixels":[[1,2],[2,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"M","width":11,"pixels":[[1,2],[2,2],[8,2],[9,2],[1,3],[2,3],[3,3],[7,3],[8,3],[9,3],[1,4],[2,4],[3,4],[4,4],[6,4],[7,4],[8,4],[9,4],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[1,6],[2,6],[4,6],[5,6],[6,6],[8,6],[9,6],[1,7],[2,7],[5,7],[8,7],[9,7],[1,8],[2,8],[8,8],[9,8],[1,9],[2,9],[8,9],[9,9],[1,10],[2,10],[8,10],[9,10],[1,11],[2,11],[8,11],[9,11]]},{"chr":"N","width":9,"pixels":[[1,2],[2,2],[6,2],[7,2],[1,3],[2,3],[3,3],[6,3],[7,3],[1,4],[2,4],[3,4],[6,4],[7,4],[1,5],[2,5],[3,5],[4,5],[6,5],[7,5],[1,6],[2,6],[4,6],[6,6],[7,6],[1,7],[2,7],[4,7],[5,7],[6,7],[7,7],[1,8],[2,8],[5,8],[6,8],[7,8],[1,9],[2,9],[5,9],[6,9],[7,9],[1,10],[2,10],[6,10],[7,10],[1,11],[2,11],[6,11],[7,11]]},{"chr":"O","width":9,"pixels":[[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[6,3],[7,3],[1,4],[2,4],[6,4],[7,4],[1,5],[2,5],[6,5],[7,5],[1,6],[2,6],[6,6],[7,6],[1,7],[2,7],[6,7],[7,7],[1,8],[2,8],[6,8],[7,8],[1,9],[2,9],[6,9],[7,9],[1,10],[2,10],[6,10],[7,10],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"P","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[3,7],[4,7],[5,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"Q","width":9,"pixels":[[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[6,3],[7,3],[1,4],[2,4],[6,4],[7,4],[1,5],[2,5],[6,5],[7,5],[1,6],[2,6],[6,6],[7,6],[1,7],[2,7],[6,7],[7,7],[1,8],[2,8],[6,8],[7,8],[1,9],[2,9],[4,9],[5,9],[6,9],[7,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11],[7,11],[8,11]]},{"chr":"R","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[3,7],[4,7],[5,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"S","width":8,"pixels":[[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[1,5],[2,5],[3,5],[2,6],[3,6],[4,6],[5,6],[4,7],[5,7],[6,7],[5,8],[6,8],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"T","width":6,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[2,3],[3,3],[2,4],[3,4],[2,5],[3,5],[2,6],[3,6],[2,7],[3,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"U","width":9,"pixels":[[1,2],[2,2],[5,2],[6,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"V","width":8,"pixels":[[1,2],[2,2],[5,2],[6,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[5,6],[6,6],[2,7],[3,7],[4,7],[5,7],[2,8],[3,8],[4,8],[5,8],[2,9],[3,9],[4,9],[5,9],[3,10],[4,10],[3,11],[4,11]]},{"chr":"W","width":12,"pixels":[[1,2],[2,2],[9,2],[10,2],[1,3],[2,3],[9,3],[10,3],[1,4],[2,4],[9,4],[10,4],[2,5],[3,5],[8,5],[9,5],[2,6],[3,6],[5,6],[6,6],[8,6],[9,6],[2,7],[3,7],[5,7],[6,7],[8,7],[9,7],[2,8],[3,8],[5,8],[6,8],[8,8],[9,8],[3,9],[5,9],[6,9],[8,9],[3,10],[4,10],[5,10],[6,10],[7,10],[8,10],[4,11],[5,11],[6,11],[7,11]]},{"chr":"X","width":8,"pixels":[[0,2],[1,2],[5,2],[6,2],[0,3],[1,3],[5,3],[6,3],[1,4],[2,4],[4,4],[5,4],[1,5],[2,5],[3,5],[4,5],[5,5],[2,6],[3,6],[4,6],[2,7],[3,7],[4,7],[1,8],[2,8],[4,8],[5,8],[1,9],[2,9],[4,9],[5,9],[0,10],[1,10],[5,10],[6,10],[0,11],[1,11],[5,11],[6,11]]},{"chr":"Y","width":8,"pixels":[[1,2],[2,2],[5,2],[6,2],[1,3],[2,3],[5,3],[6,3],[1,4],[2,4],[5,4],[6,4],[1,5],[2,5],[5,5],[6,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[2,7],[3,7],[4,7],[5,7],[3,8],[4,8],[3,9],[4,9],[3,10],[4,10],[3,11],[4,11]]},{"chr":"Z","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[5,3],[6,3],[4,4],[5,4],[4,5],[5,5],[3,6],[4,6],[2,7],[3,7],[2,8],[3,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"a","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[2,8],[3,8],[4,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"b","width":8,"pixels":[[1,2],[2,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"c","width":7,"pixels":[[2,6],[3,6],[4,6],[1,7],[2,7],[5,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[5,10],[2,11],[3,11],[4,11]]},{"chr":"d","width":8,"pixels":[[5,2],[6,2],[5,3],[6,3],[5,4],[6,4],[5,5],[6,5],[2,6],[3,6],[4,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"e","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[3,9],[4,9],[5,9],[6,9],[1,10],[2,10],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"f","width":7,"pixels":[[3,4],[4,4],[5,4],[2,5],[3,5],[5,5],[6,5],[2,6],[3,6],[2,7],[3,7],[1,8],[2,8],[3,8],[4,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11],[2,12],[3,12],[2,13],[3,13],[1,14],[2,14]]},{"chr":"g","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11],[6,11],[5,12],[6,12],[5,13],[6,13],[1,14],[2,14],[5,14],[6,14],[2,15],[3,15],[4,15],[5,15]]},{"chr":"h","width":8,"pixels":[[1,2],[2,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"i","width":4,"pixels":[[1,5],[2,5],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"j","width":7,"pixels":[[4,5],[5,5],[4,7],[5,7],[4,8],[5,8],[4,9],[5,9],[4,10],[5,10],[4,11],[5,11],[4,12],[5,12],[1,13],[2,13],[4,13],[5,13],[1,14],[2,14],[4,14],[5,14],[2,15],[3,15],[4,15]]},{"chr":"k","width":7,"pixels":[[1,2],[2,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[4,6],[5,6],[1,7],[2,7],[3,7],[4,7],[1,8],[2,8],[3,8],[1,9],[2,9],[3,9],[4,9],[1,10],[2,10],[4,10],[5,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"l","width":4,"pixels":[[1,2],[2,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"m","width":10,"pixels":[[1,6],[2,6],[3,6],[4,6],[6,6],[7,6],[1,7],[2,7],[4,7],[5,7],[7,7],[8,7],[1,8],[2,8],[4,8],[5,8],[7,8],[8,8],[1,9],[2,9],[4,9],[5,9],[7,9],[8,9],[1,10],[2,10],[4,10],[5,10],[7,10],[8,10],[1,11],[2,11],[4,11],[5,11],[7,11],[8,11]]},{"chr":"n","width":8,"pixels":[[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"o","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"p","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11],[1,12],[2,12],[1,13],[2,13],[1,14],[2,14]]},{"chr":"q","width":8,"pixels":[[3,6],[4,6],[5,6],[2,7],[3,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[2,10],[3,10],[5,10],[6,10],[3,11],[4,11],[5,11],[6,11],[5,12],[6,12],[5,13],[6,13],[7,13],[5,14],[6,14],[5,15]]},{"chr":"r","width":6,"pixels":[[1,6],[2,6],[4,6],[5,6],[1,7],[2,7],[3,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"s","width":8,"pixels":[[2,6],[3,6],[4,6],[5,6],[6,6],[1,7],[2,7],[2,8],[3,8],[4,8],[5,8],[5,9],[6,9],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"t","width":6,"pixels":[[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[0,6],[1,6],[2,6],[3,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[2,11],[3,11],[4,11]]},{"chr":"u","width":8,"pixels":[[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"v","width":8,"pixels":[[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[2,8],[3,8],[4,8],[5,8],[2,9],[3,9],[4,9],[5,9],[3,10],[4,10],[3,11],[4,11]]},{"chr":"w","width":9,"pixels":[[1,6],[2,6],[6,6],[7,6],[1,7],[2,7],[6,7],[7,7],[1,8],[2,8],[4,8],[6,8],[7,8],[1,9],[2,9],[3,9],[4,9],[5,9],[6,9],[7,9],[1,10],[2,10],[3,10],[5,10],[6,10],[7,10],[2,11],[6,11]]},{"chr":"x","width":8,"pixels":[[1,6],[2,6],[5,6],[6,6],[2,7],[3,7],[4,7],[5,7],[3,8],[4,8],[2,9],[3,9],[4,9],[5,9],[2,10],[3,10],[4,10],[5,10],[1,11],[2,11],[5,11],[6,11]]},{"chr":"y","width":8,"pixels":[[1,6],[2,6],[5,6],[6,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[2,10],[3,10],[4,10],[5,10],[6,10],[5,11],[6,11],[5,12],[6,12],[1,13],[2,13],[5,13],[6,13],[2,14],[3,14],[4,14],[5,14]]},{"chr":"z","width":8,"pixels":[[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[4,7],[5,7],[3,8],[4,8],[2,9],[3,9],[1,10],[2,10],[1,11],[2,11],[3,11],[4,11],[5,11],[6,11]]},{"chr":"0","width":9,"pixels":[[4,2],[5,2],[3,3],[4,3],[5,3],[6,3],[2,4],[3,4],[6,4],[7,4],[2,5],[3,5],[6,5],[7,5],[2,6],[3,6],[6,6],[7,6],[2,7],[3,7],[6,7],[7,7],[2,8],[3,8],[6,8],[7,8],[2,9],[3,9],[6,9],[7,9],[3,10],[4,10],[5,10],[6,10],[4,11],[5,11]]},{"chr":"1","width":7,"pixels":[[3,2],[4,2],[2,3],[3,3],[4,3],[3,4],[4,4],[3,5],[4,5],[3,6],[4,6],[3,7],[4,7],[3,8],[4,8],[3,9],[4,9],[3,10],[4,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"2","width":9,"pixels":[[3,2],[4,2],[5,2],[6,2],[2,3],[3,3],[6,3],[7,3],[6,4],[7,4],[6,5],[7,5],[4,6],[5,6],[6,6],[3,7],[4,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11],[4,11],[5,11],[6,11],[7,11]]},{"chr":"3","width":8,"pixels":[[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[5,3],[6,3],[5,4],[6,4],[5,5],[6,5],[3,6],[4,6],[5,6],[5,7],[6,7],[5,8],[6,8],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"4","width":8,"pixels":[[3,2],[4,2],[5,2],[2,3],[3,3],[4,3],[5,3],[2,4],[3,4],[4,4],[5,4],[1,5],[2,5],[4,5],[5,5],[1,6],[2,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[2,9],[3,9],[4,9],[5,9],[6,9],[4,10],[5,10],[4,11],[5,11]]},{"chr":"5","width":8,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[3,5],[4,5],[5,5],[5,6],[6,6],[5,7],[6,7],[5,8],[6,8],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"6","width":9,"pixels":[[3,2],[4,2],[2,3],[3,3],[2,4],[3,4],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[5,7],[6,7],[1,8],[2,8],[5,8],[6,8],[1,9],[2,9],[5,9],[6,9],[1,10],[2,10],[5,10],[6,10],[2,11],[3,11],[4,11],[5,11]]},{"chr":"7","width":7,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[5,3],[6,3],[5,4],[6,4],[4,5],[5,5],[3,6],[4,6],[5,6],[3,7],[4,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"8","width":9,"pixels":[[3,2],[4,2],[5,2],[6,2],[2,3],[3,3],[6,3],[7,3],[2,4],[3,4],[6,4],[7,4],[2,5],[3,5],[6,5],[7,5],[3,6],[4,6],[5,6],[6,6],[2,7],[3,7],[6,7],[7,7],[2,8],[3,8],[6,8],[7,8],[2,9],[3,9],[6,9],[7,9],[2,10],[3,10],[6,10],[7,10],[3,11],[4,11],[5,11],[6,11]]},{"chr":"9","width":9,"pixels":[[3,2],[4,2],[5,2],[6,2],[2,3],[3,3],[6,3],[7,3],[2,4],[3,4],[6,4],[7,4],[2,5],[3,5],[6,5],[7,5],[2,6],[3,6],[6,6],[7,6],[3,7],[4,7],[5,7],[6,7],[7,7],[6,8],[7,8],[5,9],[6,9],[5,10],[6,10],[4,11],[5,11]]},{"chr":"'","width":4,"pixels":[[1,0],[2,0],[1,1],[2,1],[2,2],[1,3]]},{"chr":"-","width":8,"pixels":[[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]]},{"chr":" ","width":4,"pixels":[]},{"chr":"(","width":5,"pixels":[[3,2],[4,2],[2,3],[3,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[2,11],[3,11],[3,12],[4,12]]},{"chr":")","width":5,"pixels":[[0,2],[1,2],[1,3],[2,3],[2,4],[3,4],[2,5],[3,5],[2,6],[3,6],[2,7],[3,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[1,11],[2,11],[0,12],[1,12]]}]};
+  
+  // ── Pure-JS pixel OCR — no external library needed ────────────────────────
+  // RS3Font is defined inline above
+  function rs3ReadLine(imgData, imgW, imgH, startX, rowY, targetR, targetG, targetB) {
+    // rowY = top pixel row of the text band in the image
+    // We scan left-to-right from startX, matching font templates against colored pixels
+  
+    var TOLERANCE = 60;  // how close a pixel must be to the target color
+    var chars = RS3Font.chars;
+    var spaceW = RS3Font.spacewidth;
+    var fH = RS3Font.height;
+    var basey = RS3Font.basey;
+  
+    function pixelMatches(imgX, imgY) {
+      if (imgX < 0 || imgX >= imgW || imgY < 0 || imgY >= imgH) return false;
+      var i = (imgY * imgW + imgX) * 4;
+      return (Math.abs(imgData[i]   - targetR) < TOLERANCE &&
+              Math.abs(imgData[i+1] - targetG) < TOLERANCE &&
+              Math.abs(imgData[i+2] - targetB) < TOLERANCE);
+    }
+  
+    function scoreChar(ch, imgX) {
+      // imgX = where the left edge of this char should start in the image
+      var px = ch.pixels;
+      if (px.length === 0) return 0;  // space
+      var hits = 0;
+      for (var i = 0; i < px.length; i++) {
+        if (pixelMatches(imgX + px[i][0], rowY + px[i][1])) hits++;
+      }
+      return hits / px.length;  // 0.0 to 1.0
+    }
+  
+    function hasColorAt(x, bandY, bandH) {
+      for (var y = bandY; y < bandY + bandH && y < imgH; y++) {
+        if (pixelMatches(x, y)) return true;
+      }
+      return false;
+    }
+  
+    var result = '';
+    var x = startX;
+    var maxX = imgW - 1;
+    var spaceCount = 0;
+    var MATCH_THRESHOLD = 0.45;  // fraction of pixels that must match
+  
+    while (x < maxX) {
+      // Check if there's any colored pixel in this column
+      if (!hasColorAt(x, rowY, fH)) {
+        spaceCount++;
+        if (spaceCount >= spaceW) {
+          if (result.length > 0) result += ' ';
+          // Skip ahead to next colored column
+          while (x < maxX && !hasColorAt(x, rowY, fH)) x++;
+          spaceCount = 0;
+          continue;
+        }
+        x++;
+        continue;
+      }
+      spaceCount = 0;
+  
+      // Try each character, pick the best match
+      var bestScore = MATCH_THRESHOLD;
+      var bestChar = null;
+      var bestWidth = 1;
+  
+      for (var ci = 0; ci < chars.length; ci++) {
+        var ch = chars[ci];
+        if (ch.pixels.length === 0) continue;
+        var s = scoreChar(ch, x);
+        if (s > bestScore) {
+          bestScore = s;
+          bestChar = ch.chr;
+          bestWidth = ch.width;
+        }
+      }
+  
+      if (bestChar) {
+        result += bestChar;
+        x += bestWidth;
+      } else {
+        x++;  // no match, advance one pixel
+      }
+    }
+  
+    return result.trim();
+  }
+  
+  function rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX) {
+    var results = [];
+  
+    for (var bi = 0; bi < bands.length; bi++) {
+      var band = bands[bi];
+      var startX = Math.max(0, bandTextX[bi] >= 0 ? bandTextX[bi] : 0);
+      var rowY = band.start;
+  
+      // Try each dominant color
+      for (var ci = 0; ci < dominantColors.length; ci++) {
+        var col = dominantColors[ci];
+        var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2]);
+        if (text && text.length > 1 && !/^\s+$/.test(text)) {
+          dbg('rs3OCR band='+bi+' col=('+col+') row='+rowY+' x='+startX+': "'+text+'"');
+          results.push({ band: bi, text: text, color: col });
+          break;
+        }
+      }
+    }
+    return results;
+  }
+  
+  // Handle openInfo (activator match)
+  function processOpenInfo(info) {
+    if (!info) return false;
+    let text = info;
+    if (typeof info === 'string') {
+      try { const p = JSON.parse(info); text = p.text || p.match || p.string || JSON.stringify(p); }
+      catch(e) {}
+    }
+    dbg('openInfo text: ' + text);
+    const name = parseExamineText(text);
+    if (name) {
+      flashBadge('#4caf50');
+      setStatus('busy', 'Detected: ' + name);
+      setTimeout(function() { lookup(name); }, 200);
+      return true;
+    }
+    return false;
+  }
+
+  const handled = processOpenInfo(window.alt1.openInfo);
+  if (!handled) setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
+
+  // Poll openInfo for changes
+  let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
+  setInterval(function() {
+    const cur = JSON.stringify(window.alt1.openInfo);
+    if (cur !== lastOpenInfo) {
+      lastOpenInfo = cur;
+      dbg('openInfo changed: ' + cur);
+      processOpenInfo(window.alt1.openInfo);
+    }
+  }, 200);
+
+  badge.addEventListener('click', function() {
+    flashBadge('#f5c518');
+    if (a1lib) readExamineWindow();
+    else dbg('A1lib not loaded yet');
+  });
+}
+
+// ── Image-anchor templates (loaded once) ───────────────────
+var examineAnchorTL = null;   // TopLeft.png  ImageData
+var examineAnchorBR = null;   // BottomRight.png ImageData
+var anchorsLoading  = false;
+
+async function loadAnchors() {
+  if (examineAnchorTL && examineAnchorBR) return true;
+  if (anchorsLoading) return false;
+  anchorsLoading = true;
+  try {
+    var ImageDetect = window.A1lib.ImageDetect;
+    examineAnchorTL = await ImageDetect.imageDataFromUrl('./TopLeft.png');
+    examineAnchorBR = await ImageDetect.imageDataFromUrl('./BottomRight.png');
+    dbg('Anchors loaded: TL=' + examineAnchorTL.width + 'x' + examineAnchorTL.height +
+        ' BR=' + examineAnchorBR.width + 'x' + examineAnchorBR.height);
+    return true;
+  } catch(e) {
+    dbg('Anchor load error: ' + e.message);
+    anchorsLoading = false;
+    return false;
+  }
+}
+
+function initAlt1(a1lib) {
+  // Pre-load anchor images as soon as A1lib is ready
+  loadAnchors();
+
+  // Hook Alt+1 keypress — fires whenever the user presses Alt+1 over RS
+  a1lib.on('alt1pressed', function(e) {
+    dbg('alt1pressed x=' + e.x + ' y=' + e.y);
+    readExamineWindow();
+  });
+  dbg('alt1pressed event hooked via A1lib');
+}
+
+// ── Core: find examine window via image anchors, then OCR ──
+async function readExamineWindow() {
+  if (!window.alt1 || !window.alt1.permissionPixel) {
+    setStatus('err', 'Pixel permission not granted');
+    return;
+  }
+
+  var a1lib = window.A1lib;
+  var ocrLib = window.OCR;
+  var chatFont = window.RS3MenuFont;
+
+  if (!ocrLib || !chatFont) {
+    setStatus('err', 'Font not ready yet — wait a moment and try again (font=' + !!chatFont + ')');
+    return;
+  }
+  var anchorsOk = await loadAnchors();
+  if (!anchorsOk) {
+    setStatus('err', 'Anchor images not loaded — ensure TopLeft.png & BottomRight.png exist');
+    return;
+  }
+
+  setStatus('busy', '🔍 Scanning for examine window...');
+
+  try {
+    // Capture the full RS client screen
+    var fullImg = a1lib.captureHoldFullRs();
+    if (!fullImg) { dbg('captureHoldFullRs returned null'); setStatus('err', 'Screen capture failed'); return; }
+    dbg('Full capture: w=' + fullImg.width + ' h=' + fullImg.height);
+
+    // Search for both anchors in the full capture
+    var tlMatches = fullImg.findSubimage(examineAnchorTL);
+    var brMatches = fullImg.findSubimage(examineAnchorBR);
+
+    dbg('TL matches: ' + tlMatches.length + '  BR matches: ' + brMatches.length);
+
+    if (tlMatches.length === 0 || brMatches.length === 0) {
+      setStatus('err', 'Examine window not found — right-click an NPC and hover Examine first');
+      return;
+    }
+
+    // Use the best (highest score) match for each anchor
+    var tl = tlMatches[0];
+    var br = brMatches[0];
+
+    // The examine window region spans from the TOP-LEFT of the TL anchor
+    // to the BOTTOM-RIGHT of the BR anchor.
+    //   TL anchor = top bar ("Choose Option")  → gives us left edge and top edge
+    //   BR anchor = bottom bar                 → gives us right edge and bottom edge
+    //
+    // We skip the header row (TL height) and footer row (BR height) since those
+    // are decorative bars and contain no NPC name text — the menu options
+    // (including "Examine <Name>") live in the rows between them.
+    var winX = tl.x;
+    var winY = tl.y + examineAnchorTL.height;          // below the top bar
+    var winRight  = br.x + examineAnchorBR.width;
+    var winBottom = br.y;                               // above the bottom bar
+    var winW = winRight - winX;
+    var winH = winBottom - winY;
+
+    dbg('Examine region: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH +
+        '  (TL=' + tl.x + ',' + tl.y + ' BR=' + br.x + ',' + br.y + ')');
+
+    if (winW <= 10 || winH <= 4) {
+      setStatus('err', 'Anchor region too small (' + winW + 'x' + winH + ') — check TopLeft.png / BottomRight.png alignment');
+      return;
+    }
+
+    // Read pixel data for just the examine window region
+    var examineData = fullImg.toData(winX, winY, winW, winH);
+    if (!examineData || !examineData.data || examineData.data.length === 0) {
+      setStatus('err', 'Failed to read examine window pixels');
+      return;
+    }
+
+    dbg('examineData: ' + examineData.width + 'x' + examineData.height);
+
+    // ── OCR the examine window ──────────────────────────────
+    // The examine window contains text like "Examine: <NPC name>" or just
+    // the NPC/object name. We scan all rows for yellow text (NPC name colour)
+    // and white text, trying readLine on each.
+    if (!ocrLib || !chatFont) { return; }  // already checked above
+
+    var W = examineData.width;
+    var H = examineData.height;
+    var data = examineData.data;
+
+    dbg('Scanning ' + W + 'x' + H + ' region for text rows...');
+
+    // RS3 NPC names can be yellow, green, cyan, orange, white depending on NPC type.
+    // Detect rows with ANY bright non-background pixels.
+    var colorsToTry = [
+      { col: [255, 255,   0], label: 'yellow' },
+      { col: [  0, 255,   0], label: 'green'  },
+      { col: [255, 255, 255], label: 'white'  },
+      { col: [  0, 255, 255], label: 'cyan'   },
+      { col: [255, 152,   0], label: 'orange' },
+    ];
+
+    // Build rowHits: rows containing any bright non-border pixel
+    var rowHits = [];
+    for (var py = 0; py < H; py++) rowHits[py] = [];
+
+    for (var ci2 = 0; ci2 < colorsToTry.length; ci2++) {
+      var tc = colorsToTry[ci2].col;
+      for (var py2 = 0; py2 < H; py2++) {
+        var count = 0;
+        for (var px2 = 0; px2 < W; px2++) {
+          var idx2 = (py2 * W + px2) * 4;
+          if (Math.abs(data[idx2]   - tc[0]) < 40 &&
+              Math.abs(data[idx2+1] - tc[1]) < 40 &&
+              Math.abs(data[idx2+2] - tc[2]) < 40) count++;
+        }
+        if (count >= 2) rowHits[py2].push(ci2);
+      }
+    }
+
+    var hitSummary = [];
+    for (var sy = 0; sy < H; sy++) {
+      if (rowHits[sy].length > 0)
+        hitSummary.push('y'+sy+':'+rowHits[sy].map(function(i){ return colorsToTry[i].label; }).join('+'));
+    }
+    dbg('Color rows: ' + (hitSummary.length ? hitSummary.slice(0,10).join(' ')+'...' : 'none'));
+
+    var basey  = chatFont.basey  || 8;
+    var fh     = chatFont.height || 12;
+    dbg('font: basey=' + basey + ' height=' + fh + ' spacewidth=' + chatFont.spacewidth + ' chars=' + chatFont.chars.length);
+
+    // ── Color dump ───────────────────────────────────────────────────────────
+    var colorSeen = {};
+    for (var dumpY = 0; dumpY < H; dumpY++) {
+      for (var dumpX = 0; dumpX < W; dumpX++) {
+        var di = (dumpY * W + dumpX) * 4;
+        var dr = data[di], dg = data[di+1], db3 = data[di+2];
+        if (dr > 180 || dg > 180 || db3 > 180) {
+          var key = Math.round(dr/20)*20 + ',' + Math.round(dg/20)*20 + ',' + Math.round(db3/20)*20;
+          colorSeen[key] = (colorSeen[key]||0) + 1;
+        }
+      }
+    }
+    var colorList = Object.keys(colorSeen).sort(function(a,b){ return colorSeen[b]-colorSeen[a]; });
+    dbg('Bright colors: ' + colorList.slice(0,6).map(function(k){ return k+'x'+colorSeen[k]; }).join(' | '));
+
+    // ── Band detection ───────────────────────────────────────────────────────
+    var bands = [];
+    var inBand = false, bandStart = 0;
+    for (var by = 0; by <= H; by++) {
+      var hasBright = rowHits[by] && rowHits[by].length > 0;
+      if (hasBright && !inBand)      { inBand = true;  bandStart = by; }
+      else if (!hasBright && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
+    }
+    dbg('Bands: ' + bands.map(function(b){ return b.start+'-'+b.end; }).join(', '));
+
+    // ── Extract dominant text colors directly from the image ─────────────────
+    // Bucket all bright pixels into coarse color bins, sort by frequency,
+    // use the top colors as OCR color candidates. This handles green names,
+    // yellow names, white text, cyan text, etc. automatically.
+    var colorBins = {};
+    var BORDER_COLOR_R = 220, BORDER_COLOR_G = 200, BORDER_COLOR_B = 160; // menu border tan
+    for (var cy2 = 0; cy2 < H; cy2++) {
+      for (var cx2 = 0; cx2 < W; cx2++) {
+        var ci4 = (cy2 * W + cx2) * 4;
+        var pr = data[ci4], pg = data[ci4+1], pb = data[ci4+2];
+        if (pr < 100 && pg < 100 && pb < 100) continue; // skip dark pixels
+        // Skip the border tan color
+        if (Math.abs(pr-BORDER_COLOR_R)<30 && Math.abs(pg-BORDER_COLOR_G)<30 && Math.abs(pb-BORDER_COLOR_B)<30) continue;
+        // Skip near-white (menu background highlight), skip pure grey
+        if (pr > 230 && pg > 230 && pb > 230) continue;
+        // Quantize to 32-step bins
+        var bkey = Math.min(255,Math.round(pr/32)*32) + '_' + Math.min(255,Math.round(pg/32)*32) + '_' + Math.min(255,Math.round(pb/32)*32);
+        colorBins[bkey] = (colorBins[bkey]||0) + 1;
+      }
+    }
+    var sortedColors = Object.keys(colorBins).sort(function(a,b){ return colorBins[b]-colorBins[a]; });
+    var dominantColors = sortedColors.slice(0, 8).map(function(k) {
+      var parts = k.split('_');
+      return [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
+    });
+    // Always include the classics as fallbacks
+    [[255,255,0],[0,255,0],[255,255,255],[0,255,255],[255,165,0]].forEach(function(c) {
+      dominantColors.push(c);
+    });
+    dbg('Colors to try: ' + dominantColors.slice(0,6).map(function(c){ return '('+c+')'; }).join(' '));
+
+    // ── Pure-JS OCR (replaces broken OCR library calls) ──────────────────────
+    var fc0 = chatFont.chars[0];
+    dbg('Font in-memory: chars[0]="'+(fc0?fc0.chr:'?')+'" bonus='+(fc0?fc0.bonus:'?')+' pixels='+(fc0?fc0.pixels.length/3:'?'));
+
+    // Find leftmost colored pixel per band (where text actually starts)
+    var bandTextX = [];
+    for (var bi2 = 0; bi2 < bands.length; bi2++) {
+      var bd = bands[bi2];
+      var firstX = 0;  // default to 0 — our scorer handles non-text columns fine
+      outer: for (var tx = 0; tx < W; tx++) {
+        for (var ty = bd.start; ty <= bd.end; ty++) {
+          var ti = (ty * W + tx) * 4;
+          var tr = data[ti], tg2 = data[ti+1], tb3 = data[ti+2];
+          for (var tci = 0; tci < dominantColors.length; tci++) {
+            var tc3 = dominantColors[tci];
+            if (Math.abs(tr-tc3[0])<40 && Math.abs(tg2-tc3[1])<40 && Math.abs(tb3-tc3[2])<40) {
+              firstX = tx; break outer;
+            }
+          }
+        }
+      }
+      bandTextX.push(firstX);
+      dbg('Band '+bi2+' (y='+bd.start+'-'+bd.end+'): text starts at x='+firstX);
+    }
+
+    // ── Debug canvas ──────────────────────────────────────────────────────────
+    try {
+      var dbgCanvas = document.getElementById('debug-canvas');
+      if (!dbgCanvas) {
+        dbgCanvas = document.createElement('canvas');
+        dbgCanvas.id = 'debug-canvas';
+        dbgCanvas.style.cssText = 'position:fixed;bottom:0;right:0;border:2px solid red;image-rendering:pixelated;z-index:9999;';
+        document.body.appendChild(dbgCanvas);
+      }
+      var sc = 3;
+      dbgCanvas.width = W * sc; dbgCanvas.height = H * sc;
+      var dctx = dbgCanvas.getContext('2d');
+      var tmp = document.createElement('canvas');
+      tmp.width = W; tmp.height = H;
+      var tctx = tmp.getContext('2d');
+      var idata = tctx.createImageData(W, H);
+      for (var ip = 0; ip < data.length; ip++) idata.data[ip] = data[ip];
+      for (var ia = 3; ia < idata.data.length; ia += 4) idata.data[ia] = 255;
+      tctx.putImageData(idata, 0, 0);
+      dctx.imageSmoothingEnabled = false;
+      dctx.drawImage(tmp, 0, 0, W*sc, H*sc);
+      dctx.strokeStyle = 'rgba(0,120,255,0.9)'; dctx.lineWidth = 1;
+      for (var bdi = 0; bdi < bands.length; bdi++)
+        dctx.strokeRect(0, bands[bdi].start*sc, W*sc, (bands[bdi].end-bands[bdi].start+1)*sc);
+      dctx.strokeStyle = 'lime';
+      for (var bgi = 0; bgi < bands.length; bgi++) {
+        if (bandTextX[bgi] >= 0) {
+          dctx.beginPath();
+          dctx.moveTo(bandTextX[bgi]*sc, bands[bgi].start*sc);
+          dctx.lineTo(bandTextX[bgi]*sc, (bands[bgi].end+1)*sc);
+          dctx.stroke();
+        }
+      }
+      dbg('Debug canvas: '+W+'x'+H+' @'+sc+'x');
+    } catch(ce) { dbg('Canvas err: '+ce.message); }
+
+    var ocrResults = rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX);
+    var bestResult = null;
+
+    for (var ri = 0; ri < ocrResults.length && !bestResult; ri++) {
+      var raw = ocrResults[ri].text.trim();
+      dbg('OCR result band='+ocrResults[ri].band+': "'+raw+'"');
+      var examM = raw.match(/examine\s+(.+)/i);
+      if (examM && examM[1].trim().length > 1) { bestResult = examM[1].trim(); break; }
+      if (/^(walk here|cancel|choose option|pickpocket|attack|talk-to|trade|use)$/i.test(raw)) continue;
+      if (raw.length > 1 && /^[A-Za-z0-9 '\-,!.()']+$/.test(raw)) bestResult = raw;
+    }
+
+        if (bestResult) {
+      dbg('OCR SUCCESS: "' + bestResult + '"');
+      flashBadge('#4caf50');
+      setStatus('busy', 'Detected: ' + bestResult);
+      lookup(bestResult);
+    } else {
+      dbg('OCR found no readable text in examine region');
+      setStatus('err', 'Could not read examine text — try hovering the Examine option and pressing Alt+1');
+    }
+
+  } catch(e) {
+    dbg('readExamineWindow error: ' + e.message);
+    setStatus('err', 'Error reading screen: ' + e.message.slice(0, 60));
+  }
+}
+
+function parseExamineText(text) {
+  if (!text) return null;
+  var m = text.match(/Examine[^a-z]+(.+)/i);
+  if (m) return m[1].trim();
+  return null;
+}
+
+// ── Init ───────────────────────────────────────────────────
+showBrowser();
+searchInput.focus();
+loadMonsterList();
+</script>
+</body>
+</html>
   background: var(--bg); color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 13px; height: 100vh;
