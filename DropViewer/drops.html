@@ -1234,19 +1234,17 @@ async function readExamineWindow() {
 
     dbg('Scanning ' + W + 'x' + H + ' region for text rows...');
 
-    // RS3 right-click menu colours:
-    //   Yellow  [255,255,0]   — NPC/object name after "Examine"
-    //   White   [255,255,255] — action keywords like "Examine", "Walk here"
-    // We scan each row to find which rows actually contain each color,
-    // then only run the expensive OCR on those rows.
+    // RS3 NPC names can be yellow, green, cyan, orange, white depending on NPC type.
+    // Detect rows with ANY bright non-background pixels.
     var colorsToTry = [
       { col: [255, 255,   0], label: 'yellow' },
+      { col: [  0, 255,   0], label: 'green'  },
       { col: [255, 255, 255], label: 'white'  },
       { col: [  0, 255, 255], label: 'cyan'   },
       { col: [255, 152,   0], label: 'orange' },
     ];
 
-    // Build a map of which rows have a meaningful count of each color
+    // Build rowHits: rows containing any bright non-border pixel
     var rowHits = [];
     for (var py = 0; py < H; py++) rowHits[py] = [];
 
@@ -1256,9 +1254,9 @@ async function readExamineWindow() {
         var count = 0;
         for (var px2 = 0; px2 < W; px2++) {
           var idx2 = (py2 * W + px2) * 4;
-          if (Math.abs(data[idx2]   - tc[0]) < 20 &&
-              Math.abs(data[idx2+1] - tc[1]) < 20 &&
-              Math.abs(data[idx2+2] - tc[2]) < 20) count++;
+          if (Math.abs(data[idx2]   - tc[0]) < 40 &&
+              Math.abs(data[idx2+1] - tc[1]) < 40 &&
+              Math.abs(data[idx2+2] - tc[2]) < 40) count++;
         }
         if (count >= 2) rowHits[py2].push(ci2);
       }
@@ -1267,9 +1265,9 @@ async function readExamineWindow() {
     var hitSummary = [];
     for (var sy = 0; sy < H; sy++) {
       if (rowHits[sy].length > 0)
-        hitSummary.push('y' + sy + ':' + rowHits[sy].map(function(i){ return colorsToTry[i].label; }).join('+'));
+        hitSummary.push('y'+sy+':'+rowHits[sy].map(function(i){ return colorsToTry[i].label; }).join('+'));
     }
-    dbg('Color rows: ' + (hitSummary.length ? hitSummary.join(' ') : 'none found'));
+    dbg('Color rows: ' + (hitSummary.length ? hitSummary.slice(0,10).join(' ')+'...' : 'none'));
 
     var basey  = chatFont.basey  || 8;
     var fh     = chatFont.height || 12;
@@ -1294,34 +1292,54 @@ async function readExamineWindow() {
     var bands = [];
     var inBand = false, bandStart = 0;
     for (var by = 0; by <= H; by++) {
-      var hasYellow = rowHits[by] && rowHits[by].indexOf(0) !== -1;
-      if (hasYellow && !inBand)      { inBand = true;  bandStart = by; }
-      else if (!hasYellow && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
+      var hasBright = rowHits[by] && rowHits[by].length > 0;
+      if (hasBright && !inBand)      { inBand = true;  bandStart = by; }
+      else if (!hasBright && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
     }
     dbg('Bands: ' + bands.map(function(b){ return b.start+'-'+b.end; }).join(', '));
 
-    // ── readChar diagnostic at first band ────────────────────────────────────
-    // readChar(imageData, font, color, x, y, reverseX, multicolor)
-    // y must be pixel_top_of_glyph + basey (readChar subtracts basey internally)
-    if (bands.length > 0 && ocrLib.readChar) {
+    // ── Extract dominant text colors directly from the image ─────────────────
+    // Bucket all bright pixels into coarse color bins, sort by frequency,
+    // use the top colors as OCR color candidates. This handles green names,
+    // yellow names, white text, cyan text, etc. automatically.
+    var colorBins = {};
+    var BORDER_COLOR_R = 220, BORDER_COLOR_G = 200, BORDER_COLOR_B = 160; // menu border tan
+    for (var cy2 = 0; cy2 < H; cy2++) {
+      for (var cx2 = 0; cx2 < W; cx2++) {
+        var ci4 = (cy2 * W + cx2) * 4;
+        var pr = data[ci4], pg = data[ci4+1], pb = data[ci4+2];
+        if (pr < 100 && pg < 100 && pb < 100) continue; // skip dark pixels
+        // Skip the border tan color
+        if (Math.abs(pr-BORDER_COLOR_R)<30 && Math.abs(pg-BORDER_COLOR_G)<30 && Math.abs(pb-BORDER_COLOR_B)<30) continue;
+        // Skip near-white (menu background highlight), skip pure grey
+        if (pr > 230 && pg > 230 && pb > 230) continue;
+        // Quantize to 32-step bins
+        var bkey = (Math.round(pr/32)*32) + '_' + (Math.round(pg/32)*32) + '_' + (Math.round(pb/32)*32);
+        colorBins[bkey] = (colorBins[bkey]||0) + 1;
+      }
+    }
+    var sortedColors = Object.keys(colorBins).sort(function(a,b){ return colorBins[b]-colorBins[a]; });
+    var dominantColors = sortedColors.slice(0, 8).map(function(k) {
+      var parts = k.split('_');
+      return [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
+    });
+    // Always include the classics as fallbacks
+    [[255,255,0],[0,255,0],[255,255,255],[0,255,255],[255,165,0]].forEach(function(c) {
+      dominantColors.push(c);
+    });
+    dbg('Colors to try: ' + dominantColors.slice(0,6).map(function(c){ return '('+c+')'; }).join(' '));
+
+    // ── readChar diagnostic with dominant color ───────────────────────────────
+    if (bands.length > 0 && ocrLib.readChar && dominantColors.length > 0) {
       var diagBand = bands[0];
       var diagY = diagBand.start + basey;
-      dbg('readChar diag: testing x=4..20 at band0 baseline y='+diagY);
-      for (var dx = 4; dx <= 20; dx += 4) {
+      var diagCol = dominantColors[0];
+      dbg('readChar diag band0 y='+diagY+' col=('+diagCol+')');
+      for (var dx = 2; dx <= 30; dx += 4) {
         try {
-          var dc = ocrLib.readChar(examineData, chatFont, [255,255,0], dx, diagY, false, false);
-          dbg('  readChar x='+dx+': ' + (dc ? '"'+dc.chr+'" score='+dc.score.toFixed(1) : 'null'));
-        } catch(de) { dbg('  readChar x='+dx+' err: '+de.message.slice(0,60)); break; }
-      }
-      // Also test the second band (likely the Examine row)
-      if (bands.length > 1) {
-        var diagBand2 = bands[1];
-        var diagY2 = diagBand2.start + basey;
-        dbg('readChar diag band1: x=4 y='+diagY2);
-        try {
-          var dc2 = ocrLib.readChar(examineData, chatFont, [255,255,0], 4, diagY2, false, false);
-          dbg('  readChar band1 x=4: ' + (dc2 ? '"'+dc2.chr+'" score='+dc2.score.toFixed(1) : 'null'));
-        } catch(de2) { dbg('  readChar band1 err: '+de2.message.slice(0,60)); }
+          var dc = ocrLib.readChar(examineData, chatFont, diagCol, dx, diagY, false, false);
+          if (dc && dc.chr !== ' ') dbg('  x='+dx+': "'+dc.chr+'" score='+dc.score.toFixed(1));
+        } catch(de) { break; }
       }
     }
 
@@ -1334,18 +1352,18 @@ async function readExamineWindow() {
 
       for (var tryRow = band.start; tryRow <= Math.min(band.end, maxRow) && !bestResult; tryRow++) {
         var baseline = tryRow + basey;
-        var colsToTry = [[255,255,0],[255,255,255],[220,220,180],[200,200,200]];
 
-        for (var ci3 = 0; ci3 < colsToTry.length && !bestResult; ci3++) {
+        for (var ci3 = 0; ci3 < dominantColors.length && !bestResult; ci3++) {
           try {
-            var res = ocrLib.readLine(examineData, chatFont, colsToTry[ci3], 0, baseline, false, true);
+            var res = ocrLib.readLine(examineData, chatFont, dominantColors[ci3], 0, baseline, false, true);
             if (res && res.text && res.text.trim().length > 0) {
               var raw = res.text.trim();
-              dbg('HIT band='+bi+' row='+tryRow+' base='+baseline+' col=('+colsToTry[ci3]+'): "'+raw+'"');
+              if (raw === ' ' || raw === '') continue;
+              dbg('HIT band='+bi+' row='+tryRow+' base='+baseline+' col=('+dominantColors[ci3]+'): "'+raw+'"');
               var examM = raw.match(/examine\s+(.+)/i);
               if (examM && examM[1].trim().length > 1) { bestResult = examM[1].trim(); break; }
-              if (/^(walk here|cancel|choose option|pickpocket)$/i.test(raw)) continue;
-              if (/^[A-Za-z0-9 '\-,!]+$/.test(raw)) { bestResult = raw; }
+              if (/^(walk here|cancel|choose option|pickpocket|attack|talk-to|trade|use)$/i.test(raw)) continue;
+              if (raw.length > 1 && /^[A-Za-z0-9 '\-,!.]+$/.test(raw)) { bestResult = raw; }
             }
           } catch(readErr) {
             if (bi === 0 && tryRow === band.start && ci3 === 0)
