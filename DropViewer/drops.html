@@ -1060,136 +1060,16 @@ if (isAlt1) {
   ocrScript.onload = function() { dbg('OCR loaded: ' + (typeof window.OCR !== 'undefined')); };
   document.head.appendChild(ocrScript);
 
-  // Generate RS3 right-click menu font from the TTF using canvas rendering.
-  // The menu uses "RuneScape Chat Bold" at 16px. We render each character onto
-  // a canvas and call OCR.generatefont() to build a proper pixel font object.
-  window.RS3MenuFont = null;
-
-  async function generateMenuFont() {
-    try {
-      // Load the TTF as a FontFace
-      const resp = await fetch('./runescape_chat_bold_2.ttf');
-      const ttfBuf = await resp.arrayBuffer();
-      const face = new FontFace('RS3MenuBold', ttfBuf);
-      await face.load();
-      document.fonts.add(face);
-      dbg('TTF loaded, generating OCR font...');
-
-      // Font metrics at 16px (derived from TTF: upem=1024, ascender=896, descender=128)
-      const PX        = 16;   // em size in pixels
-      const ASCENDER  = Math.round(896 / 1024 * PX);   // 14
-      const DESCENDER = Math.round(128 / 1024 * PX);   // 2
-      const CELL_H    = ASCENDER + DESCENDER;           // 16 total cell height
-      const BASEY     = ASCENDER;                       // baseline offset from glyph top = 14
-
-      // Characters present in the right-click menu
-      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 \'\"!@#$%^&*()-_=+[]{}|;:,.<>?/`~\\';
-
-      // Measure each character's advance width
-      const measCanvas = document.createElement('canvas');
-      measCanvas.width = 400; measCanvas.height = CELL_H + 4;
-      const measCtx = measCanvas.getContext('2d');
-      measCtx.font = PX + 'px RS3MenuBold';
-
-      // generatefont expects a single canvas image with chars laid out left-to-right,
-      // separated by a white pixel at the bottom row, with black pixel for end marker.
-      // Format: each char cell has a white pixel at (x, CELL_H) between chars.
-      // See OCR.generatefont signature: (imageData, chars, secondaryChars, bonuses,
-      //   basey, spacewidth, threshold, shadow)
-
-      // First pass: measure all char widths
-      const charWidths = [];
-      for (const ch of CHARS) {
-        const m = measCtx.measureText(ch);
-        charWidths.push(Math.ceil(m.width));
-      }
-
-      // Build the font strip canvas
-      const PAD = 1;  // 1px gap between chars (for generatefont separator)
-      let totalW = 0;
-      for (const w of charWidths) totalW += w + PAD;
-      totalW += PAD;
-
-      const stripH = CELL_H + 1;  // +1 for the separator row
-      const strip = document.createElement('canvas');
-      strip.width = totalW;
-      strip.height = stripH;
-      const ctx = strip.getContext('2d');
-
-      // Fill black
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, totalW, stripH);
-
-      // Draw separator markers (white pixel at bottom of each char cell boundary)
-      let cx = 0;
-      ctx.fillStyle = '#ffffff';
-      for (let i = 0; i < CHARS.length; i++) {
-        // White pixel at left edge of each char, in the separator row
-        ctx.fillRect(cx, CELL_H, 1, 1);
-        cx += charWidths[i] + PAD;
-      }
-      // Final end marker
-      ctx.fillRect(cx, CELL_H, 1, 1);
-
-      // Draw characters in white
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold ' + PX + 'px RS3MenuBold';
-      ctx.textBaseline = 'alphabetic';
-      cx = 0;
-      for (let i = 0; i < CHARS.length; i++) {
-        const ch = CHARS[i];
-        if (ch !== ' ') {
-          ctx.fillText(ch, cx, ASCENDER);
-        }
-        cx += charWidths[i] + PAD;
-      }
-
-      // Get ImageData and call generatefont
-      const imgData = ctx.getImageData(0, 0, strip.width, strip.height);
-
-      // Wrap as A1lib ImageData
-      const A1ImageData = window.A1lib ? window.A1lib.ImageData : null;
-      let fontImgData;
-      if (A1ImageData) {
-        fontImgData = new A1ImageData(imgData.data, imgData.width, imgData.height);
-      } else {
-        fontImgData = imgData;
-      }
-
-      const spaceWidth = charWidths[CHARS.indexOf(' ')] || 4;
-      const secondaryChars = '';
-      const bonuses = null;
-      const threshold = 128;  // pixel brightness threshold for inclusion
-      const shadow = false;
-
-      const ocrLib = window.OCR;
-      if (!ocrLib || !ocrLib.generatefont) { dbg('OCR.generatefont not available'); return; }
-
-      window.RS3MenuFont = ocrLib.generatefont(
-        fontImgData, CHARS, secondaryChars, bonuses, BASEY, spaceWidth, threshold, shadow
-      );
-
-      if (window.RS3MenuFont) {
-        dbg('RS3MenuFont generated: ' + window.RS3MenuFont.chars.length + ' chars, basey=' +
-            window.RS3MenuFont.basey + ' height=' + window.RS3MenuFont.height +
-            ' shadow=' + window.RS3MenuFont.shadow);
-      } else {
-        dbg('RS3MenuFont generation returned null');
-      }
-    } catch(e) {
-      dbg('generateMenuFont error: ' + e.message);
-    }
-  }
-
-  // Kick off font generation once OCR is loaded (OCR needed for generatefont)
-  function waitForOcrAndGenerateFont() {
-    if (window.OCR && window.OCR.generatefont) {
-      generateMenuFont();
-    } else {
-      setTimeout(waitForOcrAndGenerateFont, 100);
-    }
-  }
-  setTimeout(waitForOcrAndGenerateFont, 200);
+  // Load pre-baked RS3 right-click menu font (generated from RuneScape Chat Bold 2 TTF
+  // at 16px using freetype — basey=14, height=16, shadow=false)
+  var menuFontScript = document.createElement('script');
+  menuFontScript.src = './rs3menufont.js';
+  menuFontScript.onload = function() {
+    var f = window.RS3MenuFont;
+    dbg('RS3MenuFont loaded: ' + (f ? f.chars.length + ' chars, basey=' + f.basey + ' height=' + f.height : 'FAILED'));
+  };
+  menuFontScript.onerror = function() { dbg('rs3menufont.js failed to load — ensure file is in same folder'); };
+  document.head.appendChild(menuFontScript);
 
   // Handle openInfo (activator match)
   function processOpenInfo(info) {
