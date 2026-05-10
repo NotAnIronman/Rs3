@@ -1146,28 +1146,21 @@ window.RS3MenuFont={chars:[
   
   // ── Pure-JS pixel OCR — no external library needed ────────────────────────
   // RS3Font is defined inline above
-  function rs3ReadLine(imgData, imgW, imgH, startX, rowY, targetR, targetG, targetB) {
-    // rowY = top pixel row of the text band in the image
-    // We scan left-to-right from startX, matching font templates against colored pixels
-  
-    var TOLERANCE = 60;  // how close a pixel must be to the target color
+  function rs3ReadLine(imgData, imgW, imgH, startX, rowY, targetR, targetG, targetB, dbgCtx, scale) {
+    var TOLERANCE = 60;
     var chars = RS3Font.chars;
     var spaceW = RS3Font.spacewidth;
     var fH = RS3Font.height;
-    var basey = RS3Font.basey;
-  
+
     function pixelMatches(imgX, imgY) {
       if (imgX < 0 || imgX >= imgW || imgY < 0 || imgY >= imgH) return false;
-      var i = (imgY * imgW + imgX) * 4;
-      return (Math.abs(imgData[i]   - targetR) < TOLERANCE &&
-              Math.abs(imgData[i+1] - targetG) < TOLERANCE &&
-              Math.abs(imgData[i+2] - targetB) < TOLERANCE);
+      var idx = (imgY * imgW + imgX) * 4;
+      return (Math.abs(imgData[idx]   - targetR) < TOLERANCE &&
+              Math.abs(imgData[idx+1] - targetG) < TOLERANCE &&
+              Math.abs(imgData[idx+2] - targetB) < TOLERANCE);
     }
-  
+
     function scoreChar(ch, imgX) {
-      // imgX = first colored pixel column in image (left edge of glyph body)
-      // ch.lsb = how far the glyph body starts from the advance origin
-      // Normalized pixels have min_x=0, so imgX + px[i][0] is correct
       var px = ch.pixels;
       if (px.length === 0) return 0;
       var hits = 0;
@@ -1176,28 +1169,53 @@ window.RS3MenuFont={chars:[
       }
       return hits / px.length;
     }
-  
+
     function hasColorAt(x, bandY, bandH) {
       for (var y = bandY; y < bandY + bandH && y < imgH; y++) {
         if (pixelMatches(x, y)) return true;
       }
       return false;
     }
-  
+
+    // Draw the font template pixels on the debug canvas
+    function drawMatch(ch, imgX) {
+      if (!dbgCtx || !scale) return;
+      var px = ch.pixels;
+      for (var i = 0; i < px.length; i++) {
+        var hit = pixelMatches(imgX + px[i][0], rowY + px[i][1]);
+        dbgCtx.fillStyle = hit ? 'rgba(0,255,0,0.85)' : 'rgba(255,0,0,0.7)';
+        dbgCtx.fillRect((imgX + px[i][0]) * scale, (rowY + px[i][1]) * scale, scale, scale);
+      }
+      dbgCtx.fillStyle = 'rgba(255,255,0,0.95)';
+      dbgCtx.font = 'bold ' + Math.max(7, scale*2) + 'px monospace';
+      dbgCtx.fillText(ch.chr, imgX * scale, (rowY - 1) * scale);
+    }
+
     var result = '';
     var x = startX;
     var maxX = imgW - 1;
     var spaceCount = 0;
-    var MATCH_THRESHOLD = 0.65;  // fraction of pixels that must match
-    var MIN_PIXELS = 10;          // ignore tiny chars like ' and - (< 10 pixels)
-  
+    var MATCH_THRESHOLD = 0.65;
+    var MIN_PIXELS = 10;
+
+    // Draw rowY guide line on canvas
+    if (dbgCtx && scale) {
+      dbgCtx.strokeStyle = 'rgba(255,255,0,0.4)';
+      dbgCtx.lineWidth = 1;
+      dbgCtx.beginPath();
+      dbgCtx.moveTo(0, rowY * scale);
+      dbgCtx.lineTo(imgW * scale, rowY * scale);
+      dbgCtx.stroke();
+      // Also draw the font height band
+      dbgCtx.strokeStyle = 'rgba(255,255,0,0.15)';
+      dbgCtx.strokeRect(startX * scale, rowY * scale, (imgW-startX) * scale, fH * scale);
+    }
+
     while (x < maxX) {
-      // Check if there's any colored pixel in this column
       if (!hasColorAt(x, rowY, fH)) {
         spaceCount++;
         if (spaceCount >= spaceW) {
           if (result.length > 0) result += ' ';
-          // Skip ahead to next colored column
           while (x < maxX && !hasColorAt(x, rowY, fH)) x++;
           spaceCount = 0;
           continue;
@@ -1207,46 +1225,46 @@ window.RS3MenuFont={chars:[
       }
       spaceCount = 0;
 
-      // Try each character, pick the best match
       var bestScore = MATCH_THRESHOLD;
       var bestChar = null;
       var bestWidth = 1;
+      var bestCh = null;
 
       for (var ci = 0; ci < chars.length; ci++) {
         var ch = chars[ci];
-        if (ch.pixels.length < MIN_PIXELS) continue;  // skip tiny chars like ' and -
+        if (ch.pixels.length < MIN_PIXELS) continue;
         var s = scoreChar(ch, x);
         if (s > bestScore) {
           bestScore = s;
           bestChar = ch.chr;
-          bestWidth = ch.width - (ch.lsb || 0);  // already at glyph body, skip lsb
+          bestWidth = ch.width - (ch.lsb || 0);
+          bestCh = ch;
         }
       }
 
-      if (bestChar) {
+      if (bestCh) {
+        drawMatch(bestCh, x);
         result += bestChar;
         x += bestWidth;
       } else {
-        x++;  // no match, advance one pixel
+        // Red column = no match found
+        if (dbgCtx && scale) {
+          dbgCtx.fillStyle = 'rgba(255,80,0,0.35)';
+          dbgCtx.fillRect(x * scale, rowY * scale, scale, fH * scale);
+        }
+        x++;
       }
     }
-  
     return result.trim();
   }
-  
-  function rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX) {
+
+  function rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX, dbgCanvas) {
     var results = [];
+    var sc = dbgCanvas ? Math.max(1, Math.floor(dbgCanvas.width / W)) : 1;
 
     for (var bi = 0; bi < bands.length; bi++) {
       var band = bands[bi];
       var startX = Math.max(0, bandTextX[bi] >= 0 ? bandTextX[bi] : 0);
-
-      // The color detection finds band.start at the first colored row.
-      // But the font's uppercase glyph pixels start at cell_y=2 within
-      // the 16px cell. Our analysis shows we need rowY = band.start + 4
-      // so that font pixel (x, 2) lands at image row band.start+2 where
-      // the actual top-of-capital-letter pixels are.
-      // We try offsets 0..6 to handle variation across different menu states.
       var found = false;
       for (var ci = 0; ci < dominantColors.length && !found; ci++) {
         var col = dominantColors[ci];
@@ -1255,7 +1273,8 @@ window.RS3MenuFont={chars:[
           var yOff = yOffsets[yoi];
           var rowY = band.start + yOff;
           if (rowY < 0 || rowY >= H) continue;
-          var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2]);
+          var ctx = (dbgCanvas && !found) ? dbgCanvas.getContext('2d') : null;
+          var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2], ctx, sc);
           if (text && text.length > 1 && !/^\s+$/.test(text)) {
             dbg('rs3OCR band='+bi+' yOff='+yOff+' rowY='+rowY+' col=('+col+'): "'+text+'"');
             results.push({ band: bi, text: text, color: col });
@@ -1266,6 +1285,7 @@ window.RS3MenuFont={chars:[
     }
     return results;
   }
+
   
   // Handle openInfo (activator match)
   function processOpenInfo(info) {
@@ -1556,11 +1576,11 @@ async function readExamineWindow() {
       if (!dbgCanvas) {
         dbgCanvas = document.createElement('canvas');
         dbgCanvas.id = 'debug-canvas';
-        dbgCanvas.style.cssText = 'position:fixed;bottom:0;right:0;border:2px solid red;image-rendering:pixelated;z-index:9999;';
+        dbgCanvas.style.cssText = 'position:fixed;bottom:0;right:0;border:2px solid #ff4444;image-rendering:pixelated;z-index:9999;max-width:100vw;max-height:50vh;background:#111;';
         document.body.appendChild(dbgCanvas);
       }
-      var sc = 3;
-      dbgCanvas.width = W * sc; dbgCanvas.height = H * sc;
+      var sc = 4;
+      dbgCanvas.width = W * sc; dbgCanvas.height = H * sc + 20;  // +20 for char labels above
       var dctx = dbgCanvas.getContext('2d');
       var tmp = document.createElement('canvas');
       tmp.width = W; tmp.height = H;
@@ -1586,7 +1606,7 @@ async function readExamineWindow() {
       dbg('Debug canvas: '+W+'x'+H+' @'+sc+'x');
     } catch(ce) { dbg('Canvas err: '+ce.message); }
 
-    var ocrResults = rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX);
+    var ocrResults = rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX, dbgCanvas);
     var bestResult = null;
 
     for (var ri = 0; ri < ocrResults.length && !bestResult; ri++) {
