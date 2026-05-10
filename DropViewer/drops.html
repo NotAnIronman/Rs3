@@ -1147,7 +1147,7 @@ window.RS3MenuFont={chars:[
   // ── Pure-JS pixel OCR — no external library needed ────────────────────────
   // RS3Font is defined inline above
   function rs3ReadLine(imgData, imgW, imgH, startX, rowY, targetR, targetG, targetB, dbgCtx, scale) {
-    var TOLERANCE = 60;
+    var TOLERANCE = 30;
     var chars = RS3Font.chars;
     var spaceW = RS3Font.spacewidth;
     var fH = RS3Font.height;
@@ -1195,8 +1195,8 @@ window.RS3MenuFont={chars:[
     var x = startX;
     var maxX = imgW - 1;
     var spaceCount = 0;
-    var MATCH_THRESHOLD = 0.65;
-    var MIN_PIXELS = 10;
+    var MATCH_THRESHOLD = 0.55;
+    var MIN_PIXELS = 15;  // 'i'=12 blocked, 'T'=24 'l'=20 'j'=25 all pass
 
     // Draw rowY guide line on canvas
     if (dbgCtx && scale) {
