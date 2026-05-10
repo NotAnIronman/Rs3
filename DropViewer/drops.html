@@ -1184,11 +1184,11 @@ window.RS3MenuFont={chars:[
       for (var i = 0; i < px.length; i++) {
         var hit = pixelMatches(imgX + px[i][0], rowY + px[i][1]);
         dbgCtx.fillStyle = hit ? 'rgba(0,255,0,0.85)' : 'rgba(255,0,0,0.7)';
-        dbgCtx.fillRect((imgX + px[i][0]) * scale, (rowY + px[i][1]) * scale, scale, scale);
+        dbgCtx.fillRect((imgX + px[i][0]) * scale, (rowY + px[i][1]) * scale + 20, scale, scale);
       }
       dbgCtx.fillStyle = 'rgba(255,255,0,0.95)';
       dbgCtx.font = 'bold ' + Math.max(7, scale*2) + 'px monospace';
-      dbgCtx.fillText(ch.chr, imgX * scale, (rowY - 1) * scale);
+      dbgCtx.fillText(ch.chr, imgX * scale, (rowY - 1) * scale + 20);
     }
 
     var result = '';
@@ -1203,12 +1203,12 @@ window.RS3MenuFont={chars:[
       dbgCtx.strokeStyle = 'rgba(255,255,0,0.4)';
       dbgCtx.lineWidth = 1;
       dbgCtx.beginPath();
-      dbgCtx.moveTo(0, rowY * scale);
-      dbgCtx.lineTo(imgW * scale, rowY * scale);
+      dbgCtx.moveTo(0, rowY * scale + 20);
+      dbgCtx.lineTo(imgW * scale, rowY * scale + 20);
       dbgCtx.stroke();
       // Also draw the font height band
       dbgCtx.strokeStyle = 'rgba(255,255,0,0.15)';
-      dbgCtx.strokeRect(startX * scale, rowY * scale, (imgW-startX) * scale, fH * scale);
+      dbgCtx.strokeRect(startX * scale, rowY * scale + 20, (imgW-startX) * scale, fH * scale);
     }
 
     while (x < maxX) {
@@ -1250,7 +1250,7 @@ window.RS3MenuFont={chars:[
         // Red column = no match found
         if (dbgCtx && scale) {
           dbgCtx.fillStyle = 'rgba(255,80,0,0.35)';
-          dbgCtx.fillRect(x * scale, rowY * scale, scale, fH * scale);
+          dbgCtx.fillRect(x * scale, rowY * scale + 20, scale, fH * scale);
         }
         x++;
       }
@@ -1268,7 +1268,7 @@ window.RS3MenuFont={chars:[
       var found = false;
       for (var ci = 0; ci < dominantColors.length && !found; ci++) {
         var col = dominantColors[ci];
-        var yOffsets = [2, 3, 1, 4, 0, 5, -1];
+        var yOffsets = [6, 7, 5, 8, 4, 9, 3];
         for (var yoi = 0; yoi < yOffsets.length && !found; yoi++) {
           var yOff = yOffsets[yoi];
           var rowY = band.start + yOff;
@@ -1590,16 +1590,16 @@ async function readExamineWindow() {
       for (var ia = 3; ia < idata.data.length; ia += 4) idata.data[ia] = 255;
       tctx.putImageData(idata, 0, 0);
       dctx.imageSmoothingEnabled = false;
-      dctx.drawImage(tmp, 0, 0, W*sc, H*sc);
+      dctx.drawImage(tmp, 0, 20, W*sc, H*sc);
       dctx.strokeStyle = 'rgba(0,120,255,0.9)'; dctx.lineWidth = 1;
       for (var bdi = 0; bdi < bands.length; bdi++)
-        dctx.strokeRect(0, bands[bdi].start*sc, W*sc, (bands[bdi].end-bands[bdi].start+1)*sc);
+        dctx.strokeRect(0, bands[bdi].start*sc + 20, W*sc, (bands[bdi].end-bands[bdi].start+1)*sc);
       dctx.strokeStyle = 'lime';
       for (var bgi = 0; bgi < bands.length; bgi++) {
         if (bandTextX[bgi] >= 0) {
           dctx.beginPath();
-          dctx.moveTo(bandTextX[bgi]*sc, bands[bgi].start*sc);
-          dctx.lineTo(bandTextX[bgi]*sc, (bands[bgi].end+1)*sc);
+          dctx.moveTo(bandTextX[bgi]*sc, bands[bgi].start*sc + 20);
+          dctx.lineTo(bandTextX[bgi]*sc, (bands[bgi].end+1)*sc + 20);
           dctx.stroke();
         }
       }
