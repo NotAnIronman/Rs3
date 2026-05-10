@@ -1171,7 +1171,11 @@ window.RS3MenuFont={chars:[
     }
 
     function hasColorAt(x, bandY, bandH) {
-      for (var y = bandY; y < bandY + bandH && y < imgH; y++) {
+      // Only scan rows 2-11 relative to rowY — where actual character pixels live.
+      // Scanning the full 16px height causes false matches from adjacent bands.
+      var scanStart = bandY + 2;  // skip top 2 rows (blank in all chars)
+      var scanEnd   = bandY + 11; // caps end at row 11, don't go further
+      for (var y = scanStart; y <= scanEnd && y < imgH; y++) {
         if (pixelMatches(x, y)) return true;
       }
       return false;
@@ -1196,7 +1200,7 @@ window.RS3MenuFont={chars:[
     var maxX = imgW - 1;
     var spaceCount = 0;
     var MATCH_THRESHOLD = 0.55;
-    var MIN_PIXELS = 15;  // 'i'=12 blocked, 'T'=24 'l'=20 'j'=25 all pass
+    var MIN_PIXELS = 17;  // blocks i(12),r(15),c(16); allows l(20),T(24),a(26) etc
 
     // Draw rowY guide line on canvas
     if (dbgCtx && scale) {
@@ -1268,7 +1272,13 @@ window.RS3MenuFont={chars:[
       var found = false;
       for (var ci = 0; ci < dominantColors.length && !found; ci++) {
         var col = dominantColors[ci];
-        var yOffsets = [6, 7, 5, 8, 4, 9, 3];
+        // rowY + 2 (top of caps) must land within the band
+        // band.start + yOff + 2 >= band.start  → yOff >= -2 (always true)
+        // band.start + yOff + 11 <= band.end   → yOff <= band.end - band.start - 11
+        var maxOff = (band.end - band.start) - 11;
+        var yOffsets = [];
+        for (var yo = 0; yo <= maxOff; yo++) yOffsets.push(yo);
+        if (yOffsets.length === 0) yOffsets = [0];
         for (var yoi = 0; yoi < yOffsets.length && !found; yoi++) {
           var yOff = yOffsets[yoi];
           var rowY = band.start + yOff;
