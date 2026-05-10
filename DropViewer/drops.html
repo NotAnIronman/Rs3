@@ -1233,20 +1233,29 @@ window.RS3MenuFont={chars:[
   
   function rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX) {
     var results = [];
-  
+
     for (var bi = 0; bi < bands.length; bi++) {
       var band = bands[bi];
       var startX = Math.max(0, bandTextX[bi] >= 0 ? bandTextX[bi] : 0);
-      var rowY = band.start;
-  
-      // Try each dominant color
-      for (var ci = 0; ci < dominantColors.length; ci++) {
+
+      // The color detection finds band.start at the first colored row.
+      // But the font's uppercase glyph pixels start at cell_y=2 within
+      // the 16px cell. Our analysis shows we need rowY = band.start + 4
+      // so that font pixel (x, 2) lands at image row band.start+2 where
+      // the actual top-of-capital-letter pixels are.
+      // We try offsets 0..6 to handle variation across different menu states.
+      var found = false;
+      for (var ci = 0; ci < dominantColors.length && !found; ci++) {
         var col = dominantColors[ci];
-        var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2]);
-        if (text && text.length > 1 && !/^\s+$/.test(text)) {
-          dbg('rs3OCR band='+bi+' col=('+col+') row='+rowY+' x='+startX+': "'+text+'"');
-          results.push({ band: bi, text: text, color: col });
-          break;
+        for (var yOff = 4; yOff >= -1 && !found; yOff--) {
+          var rowY = band.start + yOff;
+          if (rowY < 0 || rowY >= H) continue;
+          var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2]);
+          if (text && text.length > 1 && !/^\s+$/.test(text)) {
+            dbg('rs3OCR band='+bi+' yOff='+yOff+' rowY='+rowY+' col=('+col+'): "'+text+'"');
+            results.push({ band: bi, text: text, color: col });
+            found = true;
+          }
         }
       }
     }
