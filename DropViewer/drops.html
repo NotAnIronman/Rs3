@@ -1163,27 +1163,34 @@ window.RS3MenuFont={chars:[
     function scoreChar(ch, imgX) {
       var px = ch.pixels;
       if (px.length === 0) return 0;
-      var hits = 0;
-      for (var i = 0; i < px.length; i++) {
-        if (pixelMatches(imgX + px[i][0], rowY + px[i][1])) hits++;
-      }
-      var matchRatio = hits / px.length;
-      if (matchRatio < MATCH_THRESHOLD) return 0;
 
-      // Check 3 columns past the right edge — if colored pixels continue,
-      // this char is just matching the left portion of a wider character.
-      var rightEdge = imgX + (ch.span || 0);
-      var falseRightHits = 0;
-      for (var ry = 2; ry <= 11; ry++) {
-        // Check rightEdge and next 2 columns
-        if (pixelMatches(rightEdge,     rowY + ry)) falseRightHits++;
-        if (pixelMatches(rightEdge + 1, rowY + ry)) falseRightHits++;
-        if (pixelMatches(rightEdge + 2, rowY + ry)) falseRightHits++;
-      }
-      // If 6+ pixels continue past our right edge, we're inside a wider char
-      if (falseRightHits >= 6) return matchRatio * 0.2;
+      // Try imgX and imgX±1 to handle 1px alignment variance, take best
+      var bestF1 = 0;
+      for (var xOff = -1; xOff <= 1; xOff++) {
+        var ix = imgX + xOff;
+        // Count template pixels that hit image (precision)
+        var hits = 0;
+        for (var i = 0; i < px.length; i++) {
+          if (pixelMatches(ix + px[i][0], rowY + px[i][1])) hits++;
+        }
+        var precision = hits / px.length;
+        if (precision < 0.4) continue;  // quick reject
 
-      return matchRatio;
+        // Count image pixels in template span that template covers (recall)
+        // Scan every position in the template's bounding box
+        var imgPixelsInSpan = 0;
+        for (var ry2 = 2; ry2 <= 11; ry2++) {
+          for (var rx2 = 0; rx2 < ch.span; rx2++) {
+            if (pixelMatches(ix + rx2, rowY + ry2)) imgPixelsInSpan++;
+          }
+        }
+        var recall = imgPixelsInSpan > 0 ? hits / imgPixelsInSpan : 0;
+
+        // F1 = harmonic mean of precision and recall
+        var f1 = (precision + recall > 0) ? 2 * precision * recall / (precision + recall) : 0;
+        if (f1 > bestF1) bestF1 = f1;
+      }
+      return bestF1;
     }
 
     function hasColorAt(x, bandY, bandH) {
@@ -1215,8 +1222,8 @@ window.RS3MenuFont={chars:[
     var x = startX;
     var maxX = imgW - 1;
     var spaceCount = 0;
-    var MATCH_THRESHOLD = 0.55;
-    var MIN_PIXELS = 17;  // blocks i(12),r(15),c(16); allows l(20),T(24),a(26) etc
+    var MATCH_THRESHOLD = 0.50;  // F1 threshold — 0.5 means precision*recall balanced
+    var MIN_PIXELS = 17;
 
     // Draw rowY guide line on canvas
     if (dbgCtx && scale) {
@@ -1266,13 +1273,9 @@ window.RS3MenuFont={chars:[
       if (bestCh) {
         drawMatch(bestCh, x);
         result += bestChar;
-        x += bestWidth;
+        // Advance by span+1: we're at the glyph body, span covers it exactly
+        x += (bestCh.span || bestWidth) + 1;
       } else {
-        // Red column = no match found
-        if (dbgCtx && scale) {
-          dbgCtx.fillStyle = 'rgba(255,80,0,0.35)';
-          dbgCtx.fillRect(x * scale, rowY * scale + 20, scale, fH * scale);
-        }
         x++;
       }
     }
