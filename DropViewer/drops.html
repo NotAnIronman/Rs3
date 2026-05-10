@@ -1186,7 +1186,8 @@ window.RS3MenuFont={chars:[
     var x = startX;
     var maxX = imgW - 1;
     var spaceCount = 0;
-    var MATCH_THRESHOLD = 0.45;  // fraction of pixels that must match
+    var MATCH_THRESHOLD = 0.65;  // fraction of pixels that must match
+    var MIN_PIXELS = 10;          // ignore tiny chars like ' and - (< 10 pixels)
   
     while (x < maxX) {
       // Check if there's any colored pixel in this column
@@ -1211,7 +1212,7 @@ window.RS3MenuFont={chars:[
   
       for (var ci = 0; ci < chars.length; ci++) {
         var ch = chars[ci];
-        if (ch.pixels.length === 0) continue;
+        if (ch.pixels.length < MIN_PIXELS) continue;  // skip tiny chars like ' and -
         var s = scoreChar(ch, x);
         if (s > bestScore) {
           bestScore = s;
@@ -1247,7 +1248,9 @@ window.RS3MenuFont={chars:[
       var found = false;
       for (var ci = 0; ci < dominantColors.length && !found; ci++) {
         var col = dominantColors[ci];
-        for (var yOff = 4; yOff >= -1 && !found; yOff--) {
+        var yOffsets = [2, 3, 1, 4, 0, 5, -1];
+        for (var yoi = 0; yoi < yOffsets.length && !found; yoi++) {
+          var yOff = yOffsets[yoi];
           var rowY = band.start + yOff;
           if (rowY < 0 || rowY >= H) continue;
           var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2]);
