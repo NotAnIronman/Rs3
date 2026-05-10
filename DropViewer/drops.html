@@ -1170,15 +1170,18 @@ window.RS3MenuFont={chars:[
       var matchRatio = hits / px.length;
       if (matchRatio < MATCH_THRESHOLD) return 0;
 
-      // Negative check: the column just past the right edge of this char
-      // should NOT have colored pixels (prevents 'l' matching left edge of 'M')
+      // Check 3 columns past the right edge — if colored pixels continue,
+      // this char is just matching the left portion of a wider character.
       var rightEdge = imgX + (ch.span || 0);
       var falseRightHits = 0;
       for (var ry = 2; ry <= 11; ry++) {
-        if (pixelMatches(rightEdge, rowY + ry)) falseRightHits++;
+        // Check rightEdge and next 2 columns
+        if (pixelMatches(rightEdge,     rowY + ry)) falseRightHits++;
+        if (pixelMatches(rightEdge + 1, rowY + ry)) falseRightHits++;
+        if (pixelMatches(rightEdge + 2, rowY + ry)) falseRightHits++;
       }
-      // If >3 pixels to the right are also colored, this is a partial match
-      if (falseRightHits > 3) return matchRatio * 0.3;  // heavily penalize
+      // If 6+ pixels continue past our right edge, we're inside a wider char
+      if (falseRightHits >= 6) return matchRatio * 0.2;
 
       return matchRatio;
     }
