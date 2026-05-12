@@ -1394,45 +1394,116 @@ async function readExamineWindow() {
     }
 
     // ── 4. Grab the name-strip pixels via screen.toData (abs coords) ─────────
-    var stripRaw  = screen.toData(nameAbsX, nameAbsY, nameW, nameH);
+    var stripRaw = screen.toData(nameAbsX, nameAbsY, nameW, nameH);
     var SW = stripRaw.width  || nameW;
     var SH = stripRaw.height || nameH;
-    var stripData = { width: SW, height: SH, data: stripRaw.data };
+    var SD = stripRaw.data;
 
+    // ── 4a. Pixel-level clip: find the "(" by locating the dark gap ──────────
+    // In the RS3 right-click menu the name and "(level: N)" are separated by
+    // a space — i.e. one or more fully-dark (background) columns.  We scan
+    // left→right tracking the rightmost column that had bright pixels; the
+    // moment we find a fully-dark column AFTER bright text has started, that
+    // marks the gap before "(". We stop there.
+    //
+    // "Bright" = any pixel in the column with average brightness > THRESHOLD.
+    // The RS3 menu background is very dark (~20–40), text is vivid (>100).
+    var BRIGHT_THRESH = 60;  // pixel avg R+G+B/3 must exceed this to count
+    var lastBrightCol = -1;
+    var textStarted   = false;
 
-    // Simpler & reliable: build the strip canvas, let Tesseract find "("
-    // itself, then strip everything from "(" onward in the returned string.
-    var stripCanvas = imgDataToCanvas(stripData);
+    for (var cx = 0; cx < SW; cx++) {
+      var colBright = false;
+      for (var cy = 0; cy < SH; cy++) {
+        var si = (cy * SW + cx) * 4;
+        if ((SD[si] + SD[si+1] + SD[si+2]) / 3 > BRIGHT_THRESH) {
+          colBright = true;
+          break;
+        }
+      }
+      if (colBright) {
+        lastBrightCol = cx;
+        textStarted   = true;
+      } else if (textStarted) {
+        // First dark column after text — this is the gap before "(level:..."
+        // Don't break immediately; keep scanning so we use the LAST bright
+        // column of the name word, not an internal gap (e.g. space in name).
+        // We'll do a second pass below to confirm it's a real end-gap.
+      }
+    }
 
-    // Scale up 4× so Tesseract has enough resolution on small RS menu text
+    // Second pass: find the first dark gap of ≥2 consecutive dark columns
+    // after text has started. That's the space before "(level:".
+    var clipCol = SW;
+    var consecutiveDark = 0;
+    textStarted = false;
+    for (var cx2 = 0; cx2 < SW; cx2++) {
+      var hasBright = false;
+      for (var cy2 = 0; cy2 < SH; cy2++) {
+        var si2 = (cy2 * SW + cx2) * 4;
+        if ((SD[si2] + SD[si2+1] + SD[si2+2]) / 3 > BRIGHT_THRESH) {
+          hasBright = true;
+          break;
+        }
+      }
+      if (hasBright) {
+        textStarted     = true;
+        consecutiveDark = 0;
+      } else if (textStarted) {
+        consecutiveDark++;
+        // ≥2 dark cols in a row = a real inter-word space → clip here
+        if (consecutiveDark >= 2) {
+          clipCol = cx2 - consecutiveDark + 1;  // start of the gap
+          break;
+        }
+      }
+    }
+
+    dbg('Pixel clip: SW=' + SW + ' clipCol=' + clipCol);
+
+    // Build the (possibly clipped) strip ImageData
+    var clippedW    = Math.max(1, clipCol);
+    var clippedData = { width: clippedW, height: SH,
+                        data: new Uint8ClampedArray(clippedW * SH * 4) };
+    for (var row = 0; row < SH; row++) {
+      for (var col = 0; col < clippedW; col++) {
+        var src = (row * SW + col) * 4;
+        var dst = (row * clippedW + col) * 4;
+        clippedData.data[dst]   = SD[src];
+        clippedData.data[dst+1] = SD[src+1];
+        clippedData.data[dst+2] = SD[src+2];
+        clippedData.data[dst+3] = 255;
+      }
+    }
+
+    var stripCanvas = imgDataToCanvas(clippedData);
+
+    // Scale up 4× — Tesseract needs enough pixels for small RS menu text
     var SCALE = 4;
     var scaledCanvas = scaleCanvas(stripCanvas, SCALE);
 
-    // Optional: invert colors if background is dark (RS menu is dark-ish)
-    // Tesseract works better on dark-text-on-light; check average brightness
-    var avgCtx = stripCanvas.getContext('2d');
-    var sampleData = avgCtx.getImageData(0, 0, Math.min(SW, 20), SH).data;
+    // Invert if background is dark (RS menu is ~20–40 avg brightness)
+    var avgCtx    = stripCanvas.getContext('2d');
+    var samplePx  = avgCtx.getImageData(0, 0, Math.min(clippedW, 20), SH).data;
     var avgBright = 0;
-    for (var pi = 0; pi < sampleData.length; pi += 4)
-      avgBright += (sampleData[pi] + sampleData[pi+1] + sampleData[pi+2]) / 3;
-    avgBright /= (sampleData.length / 4);
-    dbg('Strip avg brightness: ' + avgBright.toFixed(1));
+    for (var pi = 0; pi < samplePx.length; pi += 4)
+      avgBright += (samplePx[pi] + samplePx[pi+1] + samplePx[pi+2]) / 3;
+    avgBright /= (samplePx.length / 4);
+    dbg('Strip avg brightness: ' + avgBright.toFixed(1) + '  clipCol=' + clipCol);
 
     if (avgBright < 100) {
-      // Dark background — invert for Tesseract
-      var invCtx = scaledCanvas.getContext('2d');
-      invCtx.filter = 'invert(1)';
       var tmp2 = document.createElement('canvas');
       tmp2.width = scaledCanvas.width; tmp2.height = scaledCanvas.height;
-      tmp2.getContext('2d').filter = 'invert(1)';
-      tmp2.getContext('2d').drawImage(scaledCanvas, 0, 0);
+      var t2ctx = tmp2.getContext('2d');
+      t2ctx.filter = 'invert(1)';
+      t2ctx.drawImage(scaledCanvas, 0, 0);
       scaledCanvas = tmp2;
       dbg('Inverted strip for Tesseract');
     }
 
-    showDebugCanvas(scaledCanvas, 'OCR strip (scaled ' + SCALE + 'x)');
+    showDebugCanvas(scaledCanvas, 'OCR strip (clipped at col ' + clipCol + ', scaled ' + SCALE + 'x)');
 
-    // ── 5. Run Tesseract OCR ──────────────────────────────────
+    // ── 5. Run Tesseract OCR on the clipped strip ─────────────────────────────
     setStatus('busy', '🔡 Running OCR...');
     var worker = await getTesseract();
     if (!worker) {
@@ -1441,24 +1512,15 @@ async function readExamineWindow() {
     }
 
     var result = await worker.recognize(scaledCanvas);
-    // Strip the "(level: N)" suffix — Tesseract may read "(" as "l", "[", "{" etc.
-    // Match: optional whitespace + ( or common misreads + "level" or "ley" or "lev"
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // First try: hard stop at literal "("
-    var parenIdx = raw.indexOf('(');
-    if (parenIdx !== -1) raw = raw.slice(0, parenIdx).trim();
+    // Belt-and-suspenders: also strip any "(..." that Tesseract still returns
+    var parenIdx = raw.search(/[([{]/);
+    if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
 
-    // Second pass: strip " l..." suffix where "l" is a misread "(" before "level/ley/lev"
-    // e.g. "Ogress warrior leyvel 63" → strip from " l" onward if followed by e/a
-    raw = raw.replace(/\s+[l\[{(][ée](?:y|v|vel|yvel|evel).*/i, '').trim();
-
-    // Also strip any trailing lone punctuation left over
+    // Strip trailing stray punctuation
     raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
-
-    // Clean up stray punctuation Tesseract sometimes adds at line ends
-    raw = raw.replace(/[|[\]{}\\/*]+/g, '').trim();
 
     if (!raw || raw.length < 2) {
       setStatus('err', 'OCR returned no text — try hovering Examine and pressing Alt+1 again');
