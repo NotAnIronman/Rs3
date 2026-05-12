@@ -1395,8 +1395,9 @@ async function readExamineWindow() {
       nameAbsX = ex.x + anchorExamine.width + 3;  // 3px past drop shadow
       nameAbsY = ex.y - PAD;
       nameH    = anchorExamine.height + PAD * 2;
-      // Right edge: use BR anchor position — that's exactly the window's right wall
-      var rightEdge = br.x;   // left edge of BR image = right edge of text area
+      // Right edge = right wall of the window (right edge of BR anchor)
+      // br.x alone was cutting into the text — we need br.x + anchorBR.width
+      var rightEdge = br.x + anchorBR.width;
       nameW = rightEdge - nameAbsX;
       dbg('Examine at screen (' + ex.x + ',' + ex.y + ')' +
           '  → name strip absX=' + nameAbsX + ' absY=' + nameAbsY +
@@ -1406,8 +1407,11 @@ async function readExamineWindow() {
       nameAbsX = winX; nameAbsY = winY - PAD; nameW = winW; nameH = winH + PAD * 2;
     }
 
-    // Clamp to screen bounds
-    if (nameAbsY < 0) nameAbsY = 0;
+    // Clamp to screen bounds — negative Y causes bindGetRegion crash
+    if (nameAbsY < 0) { nameH += nameAbsY; nameAbsY = 0; }
+    if (nameAbsX < 0) { nameW += nameAbsX; nameAbsX = 0; }
+    if (nameAbsX + nameW > screen.width)  nameW = screen.width  - nameAbsX;
+    if (nameAbsY + nameH > screen.height) nameH = screen.height - nameAbsY;
     if (nameW <= 0) {
       setStatus('err', 'Name crop region zero-width — check Examine.png / BottomRight.png anchors');
       return;
