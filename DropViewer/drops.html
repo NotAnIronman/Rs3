@@ -33,12 +33,39 @@ body {
 #titlebar .titles { flex: 1; min-width: 0; }
 #titlebar h1 { font-size: 13px; font-weight: 700; color: var(--gold); }
 #titlebar .subtitle { font-size: 11px; color: var(--dim); margin-top: 1px; }
-#close {
+#close, #settings-btn {
   background: none; border: 1px solid var(--border); color: var(--dim);
   width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
   font-size: 12px; display: flex; align-items: center; justify-content: center;
 }
 #close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+#settings-btn:hover { background: var(--bg3); color: var(--gold); border-color: var(--gold); }
+#settings-btn.active { background: var(--bg3); color: var(--gold); border-color: var(--gold); }
+
+#settings-panel {
+  display: none; position: fixed; top: 40px; right: 4px; z-index: 1000;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; min-width: 200px; box-shadow: 0 4px 16px #0008;
+  font-size: 12px;
+}
+#settings-panel.open { display: block; }
+#settings-panel h3 { font-size: 11px; color: var(--dim); margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: 0.05em; }
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; gap: 12px;
+}
+.settings-row label { color: var(--text); cursor: pointer; flex: 1; }
+.toggle {
+  width: 32px; height: 18px; background: var(--border); border-radius: 9px;
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle.on { background: var(--green); }
+.toggle::after {
+  content: ''; position: absolute; width: 12px; height: 12px;
+  background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s;
+}
+.toggle.on::after { left: 17px; }
 
 #searchbar {
   background: var(--bg2); border-bottom: 1px solid var(--border);
@@ -168,7 +195,20 @@ body {
     <h1>Drop Viewer</h1>
     <div class="subtitle" id="subtitle">Search any NPC</div>
   </div>
+  <button id="settings-btn" title="Settings">⚙</button>
   <button id="close">✕</button>
+</div>
+
+<div id="settings-panel">
+  <h3>Settings</h3>
+  <div class="settings-row">
+    <label for="toggle-debug">Show debug log</label>
+    <div class="toggle" id="toggle-debug"></div>
+  </div>
+  <div class="settings-row">
+    <label for="toggle-ocr-canvas">Show OCR preview</label>
+    <div class="toggle" id="toggle-ocr-canvas"></div>
+  </div>
 </div>
 
 <div id="searchbar">
@@ -206,9 +246,58 @@ let allMonsters = [];   // full list loaded from SMW
 let inDropsView = false;
 let searchTimer = null;
 
+// ── Settings ───────────────────────────────────────────────
+const settings = { debugLog: false, ocrCanvas: false };
+
+function saveSetting(key, val) {
+  settings[key] = val;
+  try { localStorage.setItem('dvSettings', JSON.stringify(settings)); } catch(e) {}
+}
+(function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('dvSettings') || '{}');
+    if (s.debugLog  !== undefined) settings.debugLog  = s.debugLog;
+    if (s.ocrCanvas !== undefined) settings.ocrCanvas = s.ocrCanvas;
+  } catch(e) {}
+})();
+
+function applyToggleUI() {
+  document.getElementById('toggle-debug').classList.toggle('on', settings.debugLog);
+  document.getElementById('toggle-ocr-canvas').classList.toggle('on', settings.ocrCanvas);
+  // Hide/show existing debug overlay and OCR canvas per settings
+  const dbgEl = document.getElementById('section-debug');
+  if (dbgEl) dbgEl.style.display = settings.debugLog ? 'block' : 'none';
+  const ocrEl = document.getElementById('dbg-ocr-canvas');
+  if (ocrEl) ocrEl.style.display = settings.ocrCanvas ? 'block' : 'none';
+}
+
+document.getElementById('settings-btn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  const panel = document.getElementById('settings-panel');
+  const btn   = document.getElementById('settings-btn');
+  panel.classList.toggle('open');
+  btn.classList.toggle('active', panel.classList.contains('open'));
+  applyToggleUI();
+});
+document.addEventListener('click', function() {
+  document.getElementById('settings-panel').classList.remove('open');
+  document.getElementById('settings-btn').classList.remove('active');
+});
+document.getElementById('settings-panel').addEventListener('click', function(e) { e.stopPropagation(); });
+
+document.getElementById('toggle-debug').addEventListener('click', function() {
+  saveSetting('debugLog', !settings.debugLog);
+  applyToggleUI();
+});
+document.getElementById('toggle-ocr-canvas').addEventListener('click', function() {
+  saveSetting('ocrCanvas', !settings.ocrCanvas);
+  applyToggleUI();
+});
+
 // ── Debug ──────────────────────────────────────────────────
 function dbg(s) {
   console.log('[DropViewer]', s);
+  if (!settings.debugLog) return;  // hidden by default
   let overlay = document.getElementById('section-debug');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -1290,6 +1379,7 @@ function scaleCanvas(src, scale) {
 
 // Show a small debug canvas in the bottom-right corner
 function showDebugCanvas(canvas, label) {
+  if (!settings.ocrCanvas) return;  // hidden by default
   var el = document.getElementById('dbg-ocr-canvas');
   if (!el) {
     el = document.createElement('canvas');
@@ -1544,15 +1634,33 @@ async function readExamineWindow() {
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // Post-OCR strip: remove any "(level:..." or common misreads of it.
-    // 1. Literal paren
+    // ── Post-OCR: strip "(level: N)" and all its Tesseract misreadings ───────
+    // Observed patterns from logs:
+    //   "Wolf level 11J"  "Ogress warrior levels 63 l"  "Black warlock l"
+    //   "Spined larupia Ueyel 400 l"  "Carnivorous chinchompa evels l"
+    //   "Giant spider levels 33 l"
+    //
+    // Strategy: strip from the LAST word boundary where a "level-like" token
+    // appears, including the stray trailing "l" (misread closing paren).
+    // We do this in one aggressive regex that covers every observed variant.
+
+    // 1. Literal paren / bracket
     var parenIdx = raw.search(/[([{<]/);
     if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
-    // 2. "level", "evel", "lev" etc. preceded by a space — Tesseract misreading "(l" as "l"
-    raw = raw.replace(/\s+(?:l|e)?(?:level|evel|leve|eve|eyel|leyv|lev)\b.*/i, '').trim();
-    // 3. Trailing lone digits that bled through (e.g. " 67" or "- 67")
+
+    // 2. Level word variants + optional number + optional stray chars after
+    //    Covers: level, levels, evel, evels, eyel, lev, leve, Ueyel, leyel, etc.
+    raw = raw.replace(/\s+[UuLlEe]{0,2}[Ee]?[Yy]?[Ee][Vv][Ee][Ll][Ss]?\b.*/i, '').trim();
+    raw = raw.replace(/\s+[Ll][Ee][Vv][Ee]?[Ll]?[Ss]?\b.*/i, '').trim();
+
+    // 3. Stray trailing "l" or "J" left from misread ")" — only if preceded by a digit or space+digit
+    raw = raw.replace(/\s+\d[\dJ]*\s+[lJ]\s*$/, '').trim();  // "63 l" or "11J"
+    raw = raw.replace(/\s+[lJ]\s*$/, '').trim();              // bare trailing "l"
+
+    // 4. Trailing lone digits
     raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
-    // 4. Trailing stray punctuation
+
+    // 5. Trailing stray punctuation
     raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
 
     if (!raw || raw.length < 2) {
