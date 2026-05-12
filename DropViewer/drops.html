@@ -1227,10 +1227,11 @@ async function getTesseract() {
         var worker = await Tesseract.createWorker('eng', 1, {
           logger: function(m) { if (m.status === 'recognizing text') dbg('OCR progress: ' + Math.round(m.progress * 100) + '%'); }
         });
-        // Tune for single-line menu text
+        // Tune for single-line RS3 menu text
         await worker.setParameters({
           tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '-,!.",
-          tessedit_pageseg_mode: '7',  // single text line
+          tessedit_pageseg_mode: '7',   // treat image as single text line
+          preserve_interword_spaces: '1',
         });
         tesseractWorker = worker;
         dbg('Tesseract worker ready');
@@ -1332,18 +1333,38 @@ async function readExamineWindow() {
 
     // ── 2. Locate the examine window corners ─────────────────
     var tlHits = screen.findSubimage(anchorTL);
-    var brHits = screen.findSubimage(anchorBR);
-    dbg('TL hits: ' + tlHits.length + '  BR hits: ' + brHits.length);
+    dbg('TL hits: ' + tlHits.length);
+    if (!tlHits.length) {
+      setStatus('err', 'Examine window not found — right-click an NPC, hover Examine, then press Alt+1');
+      return;
+    }
+    var tl = tlHits[0];
 
-    if (!tlHits.length || !brHits.length) {
+    // Search for BR starting from LEFT of TL so a narrow window
+    // (short name) doesn't cause BR to overlap and be missed.
+    // We crop the screen to everything left of TL's right edge + some margin.
+    var brSearchRegion = screen.toData(0, tl.y - 20,
+                                       tl.x + anchorTL.width + 400,
+                                       anchorTL.height + anchorBR.height + 40);
+    // toData returns plain pixels — use screen.findSubimage which works on the full ImgRef.
+    // Instead: just search the whole screen for BR and pick the one closest to TL.
+    var brHits = screen.findSubimage(anchorBR);
+    dbg('BR hits: ' + brHits.length);
+
+    if (!brHits.length) {
       setStatus('err', 'Examine window not found — right-click an NPC, hover Examine, then press Alt+1');
       return;
     }
 
-    var tl = tlHits[0];
-    var br = brHits[0];
+    // Pick the BR hit that is horizontally closest to TL (handles short names
+    // where BR would otherwise appear to the LEFT of TL if searched naively).
+    var br = brHits.reduce(function(best, h) {
+      var dBest = Math.abs(best.y - tl.y) + Math.abs(best.x - tl.x);
+      var dH    = Math.abs(h.y    - tl.y) + Math.abs(h.x    - tl.x);
+      return dH < dBest ? h : best;
+    });
 
-    // Window rect (interior, between the corner decorations)
+    // Window rect (interior rows between the corner decorations)
     var winX = tl.x;
     var winY = tl.y + anchorTL.height;
     var winW = (br.x + anchorBR.width) - winX;
@@ -1355,14 +1376,10 @@ async function readExamineWindow() {
       return;
     }
 
-
     // ── 3. Locate the "Examine" label row ───────────────────────────────────
-    // screen is an ImgRef and supports findSubimage; toData() returns plain
-    // pixel data that does NOT have findSubimage — so we search on screen.
     var exHits = screen.findSubimage(anchorExamine);
     dbg('Examine label hits (screen): ' + exHits.length);
 
-    // Keep only hits that fall inside the window rect
     var exInWindow = exHits.filter(function(h) {
       return h.x >= winX && h.x < winX + winW &&
              h.y >= winY && h.y < winY + winH;
@@ -1370,96 +1387,72 @@ async function readExamineWindow() {
     dbg('Examine hits inside window: ' + exInWindow.length);
 
     var nameAbsX, nameAbsY, nameW, nameH;
+    // Pad 3px above and below so descenders (g,y,Q) and ascenders (') are captured
+    var PAD = 3;
 
     if (exInWindow.length > 0) {
       var ex = exInWindow[0];
-      // 3px after the right edge of the Examine image (clears the drop shadow)
-      // Was 5px but the "O" in monster names was getting clipped — nudged left 2px
-      nameAbsX = ex.x + anchorExamine.width + 3;
-      nameAbsY = ex.y;
-      nameH    = anchorExamine.height;
-      nameW    = (winX + winW) - nameAbsX;
+      nameAbsX = ex.x + anchorExamine.width + 3;  // 3px past drop shadow
+      nameAbsY = ex.y - PAD;
+      nameH    = anchorExamine.height + PAD * 2;
+      // Right edge: use BR anchor position — that's exactly the window's right wall
+      var rightEdge = br.x;   // left edge of BR image = right edge of text area
+      nameW = rightEdge - nameAbsX;
       dbg('Examine at screen (' + ex.x + ',' + ex.y + ')' +
           '  → name strip absX=' + nameAbsX + ' absY=' + nameAbsY +
-          ' w=' + nameW + ' h=' + nameH);
+          ' w=' + nameW + ' h=' + nameH + ' (PAD=' + PAD + ')');
     } else {
-      // Fallback: no Examine.png match — OCR the whole window interior
       dbg('Examine label not found — falling back to full window OCR');
-      nameAbsX = winX; nameAbsY = winY; nameW = winW; nameH = winH;
+      nameAbsX = winX; nameAbsY = winY - PAD; nameW = winW; nameH = winH + PAD * 2;
     }
 
+    // Clamp to screen bounds
+    if (nameAbsY < 0) nameAbsY = 0;
     if (nameW <= 0) {
-      setStatus('err', 'Name crop region zero-width — check Examine.png anchor');
+      setStatus('err', 'Name crop region zero-width — check Examine.png / BottomRight.png anchors');
       return;
     }
 
-    // ── 4. Grab the name-strip pixels via screen.toData (abs coords) ─────────
+    // ── 4. Grab the name-strip pixels ────────────────────────────────────────
     var stripRaw = screen.toData(nameAbsX, nameAbsY, nameW, nameH);
     var SW = stripRaw.width  || nameW;
     var SH = stripRaw.height || nameH;
     var SD = stripRaw.data;
 
-    // ── 4a. Pixel-level clip: find the "(" by locating the dark gap ──────────
-    // In the RS3 right-click menu the name and "(level: N)" are separated by
-    // a space — i.e. one or more fully-dark (background) columns.  We scan
-    // left→right tracking the rightmost column that had bright pixels; the
-    // moment we find a fully-dark column AFTER bright text has started, that
-    // marks the gap before "(". We stop there.
-    //
-    // "Bright" = any pixel in the column with average brightness > THRESHOLD.
-    // The RS3 menu background is very dark (~20–40), text is vivid (>100).
-    var BRIGHT_THRESH = 60;  // pixel avg R+G+B/3 must exceed this to count
-    var lastBrightCol = -1;
-    var textStarted   = false;
+    // ── 4a. Find the clip column — scan RIGHT-TO-LEFT from BR edge ───────────
+    // The "(level: N)" block sits at the right of the strip, touching the BR
+    // anchor. Scan from the right edge inward; the FIRST gap of ≥2 consecutive
+    // dark columns we encounter is the space between the name and "(level:".
+    // Scanning right-to-left means we stop immediately at that gap and never
+    // accidentally stop at an internal letter gap.
+    var BRIGHT_THRESH = 60;
+    var clipCol = SW;         // default: use full width (no level suffix)
+    var consecutiveDark = 0;
+    var suffixStarted = false;  // have we seen bright pixels from the right?
 
-    for (var cx = 0; cx < SW; cx++) {
-      var colBright = false;
+    for (var cx = SW - 1; cx >= 0; cx--) {
+      var hasBright = false;
       for (var cy = 0; cy < SH; cy++) {
         var si = (cy * SW + cx) * 4;
         if ((SD[si] + SD[si+1] + SD[si+2]) / 3 > BRIGHT_THRESH) {
-          colBright = true;
-          break;
-        }
-      }
-      if (colBright) {
-        lastBrightCol = cx;
-        textStarted   = true;
-      } else if (textStarted) {
-        // First dark column after text — this is the gap before "(level:..."
-        // Don't break immediately; keep scanning so we use the LAST bright
-        // column of the name word, not an internal gap (e.g. space in name).
-        // We'll do a second pass below to confirm it's a real end-gap.
-      }
-    }
-
-    // Second pass: find the first dark gap of ≥2 consecutive dark columns
-    // after text has started. That's the space before "(level:".
-    var clipCol = SW;
-    var consecutiveDark = 0;
-    textStarted = false;
-    for (var cx2 = 0; cx2 < SW; cx2++) {
-      var hasBright = false;
-      for (var cy2 = 0; cy2 < SH; cy2++) {
-        var si2 = (cy2 * SW + cx2) * 4;
-        if ((SD[si2] + SD[si2+1] + SD[si2+2]) / 3 > BRIGHT_THRESH) {
           hasBright = true;
           break;
         }
       }
       if (hasBright) {
-        textStarted     = true;
+        suffixStarted   = true;
         consecutiveDark = 0;
-      } else if (textStarted) {
+      } else if (suffixStarted) {
         consecutiveDark++;
-        // ≥2 dark cols in a row = a real inter-word space → clip here
+        // ≥2 consecutive dark cols = inter-word space → the name ends here
         if (consecutiveDark >= 2) {
-          clipCol = cx2 - consecutiveDark + 1;  // start of the gap
+          clipCol = cx + 1;  // last bright col + 1 is where we cut
           break;
         }
       }
     }
 
-    dbg('Pixel clip: SW=' + SW + ' clipCol=' + clipCol);
+    dbg('Pixel clip (RTL): SW=' + SW + ' clipCol=' + clipCol);
 
     // Build the (possibly clipped) strip ImageData
     var clippedW    = Math.max(1, clipCol);
