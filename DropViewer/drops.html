@@ -1054,14 +1054,7 @@ if (isAlt1) {
   };
   document.head.appendChild(a1script);
 
-  // Load OCR engine
-  var ocrScript = document.createElement('script');
-  ocrScript.src = './alt1ocr.bundle.js';
-  ocrScript.onload = function() { dbg('OCR loaded: ' + (typeof window.OCR !== 'undefined')); };
-  document.head.appendChild(ocrScript);
-
-  // Font data embedded directly (from RuneScape Chat Bold 2 TTF at 16px)
-  // Inline to avoid any file caching issues
+  // Font data kept for reference but OCR is now handled by Tesseract.js
   (function() {
 
 window.RS3MenuFont={chars:[
@@ -1144,149 +1137,6 @@ window.RS3MenuFont={chars:[
   // Pure-JS OCR engine (no library dependency)
   var RS3Font={"basey":14,"height":16,"spacewidth":4,"chars":[{"chr":"A","width":9,"lsb":1,"pixels":[[2,2],[3,2],[4,2],[1,3],[2,3],[4,3],[5,3],[0,4],[1,4],[5,4],[6,4],[0,5],[1,5],[5,5],[6,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[0,7],[1,7],[5,7],[6,7],[0,8],[1,8],[5,8],[6,8],[0,9],[1,9],[5,9],[6,9],[0,10],[1,10],[5,10],[6,10],[0,11],[1,11],[5,11],[6,11]]},{"chr":"B","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[2,11],[3,11],[4,11]]},{"chr":"C","width":8,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"D","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[2,11],[3,11],[4,11]]},{"chr":"E","width":7,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[2,6],[3,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"F","width":7,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[2,6],[3,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11]]},{"chr":"G","width":9,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[3,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"H","width":8,"lsb":1,"pixels":[[0,2],[1,2],[4,2],[5,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"I","width":4,"lsb":0,"pixels":[[0,2],[1,2],[2,2],[3,2],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[0,11],[1,11],[2,11],[3,11]]},{"chr":"J","width":8,"lsb":1,"pixels":[[3,2],[4,2],[5,2],[6,2],[4,3],[5,3],[4,4],[5,4],[4,5],[5,5],[4,6],[5,6],[4,7],[5,7],[4,8],[5,8],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"K","width":8,"lsb":1,"pixels":[[0,2],[1,2],[5,2],[6,2],[0,3],[1,3],[5,3],[6,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[3,5],[4,5],[0,6],[1,6],[2,6],[3,6],[0,7],[1,7],[2,7],[3,7],[0,8],[1,8],[3,8],[4,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[5,10],[6,10],[0,11],[1,11],[5,11],[6,11]]},{"chr":"L","width":7,"lsb":1,"pixels":[[0,2],[1,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"M","width":11,"lsb":1,"pixels":[[0,2],[1,2],[7,2],[8,2],[0,3],[1,3],[2,3],[6,3],[7,3],[8,3],[0,4],[1,4],[2,4],[3,4],[5,4],[6,4],[7,4],[8,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[0,6],[1,6],[3,6],[4,6],[5,6],[7,6],[8,6],[0,7],[1,7],[4,7],[7,7],[8,7],[0,8],[1,8],[7,8],[8,8],[0,9],[1,9],[7,9],[8,9],[0,10],[1,10],[7,10],[8,10],[0,11],[1,11],[7,11],[8,11]]},{"chr":"N","width":9,"lsb":1,"pixels":[[0,2],[1,2],[5,2],[6,2],[0,3],[1,3],[2,3],[5,3],[6,3],[0,4],[1,4],[2,4],[5,4],[6,4],[0,5],[1,5],[2,5],[3,5],[5,5],[6,5],[0,6],[1,6],[3,6],[5,6],[6,6],[0,7],[1,7],[3,7],[4,7],[5,7],[6,7],[0,8],[1,8],[4,8],[5,8],[6,8],[0,9],[1,9],[4,9],[5,9],[6,9],[0,10],[1,10],[5,10],[6,10],[0,11],[1,11],[5,11],[6,11]]},{"chr":"O","width":9,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[5,3],[6,3],[0,4],[1,4],[5,4],[6,4],[0,5],[1,5],[5,5],[6,5],[0,6],[1,6],[5,6],[6,6],[0,7],[1,7],[5,7],[6,7],[0,8],[1,8],[5,8],[6,8],[0,9],[1,9],[5,9],[6,9],[0,10],[1,10],[5,10],[6,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"P","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[2,7],[3,7],[4,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11]]},{"chr":"Q","width":9,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[5,3],[6,3],[0,4],[1,4],[5,4],[6,4],[0,5],[1,5],[5,5],[6,5],[0,6],[1,6],[5,6],[6,6],[0,7],[1,7],[5,7],[6,7],[0,8],[1,8],[5,8],[6,8],[0,9],[1,9],[3,9],[4,9],[5,9],[6,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11],[6,11],[7,11]]},{"chr":"R","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[2,7],[3,7],[4,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"S","width":8,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[0,5],[1,5],[2,5],[1,6],[2,6],[3,6],[4,6],[3,7],[4,7],[5,7],[4,8],[5,8],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"T","width":6,"lsb":0,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[2,3],[3,3],[2,4],[3,4],[2,5],[3,5],[2,6],[3,6],[2,7],[3,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"U","width":9,"lsb":1,"pixels":[[0,2],[1,2],[4,2],[5,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"V","width":8,"lsb":1,"pixels":[[0,2],[1,2],[4,2],[5,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[1,7],[2,7],[3,7],[4,7],[1,8],[2,8],[3,8],[4,8],[1,9],[2,9],[3,9],[4,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"W","width":12,"lsb":1,"pixels":[[0,2],[1,2],[8,2],[9,2],[0,3],[1,3],[8,3],[9,3],[0,4],[1,4],[8,4],[9,4],[1,5],[2,5],[7,5],[8,5],[1,6],[2,6],[4,6],[5,6],[7,6],[8,6],[1,7],[2,7],[4,7],[5,7],[7,7],[8,7],[1,8],[2,8],[4,8],[5,8],[7,8],[8,8],[2,9],[4,9],[5,9],[7,9],[2,10],[3,10],[4,10],[5,10],[6,10],[7,10],[3,11],[4,11],[5,11],[6,11]]},{"chr":"X","width":8,"lsb":0,"pixels":[[0,2],[1,2],[5,2],[6,2],[0,3],[1,3],[5,3],[6,3],[1,4],[2,4],[4,4],[5,4],[1,5],[2,5],[3,5],[4,5],[5,5],[2,6],[3,6],[4,6],[2,7],[3,7],[4,7],[1,8],[2,8],[4,8],[5,8],[1,9],[2,9],[4,9],[5,9],[0,10],[1,10],[5,10],[6,10],[0,11],[1,11],[5,11],[6,11]]},{"chr":"Y","width":8,"lsb":1,"pixels":[[0,2],[1,2],[4,2],[5,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[1,7],[2,7],[3,7],[4,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"Z","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[4,3],[5,3],[3,4],[4,4],[3,5],[4,5],[2,6],[3,6],[1,7],[2,7],[1,8],[2,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"a","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[1,8],[2,8],[3,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"b","width":8,"lsb":1,"pixels":[[0,2],[1,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[2,11],[3,11],[4,11]]},{"chr":"c","width":7,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[0,7],[1,7],[4,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[4,10],[1,11],[2,11],[3,11]]},{"chr":"d","width":8,"lsb":1,"pixels":[[4,2],[5,2],[4,3],[5,3],[4,4],[5,4],[4,5],[5,5],[1,6],[2,6],[3,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"e","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[2,9],[3,9],[4,9],[5,9],[0,10],[1,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"f","width":7,"lsb":1,"pixels":[[2,4],[3,4],[4,4],[1,5],[2,5],[4,5],[5,5],[1,6],[2,6],[1,7],[2,7],[0,8],[1,8],[2,8],[3,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11],[1,12],[2,12],[1,13],[2,13],[0,14],[1,14]]},{"chr":"g","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11],[5,11],[4,12],[5,12],[4,13],[5,13],[0,14],[1,14],[4,14],[5,14],[1,15],[2,15],[3,15],[4,15]]},{"chr":"h","width":8,"lsb":1,"pixels":[[0,2],[1,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"i","width":4,"lsb":1,"pixels":[[0,5],[1,5],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11]]},{"chr":"j","width":7,"lsb":1,"pixels":[[3,5],[4,5],[3,7],[4,7],[3,8],[4,8],[3,9],[4,9],[3,10],[4,10],[3,11],[4,11],[3,12],[4,12],[0,13],[1,13],[3,13],[4,13],[0,14],[1,14],[3,14],[4,14],[1,15],[2,15],[3,15]]},{"chr":"k","width":7,"lsb":1,"pixels":[[0,2],[1,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[3,6],[4,6],[0,7],[1,7],[2,7],[3,7],[0,8],[1,8],[2,8],[0,9],[1,9],[2,9],[3,9],[0,10],[1,10],[3,10],[4,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"l","width":4,"lsb":1,"pixels":[[0,2],[1,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11]]},{"chr":"m","width":10,"lsb":1,"pixels":[[0,6],[1,6],[2,6],[3,6],[5,6],[6,6],[0,7],[1,7],[3,7],[4,7],[6,7],[7,7],[0,8],[1,8],[3,8],[4,8],[6,8],[7,8],[0,9],[1,9],[3,9],[4,9],[6,9],[7,9],[0,10],[1,10],[3,10],[4,10],[6,10],[7,10],[0,11],[1,11],[3,11],[4,11],[6,11],[7,11]]},{"chr":"n","width":8,"lsb":1,"pixels":[[0,6],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"o","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"p","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[0,11],[1,11],[2,11],[3,11],[4,11],[0,12],[1,12],[0,13],[1,13],[0,14],[1,14]]},{"chr":"q","width":8,"lsb":1,"pixels":[[2,6],[3,6],[4,6],[1,7],[2,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[1,10],[2,10],[4,10],[5,10],[2,11],[3,11],[4,11],[5,11],[4,12],[5,12],[4,13],[5,13],[6,13],[4,14],[5,14],[4,15]]},{"chr":"r","width":6,"lsb":1,"pixels":[[0,6],[1,6],[3,6],[4,6],[0,7],[1,7],[2,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11]]},{"chr":"s","width":8,"lsb":1,"pixels":[[1,6],[2,6],[3,6],[4,6],[5,6],[0,7],[1,7],[1,8],[2,8],[3,8],[4,8],[4,9],[5,9],[4,10],[5,10],[0,11],[1,11],[2,11],[3,11],[4,11]]},{"chr":"t","width":6,"lsb":0,"pixels":[[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[0,6],[1,6],[2,6],[3,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[2,11],[3,11],[4,11]]},{"chr":"u","width":8,"lsb":1,"pixels":[[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"v","width":8,"lsb":1,"pixels":[[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[1,8],[2,8],[3,8],[4,8],[1,9],[2,9],[3,9],[4,9],[2,10],[3,10],[2,11],[3,11]]},{"chr":"w","width":9,"lsb":1,"pixels":[[0,6],[1,6],[5,6],[6,6],[0,7],[1,7],[5,7],[6,7],[0,8],[1,8],[3,8],[5,8],[6,8],[0,9],[1,9],[2,9],[3,9],[4,9],[5,9],[6,9],[0,10],[1,10],[2,10],[4,10],[5,10],[6,10],[1,11],[5,11]]},{"chr":"x","width":8,"lsb":1,"pixels":[[0,6],[1,6],[4,6],[5,6],[1,7],[2,7],[3,7],[4,7],[2,8],[3,8],[1,9],[2,9],[3,9],[4,9],[1,10],[2,10],[3,10],[4,10],[0,11],[1,11],[4,11],[5,11]]},{"chr":"y","width":8,"lsb":1,"pixels":[[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[1,10],[2,10],[3,10],[4,10],[5,10],[4,11],[5,11],[4,12],[5,12],[0,13],[1,13],[4,13],[5,13],[1,14],[2,14],[3,14],[4,14]]},{"chr":"z","width":8,"lsb":1,"pixels":[[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[3,7],[4,7],[2,8],[3,8],[1,9],[2,9],[0,10],[1,10],[0,11],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"0","width":9,"lsb":2,"pixels":[[2,2],[3,2],[1,3],[2,3],[3,3],[4,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[1,10],[2,10],[3,10],[4,10],[2,11],[3,11]]},{"chr":"1","width":7,"lsb":2,"pixels":[[1,2],[2,2],[0,3],[1,3],[2,3],[1,4],[2,4],[1,5],[2,5],[1,6],[2,6],[1,7],[2,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[0,11],[1,11],[2,11],[3,11]]},{"chr":"2","width":9,"lsb":2,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[4,4],[5,4],[4,5],[5,5],[2,6],[3,6],[4,6],[1,7],[2,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[0,11],[1,11],[2,11],[3,11],[4,11],[5,11]]},{"chr":"3","width":8,"lsb":1,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[4,4],[5,4],[4,5],[5,5],[2,6],[3,6],[4,6],[4,7],[5,7],[4,8],[5,8],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"4","width":8,"lsb":0,"pixels":[[3,2],[4,2],[5,2],[2,3],[3,3],[4,3],[5,3],[2,4],[3,4],[4,4],[5,4],[1,5],[2,5],[4,5],[5,5],[1,6],[2,6],[4,6],[5,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[2,9],[3,9],[4,9],[5,9],[6,9],[4,10],[5,10],[4,11],[5,11]]},{"chr":"5","width":8,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[0,4],[1,4],[0,5],[1,5],[2,5],[3,5],[4,5],[4,6],[5,6],[4,7],[5,7],[4,8],[5,8],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"6","width":9,"lsb":1,"pixels":[[2,2],[3,2],[1,3],[2,3],[1,4],[2,4],[0,5],[1,5],[0,6],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"7","width":7,"lsb":1,"pixels":[[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[4,3],[5,3],[4,4],[5,4],[3,5],[4,5],[2,6],[3,6],[4,6],[2,7],[3,7],[1,8],[2,8],[1,9],[2,9],[1,10],[2,10],[1,11],[2,11]]},{"chr":"8","width":9,"lsb":2,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[1,6],[2,6],[3,6],[4,6],[0,7],[1,7],[4,7],[5,7],[0,8],[1,8],[4,8],[5,8],[0,9],[1,9],[4,9],[5,9],[0,10],[1,10],[4,10],[5,10],[1,11],[2,11],[3,11],[4,11]]},{"chr":"9","width":9,"lsb":2,"pixels":[[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[4,3],[5,3],[0,4],[1,4],[4,4],[5,4],[0,5],[1,5],[4,5],[5,5],[0,6],[1,6],[4,6],[5,6],[1,7],[2,7],[3,7],[4,7],[5,7],[4,8],[5,8],[3,9],[4,9],[3,10],[4,10],[2,11],[3,11]]},{"chr":"'","width":4,"lsb":1,"pixels":[[0,0],[1,0],[0,1],[1,1],[1,2],[0,3]]},{"chr":"-","width":8,"lsb":1,"pixels":[[0,7],[1,7],[2,7],[3,7],[4,7],[5,7]]},{"chr":" ","width":4,"pixels":[],"lsb":0},{"chr":"(","width":5,"lsb":1,"pixels":[[2,2],[3,2],[1,3],[2,3],[0,4],[1,4],[0,5],[1,5],[0,6],[1,6],[0,7],[1,7],[0,8],[1,8],[0,9],[1,9],[0,10],[1,10],[1,11],[2,11],[2,12],[3,12]]},{"chr":")","width":5,"lsb":0,"pixels":[[0,2],[1,2],[1,3],[2,3],[2,4],[3,4],[2,5],[3,5],[2,6],[3,6],[2,7],[3,7],[2,8],[3,8],[2,9],[3,9],[2,10],[3,10],[1,11],[2,11],[0,12],[1,12]]}]};
   
-  // ── Pure-JS pixel OCR — no external library needed ────────────────────────
-  // RS3Font is defined inline above
-  function rs3ReadLine(imgData, imgW, imgH, startX, rowY, targetR, targetG, targetB, dbgCtx, scale) {
-    var TOLERANCE = 60;
-    var chars = RS3Font.chars;
-    var spaceW = RS3Font.spacewidth;
-    var fH = RS3Font.height;
-
-    function pixelMatches(imgX, imgY) {
-      if (imgX < 0 || imgX >= imgW || imgY < 0 || imgY >= imgH) return false;
-      var idx = (imgY * imgW + imgX) * 4;
-      return (Math.abs(imgData[idx]   - targetR) < TOLERANCE &&
-              Math.abs(imgData[idx+1] - targetG) < TOLERANCE &&
-              Math.abs(imgData[idx+2] - targetB) < TOLERANCE);
-    }
-
-    function scoreChar(ch, imgX) {
-      var px = ch.pixels;
-      if (px.length === 0) return 0;
-      var hits = 0;
-      for (var i = 0; i < px.length; i++) {
-        if (pixelMatches(imgX + px[i][0], rowY + px[i][1])) hits++;
-      }
-      return hits / px.length;
-    }
-
-    function hasColorAt(x, bandY, bandH) {
-      for (var y = bandY; y < bandY + bandH && y < imgH; y++) {
-        if (pixelMatches(x, y)) return true;
-      }
-      return false;
-    }
-
-    // Draw the font template pixels on the debug canvas
-    function drawMatch(ch, imgX) {
-      if (!dbgCtx || !scale) return;
-      var px = ch.pixels;
-      for (var i = 0; i < px.length; i++) {
-        var hit = pixelMatches(imgX + px[i][0], rowY + px[i][1]);
-        dbgCtx.fillStyle = hit ? 'rgba(0,255,0,0.85)' : 'rgba(255,0,0,0.7)';
-        dbgCtx.fillRect((imgX + px[i][0]) * scale, (rowY + px[i][1]) * scale, scale, scale);
-      }
-      dbgCtx.fillStyle = 'rgba(255,255,0,0.95)';
-      dbgCtx.font = 'bold ' + Math.max(7, scale*2) + 'px monospace';
-      dbgCtx.fillText(ch.chr, imgX * scale, (rowY - 1) * scale);
-    }
-
-    var result = '';
-    var x = startX;
-    var maxX = imgW - 1;
-    var spaceCount = 0;
-    var MATCH_THRESHOLD = 0.65;
-    var MIN_PIXELS = 10;
-
-    // Draw rowY guide line on canvas
-    if (dbgCtx && scale) {
-      dbgCtx.strokeStyle = 'rgba(255,255,0,0.4)';
-      dbgCtx.lineWidth = 1;
-      dbgCtx.beginPath();
-      dbgCtx.moveTo(0, rowY * scale);
-      dbgCtx.lineTo(imgW * scale, rowY * scale);
-      dbgCtx.stroke();
-      // Also draw the font height band
-      dbgCtx.strokeStyle = 'rgba(255,255,0,0.15)';
-      dbgCtx.strokeRect(startX * scale, rowY * scale, (imgW-startX) * scale, fH * scale);
-    }
-
-    while (x < maxX) {
-      if (!hasColorAt(x, rowY, fH)) {
-        spaceCount++;
-        if (spaceCount >= spaceW) {
-          if (result.length > 0) result += ' ';
-          while (x < maxX && !hasColorAt(x, rowY, fH)) x++;
-          spaceCount = 0;
-          continue;
-        }
-        x++;
-        continue;
-      }
-      spaceCount = 0;
-
-      var bestScore = MATCH_THRESHOLD;
-      var bestChar = null;
-      var bestWidth = 1;
-      var bestCh = null;
-
-      for (var ci = 0; ci < chars.length; ci++) {
-        var ch = chars[ci];
-        if (ch.pixels.length < MIN_PIXELS) continue;
-        var s = scoreChar(ch, x);
-        if (s > bestScore) {
-          bestScore = s;
-          bestChar = ch.chr;
-          bestWidth = ch.width - (ch.lsb || 0);
-          bestCh = ch;
-        }
-      }
-
-      if (bestCh) {
-        drawMatch(bestCh, x);
-        result += bestChar;
-        x += bestWidth;
-      } else {
-        // Red column = no match found
-        if (dbgCtx && scale) {
-          dbgCtx.fillStyle = 'rgba(255,80,0,0.35)';
-          dbgCtx.fillRect(x * scale, rowY * scale, scale, fH * scale);
-        }
-        x++;
-      }
-    }
-    return result.trim();
-  }
-
-  function rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX, dbgCanvas) {
-    var results = [];
-    var sc = dbgCanvas ? Math.max(1, Math.floor(dbgCanvas.width / W)) : 1;
-
-    for (var bi = 0; bi < bands.length; bi++) {
-      var band = bands[bi];
-      var startX = Math.max(0, bandTextX[bi] >= 0 ? bandTextX[bi] : 0);
-      var found = false;
-      for (var ci = 0; ci < dominantColors.length && !found; ci++) {
-        var col = dominantColors[ci];
-        var yOffsets = [2, 3, 1, 4, 0, 5, -1];
-        for (var yoi = 0; yoi < yOffsets.length && !found; yoi++) {
-          var yOff = yOffsets[yoi];
-          var rowY = band.start + yOff;
-          if (rowY < 0 || rowY >= H) continue;
-          var ctx = (dbgCanvas && !found) ? dbgCanvas.getContext('2d') : null;
-          var text = rs3ReadLine(data, W, H, startX, rowY, col[0], col[1], col[2], ctx, sc);
-          if (text && text.length > 1 && !/^\s+$/.test(text)) {
-            dbg('rs3OCR band='+bi+' yOff='+yOff+' rowY='+rowY+' col=('+col+'): "'+text+'"');
-            results.push({ band: bi, text: text, color: col });
-            found = true;
-          }
-        }
-      }
-    }
-    return results;
-  }
-
-  
   // Handle openInfo (activator match)
   function processOpenInfo(info) {
     if (!info) return false;
@@ -1328,20 +1178,23 @@ window.RS3MenuFont={chars:[
 }
 
 // ── Image-anchor templates (loaded once) ───────────────────
-var examineAnchorTL = null;   // TopLeft.png  ImageData
-var examineAnchorBR = null;   // BottomRight.png ImageData
-var anchorsLoading  = false;
+var anchorTL      = null;   // TopLeft.png     — top-left corner of examine window
+var anchorBR      = null;   // BottomRight.png — bottom-right corner of examine window
+var anchorExamine = null;   // Examine.png     — the "Examine" label in the menu row
+var anchorsLoading = false;
 
 async function loadAnchors() {
-  if (examineAnchorTL && examineAnchorBR) return true;
+  if (anchorTL && anchorBR && anchorExamine) return true;
   if (anchorsLoading) return false;
   anchorsLoading = true;
   try {
-    var ImageDetect = window.A1lib.ImageDetect;
-    examineAnchorTL = await ImageDetect.imageDataFromUrl('./TopLeft.png');
-    examineAnchorBR = await ImageDetect.imageDataFromUrl('./BottomRight.png');
-    dbg('Anchors loaded: TL=' + examineAnchorTL.width + 'x' + examineAnchorTL.height +
-        ' BR=' + examineAnchorBR.width + 'x' + examineAnchorBR.height);
+    var ID = window.A1lib.ImageDetect;
+    anchorTL      = await ID.imageDataFromUrl('./TopLeft.png');
+    anchorBR      = await ID.imageDataFromUrl('./BottomRight.png');
+    anchorExamine = await ID.imageDataFromUrl('./Examine.png');
+    dbg('Anchors loaded — TL:' + anchorTL.width + 'x' + anchorTL.height +
+        ' BR:' + anchorBR.width + 'x' + anchorBR.height +
+        ' Ex:' + anchorExamine.width + 'x' + anchorExamine.height);
     return true;
   } catch(e) {
     dbg('Anchor load error: ' + e.message);
@@ -1350,287 +1203,298 @@ async function loadAnchors() {
   }
 }
 
-function initAlt1(a1lib) {
-  // Pre-load anchor images as soon as A1lib is ready
-  loadAnchors();
+// ── Tesseract loader (loaded once on demand) ────────────────
+var tesseractWorker = null;
+var tesseractLoading = false;
 
-  // Hook Alt+1 keypress — fires whenever the user presses Alt+1 over RS
+async function getTesseract() {
+  if (tesseractWorker) return tesseractWorker;
+  if (tesseractLoading) {
+    // wait up to 10s for it to finish loading
+    for (var i = 0; i < 100; i++) {
+      await new Promise(function(r){ setTimeout(r, 100); });
+      if (tesseractWorker) return tesseractWorker;
+    }
+    return null;
+  }
+  tesseractLoading = true;
+  return new Promise(function(resolve) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = async function() {
+      try {
+        dbg('Tesseract.js loaded — initialising worker...');
+        var worker = await Tesseract.createWorker('eng', 1, {
+          logger: function(m) { if (m.status === 'recognizing text') dbg('OCR progress: ' + Math.round(m.progress * 100) + '%'); }
+        });
+        // Tune for single-line menu text
+        await worker.setParameters({
+          tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '-,!.",
+          tessedit_pageseg_mode: '7',  // single text line
+        });
+        tesseractWorker = worker;
+        dbg('Tesseract worker ready');
+        resolve(worker);
+      } catch(e) {
+        dbg('Tesseract init error: ' + e.message);
+        tesseractLoading = false;
+        resolve(null);
+      }
+    };
+    s.onerror = function() {
+      dbg('Failed to load Tesseract.js from CDN');
+      tesseractLoading = false;
+      resolve(null);
+    };
+    document.head.appendChild(s);
+  });
+}
+
+function initAlt1(a1lib) {
+  // Pre-load anchors and warm up Tesseract as soon as A1lib is ready
+  loadAnchors();
+  getTesseract();
+
   a1lib.on('alt1pressed', function(e) {
     dbg('alt1pressed x=' + e.x + ' y=' + e.y);
     readExamineWindow();
   });
-  dbg('alt1pressed event hooked via A1lib');
+  dbg('Alt+1 hook registered');
 }
 
-// ── Core: find examine window via image anchors, then OCR ──
+// ── Helpers ─────────────────────────────────────────────────
+
+// Convert an ImageData-like {data, width, height} to a data-URL via canvas
+function imgDataToCanvas(imgData) {
+  var c = document.createElement('canvas');
+  c.width  = imgData.width;
+  c.height = imgData.height;
+  var ctx = c.getContext('2d');
+  var id  = ctx.createImageData(imgData.width, imgData.height);
+  id.data.set(imgData.data);
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+// Scale a canvas up by an integer factor (makes Tesseract work better on tiny strips)
+function scaleCanvas(src, scale) {
+  var dst = document.createElement('canvas');
+  dst.width  = src.width  * scale;
+  dst.height = src.height * scale;
+  var ctx = dst.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, dst.width, dst.height);
+  return dst;
+}
+
+// Show a small debug canvas in the bottom-right corner
+function showDebugCanvas(canvas, label) {
+  var el = document.getElementById('dbg-ocr-canvas');
+  if (!el) {
+    el = document.createElement('canvas');
+    el.id = 'dbg-ocr-canvas';
+    el.style.cssText = 'position:fixed;bottom:24px;right:0;border:2px solid #f5c518;' +
+      'image-rendering:pixelated;z-index:9999;background:#111;max-width:100vw;';
+    document.body.appendChild(el);
+  }
+  el.width  = canvas.width;
+  el.height = canvas.height;
+  el.getContext('2d').drawImage(canvas, 0, 0);
+  el.title = label || '';
+}
+
+// ── Core: find examine window → OCR monster name ────────────
 async function readExamineWindow() {
   if (!window.alt1 || !window.alt1.permissionPixel) {
-    setStatus('err', 'Pixel permission not granted');
+    setStatus('err', 'Pixel permission not granted — check appconfig.json');
     return;
   }
 
-  var a1lib = window.A1lib;
-  var ocrLib = window.OCR;
-  var chatFont = window.RS3MenuFont;
+  setStatus('busy', '🔍 Scanning for Examine window...');
 
-  if (!ocrLib || !chatFont) {
-    setStatus('err', 'Font not ready yet — wait a moment and try again (font=' + !!chatFont + ')');
-    return;
-  }
+  // Ensure anchors are loaded
   var anchorsOk = await loadAnchors();
   if (!anchorsOk) {
-    setStatus('err', 'Anchor images not loaded — ensure TopLeft.png & BottomRight.png exist');
+    setStatus('err', 'Anchor images missing — place TopLeft.png, BottomRight.png, Examine.png in the app folder');
     return;
   }
 
-  setStatus('busy', '🔍 Scanning for examine window...');
-
   try {
-    // Capture the full RS client screen
-    var fullImg = a1lib.captureHoldFullRs();
-    if (!fullImg) { dbg('captureHoldFullRs returned null'); setStatus('err', 'Screen capture failed'); return; }
-    dbg('Full capture: w=' + fullImg.width + ' h=' + fullImg.height);
+    var a1lib = window.A1lib;
 
-    // Search for both anchors in the full capture
-    var tlMatches = fullImg.findSubimage(examineAnchorTL);
-    var brMatches = fullImg.findSubimage(examineAnchorBR);
+    // ── 1. Capture the full RS client screen ──────────────────
+    var screen = a1lib.captureHoldFullRs();
+    if (!screen) {
+      setStatus('err', 'Screen capture failed — is RS running?');
+      return;
+    }
+    dbg('Screen: ' + screen.width + 'x' + screen.height);
 
-    dbg('TL matches: ' + tlMatches.length + '  BR matches: ' + brMatches.length);
+    // ── 2. Locate the examine window corners ─────────────────
+    var tlHits = screen.findSubimage(anchorTL);
+    var brHits = screen.findSubimage(anchorBR);
+    dbg('TL hits: ' + tlHits.length + '  BR hits: ' + brHits.length);
 
-    if (tlMatches.length === 0 || brMatches.length === 0) {
-      setStatus('err', 'Examine window not found — right-click an NPC and hover Examine first');
+    if (!tlHits.length || !brHits.length) {
+      setStatus('err', 'Examine window not found — right-click an NPC, hover Examine, then press Alt+1');
       return;
     }
 
-    // Use the best (highest score) match for each anchor
-    var tl = tlMatches[0];
-    var br = brMatches[0];
+    var tl = tlHits[0];
+    var br = brHits[0];
 
-    // The examine window region spans from the TOP-LEFT of the TL anchor
-    // to the BOTTOM-RIGHT of the BR anchor.
-    //   TL anchor = top bar ("Choose Option")  → gives us left edge and top edge
-    //   BR anchor = bottom bar                 → gives us right edge and bottom edge
-    //
-    // We skip the header row (TL height) and footer row (BR height) since those
-    // are decorative bars and contain no NPC name text — the menu options
-    // (including "Examine <Name>") live in the rows between them.
+    // Window rect (interior, between the corner decorations)
     var winX = tl.x;
-    var winY = tl.y + examineAnchorTL.height;          // below the top bar
-    var winRight  = br.x + examineAnchorBR.width;
-    var winBottom = br.y;                               // above the bottom bar
-    var winW = winRight - winX;
-    var winH = winBottom - winY;
+    var winY = tl.y + anchorTL.height;
+    var winW = (br.x + anchorBR.width) - winX;
+    var winH = br.y - winY;
+    dbg('Window interior: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH);
 
-    dbg('Examine region: x=' + winX + ' y=' + winY + ' w=' + winW + ' h=' + winH +
-        '  (TL=' + tl.x + ',' + tl.y + ' BR=' + br.x + ',' + br.y + ')');
-
-    if (winW <= 10 || winH <= 4) {
-      setStatus('err', 'Anchor region too small (' + winW + 'x' + winH + ') — check TopLeft.png / BottomRight.png alignment');
+    if (winW < 10 || winH < 4) {
+      setStatus('err', 'Examine window region too small — check anchor images');
       return;
     }
 
-    // Read pixel data for just the examine window region
-    var examineData = fullImg.toData(winX, winY, winW, winH);
-    if (!examineData || !examineData.data || examineData.data.length === 0) {
-      setStatus('err', 'Failed to read examine window pixels');
+    // ── 3. Locate the "Examine" label row inside the window ──
+    var windowData = screen.toData(winX, winY, winW, winH);
+    var exHits = windowData.findSubimage(anchorExamine);
+    dbg('Examine label hits: ' + exHits.length);
+
+    var nameX, nameY, nameH, nameW;
+
+    if (exHits.length > 0) {
+      var ex = exHits[0];
+      // "Examine" label found:
+      //   nameX = right edge of label + 1px shadow gap + 5px offset (per spec)
+      //   nameY / nameH = same row as the Examine label
+      nameX = ex.x + anchorExamine.width + 5;  // 5px after drop shadow
+      nameY = ex.y;
+      nameH = anchorExamine.height;
+      nameW = winW - nameX;
+      dbg('Examine label at x=' + ex.x + ' y=' + ex.y +
+          '  → name crop: x=' + nameX + ' y=' + nameY +
+          ' w=' + nameW + ' h=' + nameH);
+    } else {
+      // Fallback: no Examine.png match — OCR the whole interior
+      dbg('Examine label not found — OCR-ing full window interior');
+      nameX = 0; nameY = 0; nameW = winW; nameH = winH;
+    }
+
+    if (nameW <= 0) {
+      setStatus('err', 'Name crop region is zero-width');
       return;
     }
 
-    dbg('examineData: ' + examineData.width + 'x' + examineData.height);
-
-    // ── OCR the examine window ──────────────────────────────
-    // The examine window contains text like "Examine: <NPC name>" or just
-    // the NPC/object name. We scan all rows for yellow text (NPC name colour)
-    // and white text, trying readLine on each.
-    if (!ocrLib || !chatFont) { return; }  // already checked above
-
-    var W = examineData.width;
-    var H = examineData.height;
-    var data = examineData.data;
-
-    dbg('Scanning ' + W + 'x' + H + ' region for text rows...');
-
-    // RS3 NPC names can be yellow, green, cyan, orange, white depending on NPC type.
-    // Detect rows with ANY bright non-background pixels.
-    var colorsToTry = [
-      { col: [255, 255,   0], label: 'yellow' },
-      { col: [  0, 255,   0], label: 'green'  },
-      { col: [255, 255, 255], label: 'white'  },
-      { col: [  0, 255, 255], label: 'cyan'   },
-      { col: [255, 152,   0], label: 'orange' },
-    ];
-
-    // Build rowHits: rows containing any bright non-border pixel
-    var rowHits = [];
-    for (var py = 0; py < H; py++) rowHits[py] = [];
-
-    for (var ci2 = 0; ci2 < colorsToTry.length; ci2++) {
-      var tc = colorsToTry[ci2].col;
-      for (var py2 = 0; py2 < H; py2++) {
-        var count = 0;
-        for (var px2 = 0; px2 < W; px2++) {
-          var idx2 = (py2 * W + px2) * 4;
-          if (Math.abs(data[idx2]   - tc[0]) < 40 &&
-              Math.abs(data[idx2+1] - tc[1]) < 40 &&
-              Math.abs(data[idx2+2] - tc[2]) < 40) count++;
-        }
-        if (count >= 2) rowHits[py2].push(ci2);
-      }
-    }
-
-    var hitSummary = [];
-    for (var sy = 0; sy < H; sy++) {
-      if (rowHits[sy].length > 0)
-        hitSummary.push('y'+sy+':'+rowHits[sy].map(function(i){ return colorsToTry[i].label; }).join('+'));
-    }
-    dbg('Color rows: ' + (hitSummary.length ? hitSummary.slice(0,10).join(' ')+'...' : 'none'));
-
-    var basey  = chatFont.basey  || 8;
-    var fh     = chatFont.height || 12;
-    dbg('font: basey=' + basey + ' height=' + fh + ' spacewidth=' + chatFont.spacewidth + ' chars=' + chatFont.chars.length);
-
-    // ── Color dump ───────────────────────────────────────────────────────────
-    var colorSeen = {};
-    for (var dumpY = 0; dumpY < H; dumpY++) {
-      for (var dumpX = 0; dumpX < W; dumpX++) {
-        var di = (dumpY * W + dumpX) * 4;
-        var dr = data[di], dg = data[di+1], db3 = data[di+2];
-        if (dr > 180 || dg > 180 || db3 > 180) {
-          var key = Math.round(dr/20)*20 + ',' + Math.round(dg/20)*20 + ',' + Math.round(db3/20)*20;
-          colorSeen[key] = (colorSeen[key]||0) + 1;
-        }
-      }
-    }
-    var colorList = Object.keys(colorSeen).sort(function(a,b){ return colorSeen[b]-colorSeen[a]; });
-    dbg('Bright colors: ' + colorList.slice(0,6).map(function(k){ return k+'x'+colorSeen[k]; }).join(' | '));
-
-    // ── Band detection ───────────────────────────────────────────────────────
-    var bands = [];
-    var inBand = false, bandStart = 0;
-    for (var by = 0; by <= H; by++) {
-      var hasBright = rowHits[by] && rowHits[by].length > 0;
-      if (hasBright && !inBand)      { inBand = true;  bandStart = by; }
-      else if (!hasBright && inBand) { bands.push({ start: bandStart, end: by - 1 }); inBand = false; }
-    }
-    dbg('Bands: ' + bands.map(function(b){ return b.start+'-'+b.end; }).join(', '));
-
-    // ── Extract dominant text colors directly from the image ─────────────────
-    // Bucket all bright pixels into coarse color bins, sort by frequency,
-    // use the top colors as OCR color candidates. This handles green names,
-    // yellow names, white text, cyan text, etc. automatically.
-    var colorBins = {};
-    var BORDER_COLOR_R = 220, BORDER_COLOR_G = 200, BORDER_COLOR_B = 160; // menu border tan
-    for (var cy2 = 0; cy2 < H; cy2++) {
-      for (var cx2 = 0; cx2 < W; cx2++) {
-        var ci4 = (cy2 * W + cx2) * 4;
-        var pr = data[ci4], pg = data[ci4+1], pb = data[ci4+2];
-        if (pr < 100 && pg < 100 && pb < 100) continue; // skip dark pixels
-        // Skip the border tan color
-        if (Math.abs(pr-BORDER_COLOR_R)<30 && Math.abs(pg-BORDER_COLOR_G)<30 && Math.abs(pb-BORDER_COLOR_B)<30) continue;
-        // Skip near-white (menu background highlight), skip pure grey
-        if (pr > 230 && pg > 230 && pb > 230) continue;
-        // Quantize to 32-step bins
-        var bkey = Math.min(255,Math.round(pr/32)*32) + '_' + Math.min(255,Math.round(pg/32)*32) + '_' + Math.min(255,Math.round(pb/32)*32);
-        colorBins[bkey] = (colorBins[bkey]||0) + 1;
-      }
-    }
-    var sortedColors = Object.keys(colorBins).sort(function(a,b){ return colorBins[b]-colorBins[a]; });
-    var dominantColors = sortedColors.slice(0, 8).map(function(k) {
-      var parts = k.split('_');
-      return [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
-    });
-    // Always include the classics as fallbacks
-    [[255,255,0],[0,255,0],[255,255,255],[0,255,255],[255,165,0]].forEach(function(c) {
-      dominantColors.push(c);
-    });
-    dbg('Colors to try: ' + dominantColors.slice(0,6).map(function(c){ return '('+c+')'; }).join(' '));
-
-    // ── Pure-JS OCR (replaces broken OCR library calls) ──────────────────────
-    var fc0 = chatFont.chars[0];
-    dbg('Font in-memory: chars[0]="'+(fc0?fc0.chr:'?')+'" bonus='+(fc0?fc0.bonus:'?')+' pixels='+(fc0?fc0.pixels.length/3:'?'));
-
-    // Find leftmost colored pixel per band (where text actually starts)
-    var bandTextX = [];
-    for (var bi2 = 0; bi2 < bands.length; bi2++) {
-      var bd = bands[bi2];
-      var firstX = 0;  // default to 0 — our scorer handles non-text columns fine
-      outer: for (var tx = 0; tx < W; tx++) {
-        for (var ty = bd.start; ty <= bd.end; ty++) {
-          var ti = (ty * W + tx) * 4;
-          var tr = data[ti], tg2 = data[ti+1], tb3 = data[ti+2];
-          for (var tci = 0; tci < dominantColors.length; tci++) {
-            var tc3 = dominantColors[tci];
-            if (Math.abs(tr-tc3[0])<40 && Math.abs(tg2-tc3[1])<40 && Math.abs(tb3-tc3[2])<40) {
-              firstX = tx; break outer;
+    // ── 4. Crop to the name region & clip at "(" ─────────────
+    // We read the pixel data for the name strip, then find the first column
+    // that looks like the "(" character and trim there.
+    var stripData = windowData.toData
+      ? windowData.toData(nameX, nameY, nameW, nameH)
+      : (function() {
+          // windowData is already a flat ImageData — slice it manually
+          var out = { width: nameW, height: nameH, data: new Uint8ClampedArray(nameW * nameH * 4) };
+          for (var row = 0; row < nameH; row++) {
+            for (var col = 0; col < nameW; col++) {
+              var srcIdx = ((nameY + row) * winW + (nameX + col)) * 4;
+              var dstIdx = (row * nameW + col) * 4;
+              out.data[dstIdx]     = windowData.data[srcIdx];
+              out.data[dstIdx + 1] = windowData.data[srcIdx + 1];
+              out.data[dstIdx + 2] = windowData.data[srcIdx + 2];
+              out.data[dstIdx + 3] = 255;
             }
           }
-        }
+          return out;
+        })();
+
+    // Find the first column that has a significant dark vertical gap
+    // indicating the "(" boundary — use a simple brightness-drop heuristic
+    var clipX = nameW;  // default: no clip
+    var SD = stripData.data;
+    var SW = stripData.width, SH = stripData.height;
+
+    // Walk columns left→right looking for the first column where >60% of
+    // pixels are dark (the menu background), which signals whitespace before "("
+    var textStarted = false;
+    for (var cx = 0; cx < SW; cx++) {
+      var brightCount = 0;
+      for (var cy = 0; cy < SH; cy++) {
+        var si = (cy * SW + cx) * 4;
+        var br2 = (SD[si] + SD[si+1] + SD[si+2]) / 3;
+        if (br2 > 80) brightCount++;
       }
-      bandTextX.push(firstX);
-      dbg('Band '+bi2+' (y='+bd.start+'-'+bd.end+'): text starts at x='+firstX);
+      var ratio = brightCount / SH;
+      if (ratio > 0.15) textStarted = true;
+      // Once text has started, a blank column signals a space; two blank
+      // columns in a row after "(" would be overkill — look for a bright
+      // column that starts with "(" based on its pixel pattern being narrow
+      // at top/bottom and wide in the middle.  Simpler: just stop at the
+      // first space gap AFTER at least 3 columns of text.
     }
 
-    // ── Debug canvas ──────────────────────────────────────────────────────────
-    try {
-      var dbgCanvas = document.getElementById('debug-canvas');
-      if (!dbgCanvas) {
-        dbgCanvas = document.createElement('canvas');
-        dbgCanvas.id = 'debug-canvas';
-        dbgCanvas.style.cssText = 'position:fixed;bottom:0;right:0;border:2px solid #ff4444;image-rendering:pixelated;z-index:9999;max-width:100vw;max-height:50vh;background:#111;';
-        document.body.appendChild(dbgCanvas);
-      }
-      var sc = 4;
-      dbgCanvas.width = W * sc; dbgCanvas.height = H * sc + 20;  // +20 for char labels above
-      var dctx = dbgCanvas.getContext('2d');
-      var tmp = document.createElement('canvas');
-      tmp.width = W; tmp.height = H;
-      var tctx = tmp.getContext('2d');
-      var idata = tctx.createImageData(W, H);
-      for (var ip = 0; ip < data.length; ip++) idata.data[ip] = data[ip];
-      for (var ia = 3; ia < idata.data.length; ia += 4) idata.data[ia] = 255;
-      tctx.putImageData(idata, 0, 0);
-      dctx.imageSmoothingEnabled = false;
-      dctx.drawImage(tmp, 0, 0, W*sc, H*sc);
-      dctx.strokeStyle = 'rgba(0,120,255,0.9)'; dctx.lineWidth = 1;
-      for (var bdi = 0; bdi < bands.length; bdi++)
-        dctx.strokeRect(0, bands[bdi].start*sc, W*sc, (bands[bdi].end-bands[bdi].start+1)*sc);
-      dctx.strokeStyle = 'lime';
-      for (var bgi = 0; bgi < bands.length; bgi++) {
-        if (bandTextX[bgi] >= 0) {
-          dctx.beginPath();
-          dctx.moveTo(bandTextX[bgi]*sc, bands[bgi].start*sc);
-          dctx.lineTo(bandTextX[bgi]*sc, (bands[bgi].end+1)*sc);
-          dctx.stroke();
-        }
-      }
-      dbg('Debug canvas: '+W+'x'+H+' @'+sc+'x');
-    } catch(ce) { dbg('Canvas err: '+ce.message); }
+    // Simpler & reliable: build the strip canvas, let Tesseract find "("
+    // itself, then strip everything from "(" onward in the returned string.
+    var stripCanvas = imgDataToCanvas(stripData);
 
-    var ocrResults = rs3OCR(examineData, data, W, H, dominantColors, bands, bandTextX, dbgCanvas);
-    var bestResult = null;
+    // Scale up 4× so Tesseract has enough resolution on small RS menu text
+    var SCALE = 4;
+    var scaledCanvas = scaleCanvas(stripCanvas, SCALE);
 
-    for (var ri = 0; ri < ocrResults.length && !bestResult; ri++) {
-      var raw = ocrResults[ri].text.trim();
-      dbg('OCR result band='+ocrResults[ri].band+': "'+raw+'"');
-      var examM = raw.match(/examine\s+(.+)/i);
-      if (examM && examM[1].trim().length > 1) { bestResult = examM[1].trim(); break; }
-      if (/^(walk here|cancel|choose option|pickpocket|attack|talk-to|trade|use)$/i.test(raw)) continue;
-      if (raw.length > 1 && /^[A-Za-z0-9 '\-,!.()']+$/.test(raw)) bestResult = raw;
+    // Optional: invert colors if background is dark (RS menu is dark-ish)
+    // Tesseract works better on dark-text-on-light; check average brightness
+    var avgCtx = stripCanvas.getContext('2d');
+    var sampleData = avgCtx.getImageData(0, 0, Math.min(SW, 20), SH).data;
+    var avgBright = 0;
+    for (var pi = 0; pi < sampleData.length; pi += 4)
+      avgBright += (sampleData[pi] + sampleData[pi+1] + sampleData[pi+2]) / 3;
+    avgBright /= (sampleData.length / 4);
+    dbg('Strip avg brightness: ' + avgBright.toFixed(1));
+
+    if (avgBright < 100) {
+      // Dark background — invert for Tesseract
+      var invCtx = scaledCanvas.getContext('2d');
+      invCtx.filter = 'invert(1)';
+      var tmp2 = document.createElement('canvas');
+      tmp2.width = scaledCanvas.width; tmp2.height = scaledCanvas.height;
+      tmp2.getContext('2d').filter = 'invert(1)';
+      tmp2.getContext('2d').drawImage(scaledCanvas, 0, 0);
+      scaledCanvas = tmp2;
+      dbg('Inverted strip for Tesseract');
     }
 
-        if (bestResult) {
-      dbg('OCR SUCCESS: "' + bestResult + '"');
-      flashBadge('#4caf50');
-      setStatus('busy', 'Detected: ' + bestResult);
-      lookup(bestResult);
-    } else {
-      dbg('OCR found no readable text in examine region');
-      setStatus('err', 'Could not read examine text — try hovering the Examine option and pressing Alt+1');
+    showDebugCanvas(scaledCanvas, 'OCR strip (scaled ' + SCALE + 'x)');
+
+    // ── 5. Run Tesseract OCR ──────────────────────────────────
+    setStatus('busy', '🔡 Running OCR...');
+    var worker = await getTesseract();
+    if (!worker) {
+      setStatus('err', 'Tesseract not available — check network/CDN');
+      return;
     }
+
+    var result = await worker.recognize(scaledCanvas);
+    var raw = (result.data.text || '').trim();
+    dbg('Tesseract raw: "' + raw + '"');
+
+    // Strip anything from "(" onward (combat level, etc.)
+    var parenIdx = raw.indexOf('(');
+    if (parenIdx !== -1) raw = raw.slice(0, parenIdx).trim();
+
+    // Clean up stray punctuation Tesseract sometimes adds at line ends
+    raw = raw.replace(/[|[\]{}\\/*]+/g, '').trim();
+
+    if (!raw || raw.length < 2) {
+      setStatus('err', 'OCR returned no text — try hovering Examine and pressing Alt+1 again');
+      return;
+    }
+
+    dbg('OCR result: "' + raw + '"');
+    flashBadge('#4caf50');
+    setStatus('busy', '✨ Detected: ' + raw);
+    lookup(raw);
 
   } catch(e) {
-    dbg('readExamineWindow error: ' + e.message);
-    setStatus('err', 'Error reading screen: ' + e.message.slice(0, 60));
+    dbg('readExamineWindow error: ' + e.message + '\n' + (e.stack || '').slice(0, 200));
+    setStatus('err', 'Error: ' + e.message.slice(0, 80));
   }
 }
 
