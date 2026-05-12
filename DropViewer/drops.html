@@ -1419,40 +1419,72 @@ async function readExamineWindow() {
     var SH = stripRaw.height || nameH;
     var SD = stripRaw.data;
 
-    // ── 4a. Find the clip column — scan RIGHT-TO-LEFT from BR edge ───────────
-    // The "(level: N)" block sits at the right of the strip, touching the BR
-    // anchor. Scan from the right edge inward; the FIRST gap of ≥2 consecutive
-    // dark columns we encounter is the space between the name and "(level:".
-    // Scanning right-to-left means we stop immediately at that gap and never
-    // accidentally stop at an internal letter gap.
-    var BRIGHT_THRESH = 60;
-    var clipCol = SW;         // default: use full width (no level suffix)
-    var consecutiveDark = 0;
-    var suffixStarted = false;  // have we seen bright pixels from the right?
+    // ── 4a. Find word blocks to locate the "(level: N)" suffix ───────────────
+    // Strategy: scan the full strip and record all "word blocks" — contiguous
+    // runs of columns that have at least one bright pixel. Then find all gap
+    // positions (transitions from bright→dark). The "(level: N)" block always
+    // sits at the far right of the strip. The gap BEFORE the last word block
+    // is our clip point IF the last word block looks like a level suffix
+    // (i.e. it starts with something other than a capital letter — but we
+    // can't tell from pixels alone, so instead: clip at the LAST gap that is
+    // followed by another gap somewhere to its right, meaning there is at
+    // least one more word after the gap. If the name has no level suffix,
+    // clipCol stays at SW).
+    //
+    // Simpler & robust: build a column brightness map, then find all gap runs.
+    // The last gap run that has bright pixels on BOTH sides is the space before
+    // "(level:". If the strip ends in bright pixels (no trailing gap) and there
+    // is exactly one gap, that gap separates name from level. If there are
+    // multiple gaps (multi-word name + level), clip at the LAST gap.
 
-    for (var cx = SW - 1; cx >= 0; cx--) {
-      var hasBright = false;
+    var BRIGHT_THRESH = 55;
+
+    // Build per-column bright flag
+    var colBright = new Uint8Array(SW);
+    for (var cx = 0; cx < SW; cx++) {
       for (var cy = 0; cy < SH; cy++) {
         var si = (cy * SW + cx) * 4;
         if ((SD[si] + SD[si+1] + SD[si+2]) / 3 > BRIGHT_THRESH) {
-          hasBright = true;
-          break;
-        }
-      }
-      if (hasBright) {
-        suffixStarted   = true;
-        consecutiveDark = 0;
-      } else if (suffixStarted) {
-        consecutiveDark++;
-        // ≥2 consecutive dark cols = inter-word space → the name ends here
-        if (consecutiveDark >= 2) {
-          clipCol = cx + 1;  // last bright col + 1 is where we cut
+          colBright[cx] = 1;
           break;
         }
       }
     }
 
-    dbg('Pixel clip (RTL): SW=' + SW + ' clipCol=' + clipCol);
+    // Find all gap runs: [{start, end}] — runs of dark columns
+    var gaps = [];
+    var inGap = false, gapStart = 0;
+    for (var gx = 0; gx < SW; gx++) {
+      if (!colBright[gx] && !inGap) { inGap = true; gapStart = gx; }
+      else if (colBright[gx] && inGap) { gaps.push({ start: gapStart, end: gx - 1 }); inGap = false; }
+    }
+    if (inGap) gaps.push({ start: gapStart, end: SW - 1 });
+
+    dbg('Word gaps: ' + gaps.map(function(g){ return g.start+'-'+g.end+'('+( g.end-g.start+1)+'px)'; }).join(' '));
+
+    // The clip point is the start of the LAST gap that:
+    //   1. Has at least 1 bright column to its left (i.e. name exists)
+    //   2. Has at least 1 bright column to its right (i.e. something follows)
+    //   3. Is at least 2px wide (rules out intra-letter dark columns)
+    var clipCol = SW;
+    for (var gi = gaps.length - 1; gi >= 0; gi--) {
+      var g = gaps[gi];
+      var gapWidth = g.end - g.start + 1;
+      if (gapWidth < 2) continue;
+      // Check bright pixels exist to the left
+      var hasLeft = false;
+      for (var lx = g.start - 1; lx >= 0; lx--) { if (colBright[lx]) { hasLeft = true; break; } }
+      // Check bright pixels exist to the right
+      var hasRight = false;
+      for (var rx = g.end + 1; rx < SW; rx++) { if (colBright[rx]) { hasRight = true; break; } }
+      if (hasLeft && hasRight) {
+        clipCol = g.start;  // clip at the start of this gap
+        dbg('Clip at last qualifying gap: col ' + clipCol + ' (gap ' + g.start + '-' + g.end + ')');
+        break;
+      }
+    }
+
+    dbg('Final clipCol=' + clipCol + ' / SW=' + SW);
 
     // Build the (possibly clipped) strip ImageData
     var clippedW    = Math.max(1, clipCol);
@@ -1508,11 +1540,15 @@ async function readExamineWindow() {
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // Belt-and-suspenders: also strip any "(..." that Tesseract still returns
-    var parenIdx = raw.search(/[([{]/);
+    // Post-OCR strip: remove any "(level:..." or common misreads of it.
+    // 1. Literal paren
+    var parenIdx = raw.search(/[([{<]/);
     if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
-
-    // Strip trailing stray punctuation
+    // 2. "level", "evel", "lev" etc. preceded by a space — Tesseract misreading "(l" as "l"
+    raw = raw.replace(/\s+(?:l|e)?(?:level|evel|leve|eve|eyel|leyv|lev)\b.*/i, '').trim();
+    // 3. Trailing lone digits that bled through (e.g. " 67" or "- 67")
+    raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
+    // 4. Trailing stray punctuation
     raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
 
     if (!raw || raw.length < 2) {
