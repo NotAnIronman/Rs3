@@ -1355,81 +1355,49 @@ async function readExamineWindow() {
       return;
     }
 
-    // ── 3. Locate the "Examine" label row inside the window ──
-    var windowData = screen.toData(winX, winY, winW, winH);
-    var exHits = windowData.findSubimage(anchorExamine);
-    dbg('Examine label hits: ' + exHits.length);
 
-    var nameX, nameY, nameH, nameW;
+    // ── 3. Locate the "Examine" label row ───────────────────────────────────
+    // screen is an ImgRef and supports findSubimage; toData() returns plain
+    // pixel data that does NOT have findSubimage — so we search on screen.
+    var exHits = screen.findSubimage(anchorExamine);
+    dbg('Examine label hits (screen): ' + exHits.length);
 
-    if (exHits.length > 0) {
-      var ex = exHits[0];
-      // "Examine" label found:
-      //   nameX = right edge of label + 1px shadow gap + 5px offset (per spec)
-      //   nameY / nameH = same row as the Examine label
-      nameX = ex.x + anchorExamine.width + 5;  // 5px after drop shadow
-      nameY = ex.y;
-      nameH = anchorExamine.height;
-      nameW = winW - nameX;
-      dbg('Examine label at x=' + ex.x + ' y=' + ex.y +
-          '  → name crop: x=' + nameX + ' y=' + nameY +
+    // Keep only hits that fall inside the window rect
+    var exInWindow = exHits.filter(function(h) {
+      return h.x >= winX && h.x < winX + winW &&
+             h.y >= winY && h.y < winY + winH;
+    });
+    dbg('Examine hits inside window: ' + exInWindow.length);
+
+    var nameAbsX, nameAbsY, nameW, nameH;
+
+    if (exInWindow.length > 0) {
+      var ex = exInWindow[0];
+      // 5px after the right edge of the Examine image (clears the drop shadow)
+      nameAbsX = ex.x + anchorExamine.width + 5;
+      nameAbsY = ex.y;
+      nameH    = anchorExamine.height;
+      nameW    = (winX + winW) - nameAbsX;
+      dbg('Examine at screen (' + ex.x + ',' + ex.y + ')' +
+          '  → name strip absX=' + nameAbsX + ' absY=' + nameAbsY +
           ' w=' + nameW + ' h=' + nameH);
     } else {
-      // Fallback: no Examine.png match — OCR the whole interior
-      dbg('Examine label not found — OCR-ing full window interior');
-      nameX = 0; nameY = 0; nameW = winW; nameH = winH;
+      // Fallback: no Examine.png match — OCR the whole window interior
+      dbg('Examine label not found — falling back to full window OCR');
+      nameAbsX = winX; nameAbsY = winY; nameW = winW; nameH = winH;
     }
 
     if (nameW <= 0) {
-      setStatus('err', 'Name crop region is zero-width');
+      setStatus('err', 'Name crop region zero-width — check Examine.png anchor');
       return;
     }
 
-    // ── 4. Crop to the name region & clip at "(" ─────────────
-    // We read the pixel data for the name strip, then find the first column
-    // that looks like the "(" character and trim there.
-    var stripData = windowData.toData
-      ? windowData.toData(nameX, nameY, nameW, nameH)
-      : (function() {
-          // windowData is already a flat ImageData — slice it manually
-          var out = { width: nameW, height: nameH, data: new Uint8ClampedArray(nameW * nameH * 4) };
-          for (var row = 0; row < nameH; row++) {
-            for (var col = 0; col < nameW; col++) {
-              var srcIdx = ((nameY + row) * winW + (nameX + col)) * 4;
-              var dstIdx = (row * nameW + col) * 4;
-              out.data[dstIdx]     = windowData.data[srcIdx];
-              out.data[dstIdx + 1] = windowData.data[srcIdx + 1];
-              out.data[dstIdx + 2] = windowData.data[srcIdx + 2];
-              out.data[dstIdx + 3] = 255;
-            }
-          }
-          return out;
-        })();
+    // ── 4. Grab the name-strip pixels via screen.toData (abs coords) ─────────
+    var stripRaw  = screen.toData(nameAbsX, nameAbsY, nameW, nameH);
+    var SW = stripRaw.width  || nameW;
+    var SH = stripRaw.height || nameH;
+    var stripData = { width: SW, height: SH, data: stripRaw.data };
 
-    // Find the first column that has a significant dark vertical gap
-    // indicating the "(" boundary — use a simple brightness-drop heuristic
-    var clipX = nameW;  // default: no clip
-    var SD = stripData.data;
-    var SW = stripData.width, SH = stripData.height;
-
-    // Walk columns left→right looking for the first column where >60% of
-    // pixels are dark (the menu background), which signals whitespace before "("
-    var textStarted = false;
-    for (var cx = 0; cx < SW; cx++) {
-      var brightCount = 0;
-      for (var cy = 0; cy < SH; cy++) {
-        var si = (cy * SW + cx) * 4;
-        var br2 = (SD[si] + SD[si+1] + SD[si+2]) / 3;
-        if (br2 > 80) brightCount++;
-      }
-      var ratio = brightCount / SH;
-      if (ratio > 0.15) textStarted = true;
-      // Once text has started, a blank column signals a space; two blank
-      // columns in a row after "(" would be overkill — look for a bright
-      // column that starts with "(" based on its pixel pattern being narrow
-      // at top/bottom and wide in the middle.  Simpler: just stop at the
-      // first space gap AFTER at least 3 columns of text.
-    }
 
     // Simpler & reliable: build the strip canvas, let Tesseract find "("
     // itself, then strip everything from "(" onward in the returned string.
