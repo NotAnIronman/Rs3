@@ -1373,8 +1373,9 @@ async function readExamineWindow() {
 
     if (exInWindow.length > 0) {
       var ex = exInWindow[0];
-      // 5px after the right edge of the Examine image (clears the drop shadow)
-      nameAbsX = ex.x + anchorExamine.width + 5;
+      // 3px after the right edge of the Examine image (clears the drop shadow)
+      // Was 5px but the "O" in monster names was getting clipped — nudged left 2px
+      nameAbsX = ex.x + anchorExamine.width + 3;
       nameAbsY = ex.y;
       nameH    = anchorExamine.height;
       nameW    = (winX + winW) - nameAbsX;
@@ -1440,12 +1441,21 @@ async function readExamineWindow() {
     }
 
     var result = await worker.recognize(scaledCanvas);
+    // Strip the "(level: N)" suffix — Tesseract may read "(" as "l", "[", "{" etc.
+    // Match: optional whitespace + ( or common misreads + "level" or "ley" or "lev"
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // Strip anything from "(" onward (combat level, etc.)
+    // First try: hard stop at literal "("
     var parenIdx = raw.indexOf('(');
     if (parenIdx !== -1) raw = raw.slice(0, parenIdx).trim();
+
+    // Second pass: strip " l..." suffix where "l" is a misread "(" before "level/ley/lev"
+    // e.g. "Ogress warrior leyvel 63" → strip from " l" onward if followed by e/a
+    raw = raw.replace(/\s+[l\[{(][ée](?:y|v|vel|yvel|evel).*/i, '').trim();
+
+    // Also strip any trailing lone punctuation left over
+    raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
 
     // Clean up stray punctuation Tesseract sometimes adds at line ends
     raw = raw.replace(/[|[\]{}\\/*]+/g, '').trim();
