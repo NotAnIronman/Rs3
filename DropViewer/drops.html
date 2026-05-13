@@ -67,6 +67,22 @@ body {
 }
 .toggle.on::after { left: 17px; }
 
+.settings-row--stack { flex-direction: column; align-items: stretch; gap: 4px; }
+.settings-row--stack label { display: flex; justify-content: space-between; }
+#opacity-value { color: var(--dim); font-size: 11px; }
+#opacity-slider {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+  background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+}
+#opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+  background: var(--gold); border-radius: 50%; cursor: pointer; border: none;
+}
+#opacity-slider::-moz-range-thumb {
+  width: 14px; height: 14px; background: var(--gold); border-radius: 50%;
+  cursor: pointer; border: none;
+}
+
 #searchbar {
   background: var(--bg2); border-bottom: 1px solid var(--border);
   padding: 7px 10px; display: flex; gap: 5px; flex-shrink: 0;
@@ -209,6 +225,10 @@ body {
     <label for="toggle-ocr-canvas">Show OCR preview</label>
     <div class="toggle" id="toggle-ocr-canvas"></div>
   </div>
+  <div class="settings-row settings-row--stack">
+    <label for="opacity-slider">Window opacity <span id="opacity-value">100%</span></label>
+    <input type="range" id="opacity-slider" min="30" max="100" step="5" value="100"/>
+  </div>
 </div>
 
 <div id="searchbar">
@@ -247,7 +267,7 @@ let inDropsView = false;
 let searchTimer = null;
 
 // ── Settings ───────────────────────────────────────────────
-const settings = { debugLog: false, ocrCanvas: false };
+const settings = { debugLog: false, ocrCanvas: false, opacity: 100 };
 
 function saveSetting(key, val) {
   settings[key] = val;
@@ -258,6 +278,7 @@ function saveSetting(key, val) {
     const s = JSON.parse(localStorage.getItem('dvSettings') || '{}');
     if (s.debugLog  !== undefined) settings.debugLog  = s.debugLog;
     if (s.ocrCanvas !== undefined) settings.ocrCanvas = s.ocrCanvas;
+    if (typeof s.opacity === 'number') settings.opacity = Math.max(30, Math.min(100, s.opacity));
   } catch(e) {}
 })();
 
@@ -266,6 +287,11 @@ const DEBUG_OVERLAY_HEIGHT = 180;
 function applyToggleUI() {
   document.getElementById('toggle-debug').classList.toggle('on', settings.debugLog);
   document.getElementById('toggle-ocr-canvas').classList.toggle('on', settings.ocrCanvas);
+  const slider = document.getElementById('opacity-slider');
+  const valLabel = document.getElementById('opacity-value');
+  if (slider) slider.value = settings.opacity;
+  if (valLabel) valLabel.textContent = settings.opacity + '%';
+  document.body.style.opacity = (settings.opacity / 100).toString();
   const dbgEl = getOrCreateDebugOverlay();
   const ocrEl = getOrCreateOcrCanvas();
   dbgEl.style.display = settings.debugLog  ? 'block' : 'none';
@@ -322,6 +348,10 @@ document.getElementById('toggle-debug').addEventListener('click', function() {
 });
 document.getElementById('toggle-ocr-canvas').addEventListener('click', function() {
   saveSetting('ocrCanvas', !settings.ocrCanvas);
+  applyToggleUI();
+});
+document.getElementById('opacity-slider').addEventListener('input', function(e) {
+  saveSetting('opacity', parseInt(e.target.value, 10) || 100);
   applyToggleUI();
 });
 
@@ -703,9 +733,9 @@ async function getDisambigLinks(title) {
     .filter(l => !l.includes('disambiguation') && !l.includes('(disambiguation)'));
 }
 
-function showDisambigOptions(title, links) {
+function showDisambigOptions(title, links, msg) {
   document.getElementById('disambig-msg').textContent =
-    `"${title}" refers to multiple pages. Which one are you looking for?`;
+    msg || `"${title}" refers to multiple pages. Which one are you looking for?`;
   const container = document.getElementById('disambig-options');
   container.innerHTML = '';
   for (const link of links) {
@@ -718,6 +748,29 @@ function showDisambigOptions(title, links) {
   showDisambig();
   document.getElementById('subtitle').textContent = 'Choose a page';
   setStatus('', '');
+}
+
+// ── Suggest alternatives when a page has no drop table ─────
+// Used as a fallback for disambig-style pages that MediaWiki doesn't tag with
+// __DISAMBIG__ (e.g. "Guard", "Knight"). Calls opensearch for prefix matches
+// and shows the results in the existing disambig picker.
+async function suggestAlternatives(title) {
+  try {
+    const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=20&namespace=0&format=json&origin=*`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const suggestions = (d[1] || []).filter(s => s !== title);
+    if (!suggestions.length) {
+      setStatus('err', `⚠️ No drop table found for "${title}".`);
+      return;
+    }
+    setStatus('busy', `No drops on "${title}" — pick a related page:`);
+    showDisambigOptions(title, suggestions,
+      `"${title}" has no drop table. Did you mean one of these?`);
+  } catch(e) {
+    dbg('suggestAlternatives error: ' + e.message);
+    setStatus('err', `⚠️ No drop table found for "${title}".`);
+  }
 }
 
 // ── Icon URL fixer ─────────────────────────────────────────
@@ -749,6 +802,46 @@ function rarityClass(r) {
   if (s.includes('uncommon')) return { label:r, cls:'b-uncommon' };
   if (s.includes('common'))   return { label:r, cls:'b-common' };
   return { label:r, cls:'b-unknown' };
+}
+
+// ── Strip "(Level: N)" suffix from OCR output ─────────────
+// Tesseract garbles the "(" and the first letter or two of "level" in many ways:
+//   "Wolf level 11J", "Cow leyel220", "Chicken OJevel- 1J", "Bull Ulevel- 5",
+//   "Thrower troll lexeals 67  l", "Monkey Olovel- 3", "Scorpion Uevel- 14  l".
+// Trying to enumerate every spelling with regex is a losing game, so we instead
+// anchor at the first digit run (the level number) and walk back through:
+//   1. separators (whitespace, -, :, ., comma, semicolon, opening parens)
+//   2. a single "level-like" word (3-8 letters, contains 'e', ends in l/s — covers
+//      "level", "leyel", "evel", "Ulevel", "OJevel", "Olovel", "Uevel", "lexel",
+//      "lexeals", "levels", "Jevel", etc.)
+//   3. more separators
+// then cut everything from that point on. Falls through to trim-only when the OCR
+// returns no digits (a bare name with no level info).
+function stripLevelSuffix(raw) {
+  if (!raw) return raw;
+  raw = raw.trim();
+  var parenIdx = raw.search(/[([{<]/);
+  if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
+
+  var dm = raw.match(/\d+/);
+  if (dm) {
+    var i = dm.index - 1;
+    while (i >= 0 && /[\s\-:.,;(]/.test(raw[i])) i--;
+    var wordEnd = i + 1;
+    while (i >= 0 && /[a-zA-Z]/.test(raw[i])) i--;
+    var wordStart = i + 1;
+    var word = raw.slice(wordStart, wordEnd);
+    if (word.length >= 3 && word.length <= 8 && /e/i.test(word) && /[ls]$/i.test(word)) {
+      var cutAt = wordStart - 1;
+      while (cutAt >= 0 && /[\s\-:.,;(]/.test(raw[cutAt])) cutAt--;
+      raw = raw.slice(0, cutAt + 1);
+    }
+  }
+  // Trailing junk: stray single letter (misread ')'), residual digits, punctuation
+  raw = raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/, '').trim();
+  raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
+  raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
+  return raw;
 }
 
 // ── Resolve OCR output against the local monster list ─────
@@ -847,7 +940,11 @@ async function lookupPage(title) {
   const total = totalNormal + totalHard;
 
   if (total === 0) {
-    setStatus('err', `⚠️ No drop table found for "${title}".`);
+    // Page exists but has no drop table — often a disambig that MediaWiki didn't
+    // tag with __DISAMBIG__ ("Guard", "Knight", etc.) or a parent page whose
+    // variants live on separate articles. Offer opensearch suggestions so the
+    // user can pick the right one.
+    await suggestAlternatives(title);
     return;
   }
 
@@ -1609,30 +1706,7 @@ async function readExamineWindow() {
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // ── Post-OCR: strip "(level: N)" suffix in all its corrupted forms ───────
-    // Tested against all observed Tesseract outputs.
-    var LEVEL_CORE  = '(?:levels?|leval[ls]?|leve[ls]?|[Uu]?eyel[s]?|evels?|evals?|lev\\b)';
-    var VOWEL_CORE  = '(?:[Uu]?eyel[s]?|evels?|evals?)';  // can appear with zero separator
-
-    // Step 1: literal paren/bracket
-    var parenIdx = raw.search(/[([{<]/);
-    if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
-
-    // Step 2a: doubled last letter acting as eaten '(' e.g. "Foalllevel"
-    raw = raw.replace(new RegExp('(\\w)\\1+' + LEVEL_CORE + '.*$', 'i'), '$1').trim();
-    // Step 2b: any non-word separator before level core e.g. " level", " leval"
-    raw = raw.replace(new RegExp('(?<=[a-zA-Z\\d])[\\s\\W]+' + LEVEL_CORE + '.*$', 'i'), '').trim();
-    // Step 2c: zero separator, vowel-start core glued to name e.g. "Foalevel"
-    raw = raw.replace(new RegExp('(?<=[a-zA-Z\\d])' + VOWEL_CORE + '.*$', 'i'), '').trim();
-
-    // Step 3: trailing digit + stray letter e.g. "11J", "8Y1"
-    raw = raw.replace(/\s+\d+\s*[a-zA-Z]\s*$/, '').trim();
-    // Step 4: lone trailing single letter (misread ')') e.g. " l"
-    raw = raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/, '').trim();
-    // Step 5: trailing digits
-    raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
-    // Step 6: trailing punctuation
-    raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
+    raw = stripLevelSuffix(raw);
 
     if (!raw || raw.length < 2) {
       setStatus('err', 'OCR returned no text — try hovering Examine and pressing Alt+1 again');
@@ -1659,6 +1733,7 @@ function parseExamineText(text) {
 }
 
 // ── Init ───────────────────────────────────────────────────
+applyToggleUI();   // sync saved opacity + toggle state to the DOM
 showBrowser();
 searchInput.focus();
 loadMonsterList();
