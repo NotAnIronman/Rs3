@@ -274,8 +274,9 @@ function getOrCreateDebugOverlay() {
   if (!el) {
     el = document.createElement('div');
     el.id = 'section-debug';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#000c;color:#0f0;' +
-      'font-family:monospace;font-size:9px;padding:3px;max-height:60px;overflow-y:auto;z-index:999;';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.88);color:#00ff00;' +
+      'font-family:monospace;font-size:11px;line-height:1.5;padding:6px 8px;' +
+      'max-height:180px;overflow-y:auto;z-index:9999;white-space:pre-wrap;';
     el.style.display = 'none';
     document.body.appendChild(el);
   }
@@ -287,8 +288,8 @@ function getOrCreateOcrCanvas() {
   if (!el) {
     el = document.createElement('canvas');
     el.id = 'dbg-ocr-canvas';
-    el.style.cssText = 'position:fixed;bottom:24px;right:0;border:2px solid #f5c518;' +
-      'image-rendering:pixelated;z-index:9999;background:#111;max-width:100vw;';
+    el.style.cssText = 'position:fixed;bottom:190px;right:4px;border:2px solid #f5c518;' +
+      'image-rendering:pixelated;z-index:9999;background:#222;max-width:98vw;min-width:40px;min-height:20px;';
     el.style.display = 'none';
     document.body.appendChild(el);
   }
@@ -1613,26 +1614,37 @@ async function readExamineWindow() {
     var SCALE = 4;
     var scaledCanvas = scaleCanvas(stripCanvas, SCALE);
 
-    // Invert if background is dark (RS menu is ~20–40 avg brightness)
-    var avgCtx    = stripCanvas.getContext('2d');
-    var samplePx  = avgCtx.getImageData(0, 0, Math.min(clippedW, 20), SH).data;
+    // Check average brightness of the strip
+    var avgCtx   = scaledCanvas.getContext('2d');
+    var samplePx = avgCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
     var avgBright = 0;
-    for (var pi = 0; pi < samplePx.length; pi += 4)
-      avgBright += (samplePx[pi] + samplePx[pi+1] + samplePx[pi+2]) / 3;
-    avgBright /= (samplePx.length / 4);
-    dbg('Strip avg brightness: ' + avgBright.toFixed(1) + '  clipCol=' + clipCol);
+    for (var pi = 0; pi < samplePx.data.length; pi += 4)
+      avgBright += (samplePx.data[pi] + samplePx.data[pi+1] + samplePx.data[pi+2]) / 3;
+    avgBright /= (samplePx.data.length / 4);
+    dbg('Strip avg brightness: ' + avgBright.toFixed(1));
 
-    if (avgBright < 100) {
-      var tmp2 = document.createElement('canvas');
-      tmp2.width = scaledCanvas.width; tmp2.height = scaledCanvas.height;
-      var t2ctx = tmp2.getContext('2d');
-      t2ctx.filter = 'invert(1)';
-      t2ctx.drawImage(scaledCanvas, 0, 0);
-      scaledCanvas = tmp2;
+    // Invert dark backgrounds using pixel manipulation (CSS filter is unreliable)
+    if (avgBright < 128) {
+      var inv = avgCtx.createImageData(scaledCanvas.width, scaledCanvas.height);
+      for (var ii = 0; ii < samplePx.data.length; ii += 4) {
+        inv.data[ii]   = 255 - samplePx.data[ii];
+        inv.data[ii+1] = 255 - samplePx.data[ii+1];
+        inv.data[ii+2] = 255 - samplePx.data[ii+2];
+        inv.data[ii+3] = 255;
+      }
+      avgCtx.putImageData(inv, 0, 0);
       dbg('Inverted strip for Tesseract');
     }
 
-    showDebugCanvas(scaledCanvas, 'OCR strip (clipped at col ' + clipCol + ', scaled ' + SCALE + 'x)');
+    // Always draw to the OCR canvas (it shows if setting is on)
+    (function() {
+      var el = getOrCreateOcrCanvas();
+      el.width  = scaledCanvas.width;
+      el.height = scaledCanvas.height;
+      el.getContext('2d').drawImage(scaledCanvas, 0, 0);
+      el.title  = 'OCR strip — clipCol=' + clipCol + ' scale=' + SCALE + 'x';
+      if (settings.ocrCanvas) el.style.display = 'block';
+    })();
 
     // ── 5. Run Tesseract OCR on the clipped strip ─────────────────────────────
     setStatus('busy', '🔡 Running OCR...');
@@ -1646,35 +1658,29 @@ async function readExamineWindow() {
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // ── Post-OCR: strip "(level: N)" and all Tesseract misreadings ──────────
-    // Key insight: the "(" is sometimes eaten entirely (no space before "level"),
-    // sometimes read as a space, sometimes as "l" or "U".
-    // Examples seen:
-    //   "Foalllevel- 8Y1"  — no space, ( eaten
-    //   "Fox leval2"        — space, "leval" variant
-    //   "Ogress warrior levels 63 l"  — space + trailing "l" from ")"
-    //   "Wolf level 11J"    — space + "J" from ")"
-    //   "Black warlock l"   — no level word, just trailing "l"
+    // ── Post-OCR: strip "(level: N)" suffix in all its corrupted forms ───────
+    // Tested against all observed Tesseract outputs.
+    var LEVEL_CORE  = '(?:levels?|leval[ls]?|leve[ls]?|[Uu]?eyel[s]?|evels?|evals?|lev\\b)';
+    var VOWEL_CORE  = '(?:[Uu]?eyel[s]?|evels?|evals?)';  // can appear with zero separator
 
-    // 1. Literal paren / bracket — clip everything from it onward
+    // Step 1: literal paren/bracket
     var parenIdx = raw.search(/[([{<]/);
     if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
 
-    // 2. Level word — \s* (not \s+) so it works with NO space before "level"
-    //    Covers: level, levels, leval, levell, evel, evels, eyel, lev, leve,
-    //            Ueyel, leyel, leyvel, leval, levall, etc.
-    //    Pattern: optional junk chars from misread "(", then "l" or "e" start,
-    //    then fuzzy "evel/evel/eval" core, then optional trailing chars+digits.
-    raw = raw.replace(/\s*[lLuUeE]{0,3}[eE][vV][aAeE][lL][lLsS]?\b.*/g, '').trim();
+    // Step 2a: doubled last letter acting as eaten '(' e.g. "Foalllevel"
+    raw = raw.replace(new RegExp('(\\w)\\1+' + LEVEL_CORE + '.*$', 'i'), '$1').trim();
+    // Step 2b: any non-word separator before level core e.g. " level", " leval"
+    raw = raw.replace(new RegExp('(?<=[a-zA-Z\\d])[\\s\\W]+' + LEVEL_CORE + '.*$', 'i'), '').trim();
+    // Step 2c: zero separator, vowel-start core glued to name e.g. "Foalevel"
+    raw = raw.replace(new RegExp('(?<=[a-zA-Z\\d])' + VOWEL_CORE + '.*$', 'i'), '').trim();
 
-    // 3. Stray trailing "l" or "J" (misread closing paren ")")
-    raw = raw.replace(/\s*[\-\s]*\d+\s*[lLjJ]\s*$/, '').trim();  // "63 l" "8Y1" "11J"
-    raw = raw.replace(/\s+[lLjJ]\s*$/, '').trim();                // bare "l"
-
-    // 4. Trailing lone digits
+    // Step 3: trailing digit + stray letter e.g. "11J", "8Y1"
+    raw = raw.replace(/\s+\d+\s*[a-zA-Z]\s*$/, '').trim();
+    // Step 4: lone trailing single letter (misread ')') e.g. " l"
+    raw = raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/, '').trim();
+    // Step 5: trailing digits
     raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
-
-    // 5. Trailing stray punctuation
+    // Step 6: trailing punctuation
     raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
 
     if (!raw || raw.length < 2) {
