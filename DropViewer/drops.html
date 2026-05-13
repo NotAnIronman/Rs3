@@ -264,11 +264,35 @@ function saveSetting(key, val) {
 function applyToggleUI() {
   document.getElementById('toggle-debug').classList.toggle('on', settings.debugLog);
   document.getElementById('toggle-ocr-canvas').classList.toggle('on', settings.ocrCanvas);
-  // Hide/show existing debug overlay and OCR canvas per settings
-  const dbgEl = document.getElementById('section-debug');
-  if (dbgEl) dbgEl.style.display = settings.debugLog ? 'block' : 'none';
-  const ocrEl = document.getElementById('dbg-ocr-canvas');
-  if (ocrEl) ocrEl.style.display = settings.ocrCanvas ? 'block' : 'none';
+  // Ensure the overlays exist, then show/hide them
+  getOrCreateDebugOverlay().style.display = settings.debugLog    ? 'block' : 'none';
+  getOrCreateOcrCanvas().style.display    = settings.ocrCanvas   ? 'block' : 'none';
+}
+
+function getOrCreateDebugOverlay() {
+  let el = document.getElementById('section-debug');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'section-debug';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#000c;color:#0f0;' +
+      'font-family:monospace;font-size:9px;padding:3px;max-height:60px;overflow-y:auto;z-index:999;';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function getOrCreateOcrCanvas() {
+  let el = document.getElementById('dbg-ocr-canvas');
+  if (!el) {
+    el = document.createElement('canvas');
+    el.id = 'dbg-ocr-canvas';
+    el.style.cssText = 'position:fixed;bottom:24px;right:0;border:2px solid #f5c518;' +
+      'image-rendering:pixelated;z-index:9999;background:#111;max-width:100vw;';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+  }
+  return el;
 }
 
 document.getElementById('settings-btn').addEventListener('click', function(e) {
@@ -297,15 +321,9 @@ document.getElementById('toggle-ocr-canvas').addEventListener('click', function(
 // ── Debug ──────────────────────────────────────────────────
 function dbg(s) {
   console.log('[DropViewer]', s);
-  if (!settings.debugLog) return;  // hidden by default
-  let overlay = document.getElementById('section-debug');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'section-debug';
-    overlay.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#000c;color:#0f0;' +
-      'font-family:monospace;font-size:9px;padding:3px;max-height:60px;overflow-y:auto;z-index:999;';
-    document.body.appendChild(overlay);
-  }
+  if (!settings.debugLog) return;
+  const overlay = getOrCreateDebugOverlay();
+  overlay.style.display = 'block';
   overlay.innerHTML += s + '<br>';
   overlay.scrollTop = overlay.scrollHeight;
 }
@@ -1379,15 +1397,9 @@ function scaleCanvas(src, scale) {
 
 // Show a small debug canvas in the bottom-right corner
 function showDebugCanvas(canvas, label) {
-  if (!settings.ocrCanvas) return;  // hidden by default
-  var el = document.getElementById('dbg-ocr-canvas');
-  if (!el) {
-    el = document.createElement('canvas');
-    el.id = 'dbg-ocr-canvas';
-    el.style.cssText = 'position:fixed;bottom:24px;right:0;border:2px solid #f5c518;' +
-      'image-rendering:pixelated;z-index:9999;background:#111;max-width:100vw;';
-    document.body.appendChild(el);
-  }
+  if (!settings.ocrCanvas) return;
+  var el = getOrCreateOcrCanvas();
+  el.style.display = 'block';
   el.width  = canvas.width;
   el.height = canvas.height;
   el.getContext('2d').drawImage(canvas, 0, 0);
@@ -1634,28 +1646,30 @@ async function readExamineWindow() {
     var raw = (result.data.text || '').trim();
     dbg('Tesseract raw: "' + raw + '"');
 
-    // ── Post-OCR: strip "(level: N)" and all its Tesseract misreadings ───────
-    // Observed patterns from logs:
-    //   "Wolf level 11J"  "Ogress warrior levels 63 l"  "Black warlock l"
-    //   "Spined larupia Ueyel 400 l"  "Carnivorous chinchompa evels l"
-    //   "Giant spider levels 33 l"
-    //
-    // Strategy: strip from the LAST word boundary where a "level-like" token
-    // appears, including the stray trailing "l" (misread closing paren).
-    // We do this in one aggressive regex that covers every observed variant.
+    // ── Post-OCR: strip "(level: N)" and all Tesseract misreadings ──────────
+    // Key insight: the "(" is sometimes eaten entirely (no space before "level"),
+    // sometimes read as a space, sometimes as "l" or "U".
+    // Examples seen:
+    //   "Foalllevel- 8Y1"  — no space, ( eaten
+    //   "Fox leval2"        — space, "leval" variant
+    //   "Ogress warrior levels 63 l"  — space + trailing "l" from ")"
+    //   "Wolf level 11J"    — space + "J" from ")"
+    //   "Black warlock l"   — no level word, just trailing "l"
 
-    // 1. Literal paren / bracket
+    // 1. Literal paren / bracket — clip everything from it onward
     var parenIdx = raw.search(/[([{<]/);
     if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
 
-    // 2. Level word variants + optional number + optional stray chars after
-    //    Covers: level, levels, evel, evels, eyel, lev, leve, Ueyel, leyel, etc.
-    raw = raw.replace(/\s+[UuLlEe]{0,2}[Ee]?[Yy]?[Ee][Vv][Ee][Ll][Ss]?\b.*/i, '').trim();
-    raw = raw.replace(/\s+[Ll][Ee][Vv][Ee]?[Ll]?[Ss]?\b.*/i, '').trim();
+    // 2. Level word — \s* (not \s+) so it works with NO space before "level"
+    //    Covers: level, levels, leval, levell, evel, evels, eyel, lev, leve,
+    //            Ueyel, leyel, leyvel, leval, levall, etc.
+    //    Pattern: optional junk chars from misread "(", then "l" or "e" start,
+    //    then fuzzy "evel/evel/eval" core, then optional trailing chars+digits.
+    raw = raw.replace(/\s*[lLuUeE]{0,3}[eE][vV][aAeE][lL][lLsS]?\b.*/g, '').trim();
 
-    // 3. Stray trailing "l" or "J" left from misread ")" — only if preceded by a digit or space+digit
-    raw = raw.replace(/\s+\d[\dJ]*\s+[lJ]\s*$/, '').trim();  // "63 l" or "11J"
-    raw = raw.replace(/\s+[lJ]\s*$/, '').trim();              // bare trailing "l"
+    // 3. Stray trailing "l" or "J" (misread closing paren ")")
+    raw = raw.replace(/\s*[\-\s]*\d+\s*[lLjJ]\s*$/, '').trim();  // "63 l" "8Y1" "11J"
+    raw = raw.replace(/\s+[lLjJ]\s*$/, '').trim();                // bare "l"
 
     // 4. Trailing lone digits
     raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
