@@ -751,19 +751,43 @@ function showDisambigOptions(title, links, msg) {
 }
 
 // ── Suggest alternatives when a page has no drop table ─────
-// Used as a fallback for disambig-style pages that MediaWiki doesn't tag with
-// __DISAMBIG__ (e.g. "Guard", "Knight"). Calls opensearch for prefix matches
-// and shows the results in the existing disambig picker.
+function editDistance(a, b) {
+  // Simple Levenshtein — good enough for short NPC names
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i||j));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]
+               : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function scoreAlternative(suggestion, query) {
+  const s = suggestion.toLowerCase();
+  const q = query.toLowerCase();
+  // Exact match (shouldn't happen but guard)
+  if (s === q) return -1000;
+  // Starts with the exact query word-for-word
+  if (s.startsWith(q + ' ') || s === q) return -500;
+  // Contains the query as a substring at word boundary
+  if (new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s)) return editDistance(s, q);
+  // Otherwise plain edit distance (penalise long results more)
+  return editDistance(s, q) + s.length * 0.2;
+}
+
 async function suggestAlternatives(title) {
   try {
     const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=20&namespace=0&format=json&origin=*`;
     const r = await fetch(url);
     const d = await r.json();
-    const suggestions = (d[1] || []).filter(s => s !== title);
+    let suggestions = (d[1] || []).filter(s => s !== title);
     if (!suggestions.length) {
       setStatus('err', `⚠️ No drop table found for "${title}".`);
       return;
     }
+    // Sort by relevance: exact prefix > word boundary match > edit distance
+    suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
     setStatus('busy', `No drops on "${title}" — pick a related page:`);
     showDisambigOptions(title, suggestions,
       `"${title}" has no drop table. Did you mean one of these?`);
@@ -1085,15 +1109,18 @@ function parseTable(table) {
         const i = td.querySelector('img');
         if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
       }
+      // Check rarity BEFORE qty — charm tables put "3/4", "7/128" in cells
+      // that look like quantities but are actually drop rates.
+      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
+        rarity = stripNotes(text.split(';')[0].trim());
+        continue;  // don't also try to parse this cell as qty or name
+      }
       if (!name && td.querySelector('a')) {
         const a = td.querySelector('a');
         const c = stripNotes(a.textContent.trim());
         if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
       }
       if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
-      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
-        rarity = stripNotes(text.split(';')[0].trim());
-      }
     }
     if (!name || name.length > 80) continue;
     if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
@@ -1147,8 +1174,12 @@ function makeSectionBlock(sec) {
   const wrapper = document.createElement('div');
   wrapper.className = 'section-wrapper';
 
+  // Auto-collapse large reference tables that clutter the view
+  const AUTO_COLLAPSE = /gem\s+drop|rare\s+drop/i;
+  const startCollapsed = AUTO_COLLAPSE.test(sec.name);
+
   const hdr = document.createElement('div');
-  hdr.className = 'section-hdr';
+  hdr.className = 'section-hdr' + (startCollapsed ? ' collapsed' : '');
   hdr.innerHTML = `
     <span class="hdr-left">
       <span class="chevron">▼</span>
@@ -1157,10 +1188,13 @@ function makeSectionBlock(sec) {
     <span class="row-count">${sec.rows.length} items</span>`;
 
   const body = document.createElement('div');
-  body.className = 'section-body';
+  body.className = 'section-body' + (startCollapsed ? ' collapsed' : '');
+
   for (const row of sec.rows) body.appendChild(makeDropRow(row));
 
-  requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+  if (!startCollapsed) {
+    requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+  }
 
   hdr.addEventListener('click', () => {
     const collapsed = hdr.classList.toggle('collapsed');
@@ -1277,7 +1311,8 @@ if (isAlt1) {
   dbg('permOverlay=' + window.alt1.permissionOverlay);
   dbg('rsLinked=' + window.alt1.rsLinked);
 
-  // Call identifyApp so Alt1 knows our config and grants correct permissions
+  // Call identifyApp FIRST — before loading the bundle — so Alt1 grants
+  // permissions before any capture or event calls are made.
   try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
   catch(e) { dbg('identifyApp err: ' + e.message); }
 
@@ -1286,12 +1321,23 @@ if (isAlt1) {
   var a1script = document.createElement('script');
   a1script.src = './alt1base.bundle.js';
   a1script.onload = function() {
-    a1lib = window.A1lib;
-    dbg('A1lib loaded: ' + (a1lib ? 'yes' : 'no'));
-    if (a1lib) {
-      dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
-      initAlt1(a1lib);
+    // A1lib may not expose all keys synchronously on the onload tick —
+    // poll briefly until captureHoldFullRs is available.
+    var attempts = 0;
+    function tryInit() {
+      a1lib = window.A1lib;
+      if (a1lib && typeof a1lib.captureHoldFullRs === 'function') {
+        dbg('A1lib loaded: yes');
+        dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
+        initAlt1(a1lib);
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(tryInit, 100);
+      } else {
+        dbg('A1lib loaded but captureHoldFullRs unavailable after 2s');
+      }
     }
+    tryInit();
   };
   a1script.onerror = function() {
     dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
