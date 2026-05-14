@@ -752,7 +752,6 @@ function showDisambigOptions(title, links, msg) {
 
 // ── Suggest alternatives when a page has no drop table ─────
 function editDistance(a, b) {
-  // Simple Levenshtein — good enough for short NPC names
   a = a.toLowerCase(); b = b.toLowerCase();
   const m = a.length, n = b.length;
   const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i||j));
@@ -764,15 +763,10 @@ function editDistance(a, b) {
 }
 
 function scoreAlternative(suggestion, query) {
-  const s = suggestion.toLowerCase();
-  const q = query.toLowerCase();
-  // Exact match (shouldn't happen but guard)
+  const s = suggestion.toLowerCase(), q = query.toLowerCase();
   if (s === q) return -1000;
-  // Starts with the exact query word-for-word
   if (s.startsWith(q + ' ') || s === q) return -500;
-  // Contains the query as a substring at word boundary
   if (new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s)) return editDistance(s, q);
-  // Otherwise plain edit distance (penalise long results more)
   return editDistance(s, q) + s.length * 0.2;
 }
 
@@ -786,7 +780,6 @@ async function suggestAlternatives(title) {
       setStatus('err', `⚠️ No drop table found for "${title}".`);
       return;
     }
-    // Sort by relevance: exact prefix > word boundary match > edit distance
     suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
     setStatus('busy', `No drops on "${title}" — pick a related page:`);
     showDisambigOptions(title, suggestions,
@@ -1100,20 +1093,23 @@ function parseSectionsFromHeading(div, startEl) {
 function parseTable(table) {
   const rows = [];
   for (const tr of table.querySelectorAll('tr')) {
-    const tds = Array.from(tr.querySelectorAll('td'));
-    if (tds.length < 2) continue;
+    // Include both td and th — charm tables use <th> for the item name column
+    const cells = Array.from(tr.querySelectorAll('td, th'));
+    const tds   = Array.from(tr.querySelectorAll('td'));
+    // Skip header-only rows (all th, no td) and rows with too few data cells
+    if (tds.length < 1) continue;
     let name='', qty='', rarity='', img='';
-    for (const td of tds) {
+    for (const td of cells) {
       const text = stripNotes(td.textContent.trim());
       if (!img) {
         const i = td.querySelector('img');
         if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
       }
-      // Check rarity BEFORE qty — charm tables put "3/4", "7/128" in cells
-      // that look like quantities but are actually drop rates.
+      // Check rarity BEFORE qty — charm tables put "3/128" in their own cell
+      // and the slash means qty regex won't grab it, but being explicit is safer.
       if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
         rarity = stripNotes(text.split(';')[0].trim());
-        continue;  // don't also try to parse this cell as qty or name
+        continue;
       }
       if (!name && td.querySelector('a')) {
         const a = td.querySelector('a');
@@ -1174,9 +1170,8 @@ function makeSectionBlock(sec) {
   const wrapper = document.createElement('div');
   wrapper.className = 'section-wrapper';
 
-  // Auto-collapse large reference tables that clutter the view
-  const AUTO_COLLAPSE = /gem\s+drop|rare\s+drop/i;
-  const startCollapsed = AUTO_COLLAPSE.test(sec.name);
+  // Auto-collapse any section with more than 25 items to keep the view manageable
+  const startCollapsed = sec.rows.length > 25;
 
   const hdr = document.createElement('div');
   hdr.className = 'section-hdr' + (startCollapsed ? ' collapsed' : '');
@@ -1189,7 +1184,6 @@ function makeSectionBlock(sec) {
 
   const body = document.createElement('div');
   body.className = 'section-body' + (startCollapsed ? ' collapsed' : '');
-
   for (const row of sec.rows) body.appendChild(makeDropRow(row));
 
   if (!startCollapsed) {
@@ -1311,18 +1305,30 @@ if (isAlt1) {
   dbg('permOverlay=' + window.alt1.permissionOverlay);
   dbg('rsLinked=' + window.alt1.rsLinked);
 
-  // Call identifyApp FIRST — before loading the bundle — so Alt1 grants
-  // permissions before any capture or event calls are made.
+  // Call identifyApp BEFORE loading the bundle so permissions are granted
+  // during this page load, not only on the next one.
   try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
   catch(e) { dbg('identifyApp err: ' + e.message); }
 
-  // Load the @alt1/base bundle which sets up captureHold, events etc.
+  // Hook Alt+1 via the NATIVE alt1 object first — this works on first load
+  // because it uses Alt1's built-in key binding, not the a1lib event wrapper
+  // which only fires after the app has been seen in a prior page cycle.
+  try {
+    window.alt1.bindAppkey(function() {
+      dbg('alt1 native appkey fired');
+      if (typeof readExamineWindow === 'function') readExamineWindow();
+    });
+    dbg('Native Alt+1 key bound via alt1.bindAppkey');
+  } catch(e) {
+    dbg('bindAppkey not available: ' + e.message + ' — will fall back to a1lib event');
+  }
+
+  // Load the @alt1/base bundle for screen capture and image detection APIs
   var a1lib = null;
   var a1script = document.createElement('script');
   a1script.src = './alt1base.bundle.js';
   a1script.onload = function() {
-    // A1lib may not expose all keys synchronously on the onload tick —
-    // poll briefly until captureHoldFullRs is available.
+    // Poll until captureHoldFullRs is actually callable — it can take a tick
     var attempts = 0;
     function tryInit() {
       a1lib = window.A1lib;
@@ -1340,8 +1346,8 @@ if (isAlt1) {
     tryInit();
   };
   a1script.onerror = function() {
-    dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
-    setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
+    dbg('Failed to load alt1base.bundle.js — place it in the same folder as drops.html');
+    setStatus('ok', 'Alt1 active — right-click NPC → hover Examine → press Alt+1');
   };
   document.head.appendChild(a1script);
 
