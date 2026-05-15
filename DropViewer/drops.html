@@ -751,36 +751,19 @@ function showDisambigOptions(title, links, msg) {
 }
 
 // ── Suggest alternatives when a page has no drop table ─────
-function editDistance(a, b) {
-  a = a.toLowerCase(); b = b.toLowerCase();
-  const m = a.length, n = b.length;
-  const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i||j));
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]
-               : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-  return dp[m][n];
-}
-
-function scoreAlternative(suggestion, query) {
-  const s = suggestion.toLowerCase(), q = query.toLowerCase();
-  if (s === q) return -1000;
-  if (s.startsWith(q + ' ') || s === q) return -500;
-  if (new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s)) return editDistance(s, q);
-  return editDistance(s, q) + s.length * 0.2;
-}
-
+// Used as a fallback for disambig-style pages that MediaWiki doesn't tag with
+// __DISAMBIG__ (e.g. "Guard", "Knight"). Calls opensearch for prefix matches
+// and shows the results in the existing disambig picker.
 async function suggestAlternatives(title) {
   try {
     const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=20&namespace=0&format=json&origin=*`;
     const r = await fetch(url);
     const d = await r.json();
-    let suggestions = (d[1] || []).filter(s => s !== title);
+    const suggestions = (d[1] || []).filter(s => s !== title);
     if (!suggestions.length) {
       setStatus('err', `⚠️ No drop table found for "${title}".`);
       return;
     }
-    suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
     setStatus('busy', `No drops on "${title}" — pick a related page:`);
     showDisambigOptions(title, suggestions,
       `"${title}" has no drop table. Did you mean one of these?`);
@@ -870,6 +853,12 @@ function stripLevelSuffix(raw) {
 function resolveOcrName(raw) {
   if (!raw) return raw;
   raw = raw.trim();
+
+  // Strip any trailing tokens that are purely digits or single letters
+  // (level number remnants that survived stripLevelSuffix)
+  raw = raw.replace(/(\s+[\d]+)+\s*$/, '').trim();
+  raw = raw.replace(/\s+[lLjJiI1]\s*$/, '').trim();
+
   if (!allMonsters.length) return raw;
   var lower = raw.toLowerCase();
   for (var i = 0; i < allMonsters.length; i++) {
@@ -1093,23 +1082,14 @@ function parseSectionsFromHeading(div, startEl) {
 function parseTable(table) {
   const rows = [];
   for (const tr of table.querySelectorAll('tr')) {
-    // Include both td and th — charm tables use <th> for the item name column
-    const cells = Array.from(tr.querySelectorAll('td, th'));
-    const tds   = Array.from(tr.querySelectorAll('td'));
-    // Skip header-only rows (all th, no td) and rows with too few data cells
-    if (tds.length < 1) continue;
+    const tds = Array.from(tr.querySelectorAll('td'));
+    if (tds.length < 2) continue;
     let name='', qty='', rarity='', img='';
-    for (const td of cells) {
+    for (const td of tds) {
       const text = stripNotes(td.textContent.trim());
       if (!img) {
         const i = td.querySelector('img');
         if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
-      }
-      // Check rarity BEFORE qty — charm tables put "3/128" in their own cell
-      // and the slash means qty regex won't grab it, but being explicit is safer.
-      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
-        rarity = stripNotes(text.split(';')[0].trim());
-        continue;
       }
       if (!name && td.querySelector('a')) {
         const a = td.querySelector('a');
@@ -1117,6 +1097,9 @@ function parseTable(table) {
         if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
       }
       if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
+      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
+        rarity = stripNotes(text.split(';')[0].trim());
+      }
     }
     if (!name || name.length > 80) continue;
     if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
@@ -1170,11 +1153,8 @@ function makeSectionBlock(sec) {
   const wrapper = document.createElement('div');
   wrapper.className = 'section-wrapper';
 
-  // Auto-collapse any section with more than 25 items to keep the view manageable
-  const startCollapsed = sec.rows.length > 25;
-
   const hdr = document.createElement('div');
-  hdr.className = 'section-hdr' + (startCollapsed ? ' collapsed' : '');
+  hdr.className = 'section-hdr';
   hdr.innerHTML = `
     <span class="hdr-left">
       <span class="chevron">▼</span>
@@ -1183,12 +1163,10 @@ function makeSectionBlock(sec) {
     <span class="row-count">${sec.rows.length} items</span>`;
 
   const body = document.createElement('div');
-  body.className = 'section-body' + (startCollapsed ? ' collapsed' : '');
+  body.className = 'section-body';
   for (const row of sec.rows) body.appendChild(makeDropRow(row));
 
-  if (!startCollapsed) {
-    requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
-  }
+  requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
 
   hdr.addEventListener('click', () => {
     const collapsed = hdr.classList.toggle('collapsed');
@@ -1283,9 +1261,20 @@ window.addEventListener('message', evt => {
 });
 
 // ── Alt1 Integration ───────────────────────────────────────
-const isAlt1 = typeof window.alt1 !== 'undefined';
+// flashBadge is module-scope so readExamineWindow() can always call it
+let _alt1Badge = null;
+function flashBadge(color) {
+  if (!_alt1Badge) return;
+  _alt1Badge.style.background = color || '#4caf50';
+  setTimeout(function() { _alt1Badge.style.background = '#e94560'; }, 1500);
+}
 
-if (isAlt1) {
+let alt1InitDone = false;
+function tryInitAlt1() {
+  if (alt1InitDone) return;
+  if (typeof window.alt1 === 'undefined') return;
+  alt1InitDone = true;
+
   const badge = document.createElement('div');
   badge.id = 'alt1badge';
   badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
@@ -1293,11 +1282,7 @@ if (isAlt1) {
   badge.textContent = 'ALT1';
   badge.title = 'Click to manually read screen';
   document.body.appendChild(badge);
-
-  function flashBadge(color) {
-    badge.style.background = color || '#4caf50';
-    setTimeout(function() { badge.style.background = '#e94560'; }, 1500);
-  }
+  _alt1Badge = badge;  // make flashBadge usable from anywhere
 
   dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel);
   dbg('permInstalled=' + window.alt1.permissionInstalled);
@@ -1305,53 +1290,35 @@ if (isAlt1) {
   dbg('permOverlay=' + window.alt1.permissionOverlay);
   dbg('rsLinked=' + window.alt1.rsLinked);
 
-  // Call identifyApp BEFORE loading the bundle so permissions are granted
-  // during this page load, not only on the next one.
   try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
   catch(e) { dbg('identifyApp err: ' + e.message); }
 
-  // Hook Alt+1 via the NATIVE alt1 object first — this works on first load
-  // because it uses Alt1's built-in key binding, not the a1lib event wrapper
-  // which only fires after the app has been seen in a prior page cycle.
-  try {
-    window.alt1.bindAppkey(function() {
-      dbg('alt1 native appkey fired');
-      if (typeof readExamineWindow === 'function') readExamineWindow();
-    });
-    dbg('Native Alt+1 key bound via alt1.bindAppkey');
-  } catch(e) {
-    dbg('bindAppkey not available: ' + e.message + ' — will fall back to a1lib event');
-  }
-
-  // Load the @alt1/base bundle for screen capture and image detection APIs
   var a1lib = null;
   var a1script = document.createElement('script');
   a1script.src = './alt1base.bundle.js';
   a1script.onload = function() {
-    // Poll until captureHoldFullRs is actually callable — it can take a tick
     var attempts = 0;
-    function tryInit() {
+    function tryA1lib() {
       a1lib = window.A1lib;
       if (a1lib && typeof a1lib.captureHoldFullRs === 'function') {
         dbg('A1lib loaded: yes');
         dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
         initAlt1(a1lib);
-      } else if (attempts < 20) {
+      } else if (attempts < 30) {
         attempts++;
-        setTimeout(tryInit, 100);
+        setTimeout(tryA1lib, 100);
       } else {
-        dbg('A1lib loaded but captureHoldFullRs unavailable after 2s');
+        dbg('A1lib: captureHoldFullRs unavailable after 3s');
       }
     }
-    tryInit();
+    tryA1lib();
   };
   a1script.onerror = function() {
-    dbg('Failed to load alt1base.bundle.js — place it in the same folder as drops.html');
-    setStatus('ok', 'Alt1 active — right-click NPC → hover Examine → press Alt+1');
+    dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
+    setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
   };
   document.head.appendChild(a1script);
 
-  // Handle openInfo (activator match)
   function processOpenInfo(info) {
     if (!info) return false;
     let text = info;
@@ -1374,7 +1341,6 @@ if (isAlt1) {
   const handled = processOpenInfo(window.alt1.openInfo);
   if (!handled) setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
 
-  // Poll openInfo for changes
   let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
   setInterval(function() {
     const cur = JSON.stringify(window.alt1.openInfo);
@@ -1391,6 +1357,17 @@ if (isAlt1) {
     else dbg('A1lib not loaded yet');
   });
 }
+
+// Try immediately, then every 500ms for 30s
+tryInitAlt1();
+(function() {
+  var elapsed = 0;
+  var poll = setInterval(function() {
+    elapsed += 500;
+    if (alt1InitDone || elapsed >= 30000) { clearInterval(poll); return; }
+    tryInitAlt1();
+  }, 500);
+})();
 
 // ── Image-anchor templates (loaded once) ───────────────────
 var anchorTL      = null;   // TopLeft.png     — top-left corner of examine window
