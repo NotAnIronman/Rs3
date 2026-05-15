@@ -751,19 +751,56 @@ function showDisambigOptions(title, links, msg) {
 }
 
 // ── Suggest alternatives when a page has no drop table ─────
-// Used as a fallback for disambig-style pages that MediaWiki doesn't tag with
-// __DISAMBIG__ (e.g. "Guard", "Knight"). Calls opensearch for prefix matches
-// and shows the results in the existing disambig picker.
+function editDistance(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i||j));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function scoreAlternative(suggestion, query) {
+  const s = suggestion.toLowerCase().trim();
+  const q = query.toLowerCase().trim();
+
+  // Heavy penalty for pages that are clearly not NPC drop pages
+  const metaPenalty = /\(storyline\)|\(book\)|\(music\)|\(recipe\)|\(item\)|\(quest\)|\(object\)|\(disambiguation\)/i.test(suggestion) ? 500 : 0;
+  // Moderate penalty for anything in parentheses that isn't a location
+  const parenMatch = suggestion.match(/\(([^)]+)\)/);
+  const parenContent = parenMatch ? parenMatch[1].toLowerCase() : '';
+  const locationBonus = parenContent && !/storyline|book|music|recipe|item|quest|object|disambiguation/.test(parenContent) ? -20 : 0;
+
+  // Exact match on the base name (before any parenthetical)
+  const baseName = s.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  if (baseName === q) return -200 + locationBonus + metaPenalty;
+
+  // Query appears as a whole word at the start
+  if (s.startsWith(q + ' ') || s.startsWith(q + ' (') || s === q)
+    return -100 + editDistance(s, q) + locationBonus + metaPenalty;
+
+  // Query appears as a whole word anywhere
+  const wordRe = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b', 'i');
+  if (wordRe.test(s)) return editDistance(s, q) + locationBonus + metaPenalty;
+
+  // Fallback: edit distance with length penalty for long results
+  return editDistance(s, q) + s.length * 0.3 + metaPenalty;
+}
+
 async function suggestAlternatives(title) {
   try {
-    const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=20&namespace=0&format=json&origin=*`;
+    const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=30&namespace=0&format=json&origin=*`;
     const r = await fetch(url);
     const d = await r.json();
-    const suggestions = (d[1] || []).filter(s => s !== title);
+    let suggestions = (d[1] || []).filter(s => s !== title);
     if (!suggestions.length) {
       setStatus('err', `⚠️ No drop table found for "${title}".`);
       return;
     }
+    // Sort by relevance score
+    suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
+    // Cap at 12 to avoid overwhelming the list
+    suggestions = suggestions.slice(0, 12);
     setStatus('busy', `No drops on "${title}" — pick a related page:`);
     showDisambigOptions(title, suggestions,
       `"${title}" has no drop table. Did you mean one of these?`);
@@ -852,26 +889,20 @@ function stripLevelSuffix(raw) {
 // so the wiki OpenSearch path can still attempt fuzzy fallback.
 function resolveOcrName(raw) {
   if (!raw) return raw;
-  raw = raw.trim();
-
-  // Strip any trailing tokens that are purely digits or single letters
-  // (level number remnants that survived stripLevelSuffix)
-  raw = raw.replace(/(\s+[\d]+)+\s*$/, '').trim();
+  // Strip trailing pure-digit tokens and lone letters left from level suffix
+  raw = raw.trim().replace(/(\s+\d+)+\s*$/, '').trim();
   raw = raw.replace(/\s+[lLjJiI1]\s*$/, '').trim();
-
   if (!allMonsters.length) return raw;
-  var lower = raw.toLowerCase();
-  for (var i = 0; i < allMonsters.length; i++) {
-    if (allMonsters[i].name.toLowerCase() === lower) return allMonsters[i].name;
-  }
-  var parts = raw.split(/\s+/);
+  const lower = raw.toLowerCase();
+  for (const m of allMonsters) if (m.name.toLowerCase() === lower) return m.name;
+  const parts = raw.split(/\s+/);
   while (parts.length > 1) {
     parts.pop();
-    var sub = parts.join(' ').toLowerCase();
-    for (var j = 0; j < allMonsters.length; j++) {
-      if (allMonsters[j].name.toLowerCase() === sub) {
-        dbg('OCR name "' + raw + '" → local match "' + allMonsters[j].name + '"');
-        return allMonsters[j].name;
+    const sub = parts.join(' ').toLowerCase();
+    for (const m of allMonsters) {
+      if (m.name.toLowerCase() === sub) {
+        dbg('OCR name "' + raw + '" → local match "' + m.name + '"');
+        return m.name;
       }
     }
   }
@@ -939,24 +970,17 @@ async function lookupPage(title) {
 
   if (!html) { setStatus('err', '❌ Empty page.'); return; }
 
-  // Extract drops — returns { normal: sections[], hard: sections[] }
-  const { normal, hard } = extractDrops(html);
-  const totalNormal = normal.reduce((s,sec) => s + sec.rows.length, 0);
-  const totalHard   = hard.reduce((s,sec)   => s + sec.rows.length, 0);
-  const total = totalNormal + totalHard;
+  const { variants } = extractDrops(html);
+  const total = variants.reduce((s, v) => s + v.sections.reduce((ss, sec) => ss + sec.rows.length, 0), 0);
 
   if (total === 0) {
-    // Page exists but has no drop table — often a disambig that MediaWiki didn't
-    // tag with __DISAMBIG__ ("Guard", "Knight", etc.) or a parent page whose
-    // variants live on separate articles. Offer opensearch suggestions so the
-    // user can pick the right one.
     await suggestAlternatives(title);
     return;
   }
 
-  setStatus('ok', `✅ ${total} drops for ${title}` + (hard.length ? ' (Normal + Hard mode)' : ''));
+  setStatus('ok', `✅ ${total} drops for ${title}`);
   showDrops();
-  renderAllSections(normal, hard);
+  renderAllSections(variants);
 }
 
 async function fetchNpcImage(title) {
@@ -989,47 +1013,43 @@ function extractDrops(rawHtml) {
   const div = document.createElement('div');
   div.innerHTML = rawHtml;
 
-  // Find ALL drop headings - check both span IDs and heading text
-  // MediaWiki encodes parentheses in IDs as .28 and .29, so
-  // "Drops (hard mode)" becomes id="Drops_.28hard_mode.29"
   const dropHeadings = [];
   const seenEls = new Set();
-
-  // Method 1: span IDs containing "drop" (case insensitive)
   for (const span of div.querySelectorAll('span[id]')) {
     if (span.id.toLowerCase().includes('drop')) {
       const el = span.closest('h2,h3,h4');
-      if (el && !seenEls.has(el)) {
-        seenEls.add(el);
-        dropHeadings.push({ el, text: el.textContent.trim() });
-      }
+      if (el && !seenEls.has(el)) { seenEls.add(el); dropHeadings.push({ el, text: el.textContent.trim() }); }
     }
   }
-
-  // Method 2: heading text contains "drop" — catches any missed by ID search
   for (const h of div.querySelectorAll('h2,h3,h4')) {
     if (h.textContent.toLowerCase().includes('drop') && !seenEls.has(h)) {
-      seenEls.add(h);
-      dropHeadings.push({ el: h, text: h.textContent.trim() });
+      seenEls.add(h); dropHeadings.push({ el: h, text: h.textContent.trim() });
     }
   }
 
-  // Log all span IDs found for diagnosis
   const allSpanIds = Array.from(div.querySelectorAll('span[id]')).map(s=>s.id);
   dbg('Span IDs with "drop": ' + allSpanIds.filter(id=>id.toLowerCase().includes('drop')).join(', '));
-
   dbg('Drop headings: ' + dropHeadings.map(h=>h.text).join(' | '));
-  if (dropHeadings.length === 0) return { normal: [], hard: [] };
 
-  const normal = [], hard = [];
+  if (dropHeadings.length === 0) return { variants: [] };
+
+  const variants = [];
   for (const heading of dropHeadings) {
-    const isHard = heading.text.toLowerCase().includes('hard');
+    const text = heading.text.toLowerCase();
+    const isHard = text.includes('hard');
+    let label = heading.text
+      .replace(/\bdrops?\b/gi, '').replace(/\btable\b/gi, '')
+      .replace(/[()[\]]/g, '').replace(/\s+/g, ' ').trim() || 'Drops';
     const sections = parseSectionsFromHeading(div, heading.el);
-    dbg((isHard?'Hard':'Normal') + ': ' + sections.length + ' sections');
-    if (isHard) hard.push(...sections);
-    else        normal.push(...sections);
+    dbg(`Variant "${label}" (hard=${isHard}): ${sections.length} sections`);
+    if (sections.length > 0) variants.push({ label, isHard, sections });
   }
-  return { normal, hard };
+
+  // Suppress labels if all variants have the same label (single drop section)
+  const uniqueLabels = new Set(variants.map(v => v.label));
+  variants.forEach(v => { v.showLabel = uniqueLabels.size > 1; });
+
+  return { variants };
 }
 
 function parseSectionsFromHeading(div, startEl) {
@@ -1082,30 +1102,37 @@ function parseSectionsFromHeading(div, startEl) {
 function parseTable(table) {
   const rows = [];
   for (const tr of table.querySelectorAll('tr')) {
-    const tds = Array.from(tr.querySelectorAll('td'));
-    if (tds.length < 2) continue;
+    // allCells includes th — the RS3 wiki charm table uses <th> for charm names
+    const allCells = Array.from(tr.querySelectorAll('td, th'));
+    const tdCells  = Array.from(tr.querySelectorAll('td'));
+    // Skip rows with no <td> at all (pure header rows)
+    if (tdCells.length < 1) continue;
     let name='', qty='', rarity='', img='';
-    for (const td of tds) {
-      const text = stripNotes(td.textContent.trim());
+    for (const cell of allCells) {
+      const text = stripNotes(cell.textContent.trim());
+      // Image — scan all cells
       if (!img) {
-        const i = td.querySelector('img');
+        const i = cell.querySelector('img');
         if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
       }
-      if (!name && td.querySelector('a')) {
-        const a = td.querySelector('a');
+      // Name — scan all cells (charm name is in a <th>)
+      if (!name && cell.querySelector('a')) {
+        const a = cell.querySelector('a');
         const c = stripNotes(a.textContent.trim());
         if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
       }
-      if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
+      // Rarity BEFORE qty — "3/128" contains "/" so qty regex won't grab it,
+      // but being explicit prevents any future regression
       if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
         rarity = stripNotes(text.split(';')[0].trim());
+        continue; // don't also parse this cell as qty
       }
+      if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
     }
     if (!name || name.length > 80) continue;
     if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
     rows.push({ name, qty, rarity, img });
   }
-  // Deduplicate rows with the same name (caused by multi-note table rows)
   const seen = new Set();
   return rows.filter(r => {
     if (seen.has(r.name)) return false;
@@ -1115,34 +1142,22 @@ function parseTable(table) {
 }
 
 // ── Render drops ───────────────────────────────────────────
-function renderModeBlock(container, modeLabel, modeColor, sections) {
-  if (sections.length === 0) return;
-
-  // Mode header (e.g. "Normal Mode" / "Hard Mode")
-  const modeHdr = document.createElement('div');
-  modeHdr.style.cssText = `background:${modeColor};padding:5px 12px;font-size:11px;` +
-    `font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
-    `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
-  modeHdr.textContent = modeLabel;
-  container.appendChild(modeHdr);
-
-  for (const sec of sections) {
-    if (sec.rows.length === 0) continue;
-    container.appendChild(makeSectionBlock(sec));
-  }
-}
-
-function renderAllSections(normal, hard) {
+function renderAllSections(variants) {
   const container = document.getElementById('drops');
   container.innerHTML = '';
-
-  if (hard.length > 0) {
-    // Has both modes — show mode headers
-    renderModeBlock(container, '⚔ Normal Mode', '#1a5c2a', normal);
-    renderModeBlock(container, '💀 Hard Mode',  '#5c1a1a', hard);
-  } else {
-    // Single mode — just render sections directly
-    for (const sec of normal) {
+  const showLabels = variants.length > 1;
+  for (const variant of variants) {
+    if (!variant.sections.length) continue;
+    if (showLabels) {
+      const color = variant.isHard ? '#5c1a1a' : '#1a3a5c';
+      const hdr = document.createElement('div');
+      hdr.style.cssText = `background:${color};padding:5px 12px;font-size:11px;font-weight:700;` +
+        `letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
+        `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
+      hdr.textContent = (variant.isHard ? '💀 ' : '⚔ ') + variant.label;
+      container.appendChild(hdr);
+    }
+    for (const sec of variant.sections) {
       if (sec.rows.length === 0) continue;
       container.appendChild(makeSectionBlock(sec));
     }
@@ -1153,8 +1168,10 @@ function makeSectionBlock(sec) {
   const wrapper = document.createElement('div');
   wrapper.className = 'section-wrapper';
 
+  const startCollapsed = sec.rows.length > 25;
+
   const hdr = document.createElement('div');
-  hdr.className = 'section-hdr';
+  hdr.className = 'section-hdr' + (startCollapsed ? ' collapsed' : '');
   hdr.innerHTML = `
     <span class="hdr-left">
       <span class="chevron">▼</span>
@@ -1163,10 +1180,12 @@ function makeSectionBlock(sec) {
     <span class="row-count">${sec.rows.length} items</span>`;
 
   const body = document.createElement('div');
-  body.className = 'section-body';
+  body.className = 'section-body' + (startCollapsed ? ' collapsed' : '');
   for (const row of sec.rows) body.appendChild(makeDropRow(row));
 
-  requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+  if (!startCollapsed) {
+    requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+  }
 
   hdr.addEventListener('click', () => {
     const collapsed = hdr.classList.toggle('collapsed');
@@ -1261,7 +1280,6 @@ window.addEventListener('message', evt => {
 });
 
 // ── Alt1 Integration ───────────────────────────────────────
-// flashBadge is module-scope so readExamineWindow() can always call it
 let _alt1Badge = null;
 function flashBadge(color) {
   if (!_alt1Badge) return;
@@ -1282,7 +1300,7 @@ function tryInitAlt1() {
   badge.textContent = 'ALT1';
   badge.title = 'Click to manually read screen';
   document.body.appendChild(badge);
-  _alt1Badge = badge;  // make flashBadge usable from anywhere
+  _alt1Badge = badge;
 
   dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel);
   dbg('permInstalled=' + window.alt1.permissionInstalled);
@@ -1304,17 +1322,13 @@ function tryInitAlt1() {
         dbg('A1lib loaded: yes');
         dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
         initAlt1(a1lib);
-      } else if (attempts < 30) {
-        attempts++;
-        setTimeout(tryA1lib, 100);
-      } else {
-        dbg('A1lib: captureHoldFullRs unavailable after 3s');
-      }
+      } else if (attempts < 30) { attempts++; setTimeout(tryA1lib, 100); }
+      else { dbg('A1lib: captureHoldFullRs unavailable after 3s'); }
     }
     tryA1lib();
   };
   a1script.onerror = function() {
-    dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
+    dbg('Failed to load alt1base.bundle.js');
     setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
   };
   document.head.appendChild(a1script);
@@ -1344,11 +1358,7 @@ function tryInitAlt1() {
   let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
   setInterval(function() {
     const cur = JSON.stringify(window.alt1.openInfo);
-    if (cur !== lastOpenInfo) {
-      lastOpenInfo = cur;
-      dbg('openInfo changed: ' + cur);
-      processOpenInfo(window.alt1.openInfo);
-    }
+    if (cur !== lastOpenInfo) { lastOpenInfo = cur; dbg('openInfo changed: ' + cur); processOpenInfo(window.alt1.openInfo); }
   }, 200);
 
   badge.addEventListener('click', function() {
@@ -1358,7 +1368,6 @@ function tryInitAlt1() {
   });
 }
 
-// Try immediately, then every 500ms for 30s
 tryInitAlt1();
 (function() {
   var elapsed = 0;
