@@ -751,19 +751,36 @@ function showDisambigOptions(title, links, msg) {
 }
 
 // ── Suggest alternatives when a page has no drop table ─────
-// Used as a fallback for disambig-style pages that MediaWiki doesn't tag with
-// __DISAMBIG__ (e.g. "Guard", "Knight"). Calls opensearch for prefix matches
-// and shows the results in the existing disambig picker.
+function editDistance(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i||j));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]
+               : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function scoreAlternative(suggestion, query) {
+  const s = suggestion.toLowerCase(), q = query.toLowerCase();
+  if (s === q) return -1000;
+  if (s.startsWith(q + ' ') || s === q) return -500;
+  if (new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s)) return editDistance(s, q);
+  return editDistance(s, q) + s.length * 0.2;
+}
+
 async function suggestAlternatives(title) {
   try {
     const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=20&namespace=0&format=json&origin=*`;
     const r = await fetch(url);
     const d = await r.json();
-    const suggestions = (d[1] || []).filter(s => s !== title);
+    let suggestions = (d[1] || []).filter(s => s !== title);
     if (!suggestions.length) {
       setStatus('err', `⚠️ No drop table found for "${title}".`);
       return;
     }
+    suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
     setStatus('busy', `No drops on "${title}" — pick a related page:`);
     showDisambigOptions(title, suggestions,
       `"${title}" has no drop table. Did you mean one of these?`);
@@ -933,21 +950,24 @@ async function lookupPage(title) {
 
   if (!html) { setStatus('err', '❌ Empty page.'); return; }
 
-  const { variants } = extractDrops(html);
-  const total = variants.reduce((s, v) => s + v.sections.reduce((ss, sec) => ss + sec.rows.length, 0), 0);
+  // Extract drops — returns { normal: sections[], hard: sections[] }
+  const { normal, hard } = extractDrops(html);
+  const totalNormal = normal.reduce((s,sec) => s + sec.rows.length, 0);
+  const totalHard   = hard.reduce((s,sec)   => s + sec.rows.length, 0);
+  const total = totalNormal + totalHard;
 
   if (total === 0) {
+    // Page exists but has no drop table — often a disambig that MediaWiki didn't
+    // tag with __DISAMBIG__ ("Guard", "Knight", etc.) or a parent page whose
+    // variants live on separate articles. Offer opensearch suggestions so the
+    // user can pick the right one.
     await suggestAlternatives(title);
     return;
   }
 
-  const variantDesc = variants.length > 1
-    ? ` (${variants.map(v => v.label).join(', ')})`
-    : (variants[0]?.sections.some(s => s.name.toLowerCase().includes('hard')) ? ' (Normal + Hard mode)' : '');
-
-  setStatus('ok', `✅ ${total} drops for ${title}${variantDesc}`);
+  setStatus('ok', `✅ ${total} drops for ${title}` + (hard.length ? ' (Normal + Hard mode)' : ''));
   showDrops();
-  renderAllSections(variants);
+  renderAllSections(normal, hard);
 }
 
 async function fetchNpcImage(title) {
@@ -980,9 +1000,13 @@ function extractDrops(rawHtml) {
   const div = document.createElement('div');
   div.innerHTML = rawHtml;
 
+  // Find ALL drop headings - check both span IDs and heading text
+  // MediaWiki encodes parentheses in IDs as .28 and .29, so
+  // "Drops (hard mode)" becomes id="Drops_.28hard_mode.29"
   const dropHeadings = [];
   const seenEls = new Set();
 
+  // Method 1: span IDs containing "drop" (case insensitive)
   for (const span of div.querySelectorAll('span[id]')) {
     if (span.id.toLowerCase().includes('drop')) {
       const el = span.closest('h2,h3,h4');
@@ -992,6 +1016,8 @@ function extractDrops(rawHtml) {
       }
     }
   }
+
+  // Method 2: heading text contains "drop" — catches any missed by ID search
   for (const h of div.querySelectorAll('h2,h3,h4')) {
     if (h.textContent.toLowerCase().includes('drop') && !seenEls.has(h)) {
       seenEls.add(h);
@@ -999,67 +1025,22 @@ function extractDrops(rawHtml) {
     }
   }
 
+  // Log all span IDs found for diagnosis
   const allSpanIds = Array.from(div.querySelectorAll('span[id]')).map(s=>s.id);
   dbg('Span IDs with "drop": ' + allSpanIds.filter(id=>id.toLowerCase().includes('drop')).join(', '));
+
   dbg('Drop headings: ' + dropHeadings.map(h=>h.text).join(' | '));
-  if (dropHeadings.length === 0) return { variants: [] };
+  if (dropHeadings.length === 0) return { normal: [], hard: [] };
 
-  // Group headings into variants.
-  // Each drop heading becomes its own variant, labelled by its heading text.
-  // Special case: if there is exactly one heading (or all are "Drops"), use
-  // label null (no variant header shown). Hard mode is detected by "hard" in text.
-  const variants = [];
+  const normal = [], hard = [];
   for (const heading of dropHeadings) {
-    const text  = heading.text.toLowerCase();
-    const isHard = text.includes('hard');
-    // Extract a clean variant label — strip "drops", "drop table", leading/trailing junk
-    let label = heading.text
-      .replace(/\bdrops?\b/gi, '')
-      .replace(/\btable\b/gi, '')
-      .replace(/[()[\]]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!label || label === '') label = 'Drops';
-
+    const isHard = heading.text.toLowerCase().includes('hard');
     const sections = parseSectionsFromHeading(div, heading.el);
-    dbg((isHard ? 'Hard' : 'Normal') + ' variant "' + label + '": ' + sections.length + ' sections');
-    if (sections.length > 0)
-      variants.push({ label, isHard, sections });
+    dbg((isHard?'Hard':'Normal') + ': ' + sections.length + ' sections');
+    if (isHard) hard.push(...sections);
+    else        normal.push(...sections);
   }
-
-  // If every variant has the same label (e.g. all just "Drops"), suppress the label
-  const uniqueLabels = new Set(variants.map(v => v.label));
-  if (uniqueLabels.size === 1) variants.forEach(v => { v.showLabel = false; });
-  else                          variants.forEach(v => { v.showLabel = true;  });
-
-  return { variants };
-}
-
-function renderAllSections(variants) {
-  const container = document.getElementById('drops');
-  container.innerHTML = '';
-
-  const hasMultiple = variants.filter(v => v.showLabel).length > 1;
-
-  for (const variant of variants) {
-    if (variant.sections.length === 0) continue;
-
-    if (hasMultiple && variant.showLabel) {
-      const color = variant.isHard ? '#5c1a1a' : '#1a3a5c';
-      const prefix = variant.isHard ? '💀 ' : '⚔ ';
-      const modeHdr = document.createElement('div');
-      modeHdr.style.cssText = `background:${color};padding:5px 12px;font-size:11px;` +
-        `font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
-        `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
-      modeHdr.textContent = prefix + variant.label;
-      container.appendChild(modeHdr);
-    }
-
-    for (const sec of variant.sections) {
-      if (sec.rows.length === 0) continue;
-      container.appendChild(makeSectionBlock(sec));
-    }
-  }
+  return { normal, hard };
 }
 
 function parseSectionsFromHeading(div, startEl) {
@@ -1112,42 +1093,36 @@ function parseSectionsFromHeading(div, startEl) {
 function parseTable(table) {
   const rows = [];
   for (const tr of table.querySelectorAll('tr')) {
-    const allCells = Array.from(tr.querySelectorAll('td, th'));
-    const dataCells = Array.from(tr.querySelectorAll('td'));
-    // Need at least one data cell (td) to be a real content row
-    if (dataCells.length < 1) continue;
+    // Include both td and th — charm tables use <th> for the item name column
+    const cells = Array.from(tr.querySelectorAll('td, th'));
+    const tds   = Array.from(tr.querySelectorAll('td'));
+    // Skip header-only rows (all th, no td) and rows with too few data cells
+    if (tds.length < 1) continue;
     let name='', qty='', rarity='', img='';
-
-    for (const cell of allCells) {
-      const text = stripNotes(cell.textContent.trim());
-
-      // Image — check all cells including th
+    for (const td of cells) {
+      const text = stripNotes(td.textContent.trim());
       if (!img) {
-        const i = cell.querySelector('img');
+        const i = td.querySelector('img');
         if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
       }
-
-      // Name — check all cells including th (charm tables use th for item name)
-      if (!name && cell.querySelector('a')) {
-        const a = cell.querySelector('a');
-        const c = stripNotes(a.textContent.trim());
-        if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
-      }
-
-      // Rarity — check before qty so "3/128" isn't grabbed as a qty
+      // Check rarity BEFORE qty — charm tables put "3/128" in their own cell
+      // and the slash means qty regex won't grab it, but being explicit is safer.
       if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
         rarity = stripNotes(text.split(';')[0].trim());
         continue;
       }
-
-      // Qty — digits only
+      if (!name && td.querySelector('a')) {
+        const a = td.querySelector('a');
+        const c = stripNotes(a.textContent.trim());
+        if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
+      }
       if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
     }
-
     if (!name || name.length > 80) continue;
     if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
     rows.push({ name, qty, rarity, img });
   }
+  // Deduplicate rows with the same name (caused by multi-note table rows)
   const seen = new Set();
   return rows.filter(r => {
     if (seen.has(r.name)) return false;
@@ -1157,12 +1132,45 @@ function parseTable(table) {
 }
 
 // ── Render drops ───────────────────────────────────────────
+function renderModeBlock(container, modeLabel, modeColor, sections) {
+  if (sections.length === 0) return;
 
+  // Mode header (e.g. "Normal Mode" / "Hard Mode")
+  const modeHdr = document.createElement('div');
+  modeHdr.style.cssText = `background:${modeColor};padding:5px 12px;font-size:11px;` +
+    `font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
+    `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
+  modeHdr.textContent = modeLabel;
+  container.appendChild(modeHdr);
+
+  for (const sec of sections) {
+    if (sec.rows.length === 0) continue;
+    container.appendChild(makeSectionBlock(sec));
+  }
+}
+
+function renderAllSections(normal, hard) {
+  const container = document.getElementById('drops');
+  container.innerHTML = '';
+
+  if (hard.length > 0) {
+    // Has both modes — show mode headers
+    renderModeBlock(container, '⚔ Normal Mode', '#1a5c2a', normal);
+    renderModeBlock(container, '💀 Hard Mode',  '#5c1a1a', hard);
+  } else {
+    // Single mode — just render sections directly
+    for (const sec of normal) {
+      if (sec.rows.length === 0) continue;
+      container.appendChild(makeSectionBlock(sec));
+    }
+  }
+}
 
 function makeSectionBlock(sec) {
   const wrapper = document.createElement('div');
   wrapper.className = 'section-wrapper';
 
+  // Auto-collapse any section with more than 25 items to keep the view manageable
   const startCollapsed = sec.rows.length > 25;
 
   const hdr = document.createElement('div');
@@ -1275,15 +1283,9 @@ window.addEventListener('message', evt => {
 });
 
 // ── Alt1 Integration ───────────────────────────────────────
-// Poll for window.alt1 for up to 30 seconds — it may not be injected yet
-// on the very first page load inside the Alt1 browser.
-let alt1InitDone = false;
+const isAlt1 = typeof window.alt1 !== 'undefined';
 
-function tryInitAlt1() {
-  if (alt1InitDone) return;
-  if (typeof window.alt1 === 'undefined') return;  // not ready yet
-  alt1InitDone = true;
-
+if (isAlt1) {
   const badge = document.createElement('div');
   badge.id = 'alt1badge';
   badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
@@ -1303,35 +1305,49 @@ function tryInitAlt1() {
   dbg('permOverlay=' + window.alt1.permissionOverlay);
   dbg('rsLinked=' + window.alt1.rsLinked);
 
-  // identifyApp must be called every page load to register permissions
+  // Call identifyApp BEFORE loading the bundle so permissions are granted
+  // during this page load, not only on the next one.
   try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
   catch(e) { dbg('identifyApp err: ' + e.message); }
 
-  // Load the @alt1/base bundle
+  // Hook Alt+1 via the NATIVE alt1 object first — this works on first load
+  // because it uses Alt1's built-in key binding, not the a1lib event wrapper
+  // which only fires after the app has been seen in a prior page cycle.
+  try {
+    window.alt1.bindAppkey(function() {
+      dbg('alt1 native appkey fired');
+      if (typeof readExamineWindow === 'function') readExamineWindow();
+    });
+    dbg('Native Alt+1 key bound via alt1.bindAppkey');
+  } catch(e) {
+    dbg('bindAppkey not available: ' + e.message + ' — will fall back to a1lib event');
+  }
+
+  // Load the @alt1/base bundle for screen capture and image detection APIs
   var a1lib = null;
   var a1script = document.createElement('script');
   a1script.src = './alt1base.bundle.js';
   a1script.onload = function() {
-    // Poll until captureHoldFullRs is actually available (can take a tick or two)
+    // Poll until captureHoldFullRs is actually callable — it can take a tick
     var attempts = 0;
-    function tryA1lib() {
+    function tryInit() {
       a1lib = window.A1lib;
       if (a1lib && typeof a1lib.captureHoldFullRs === 'function') {
         dbg('A1lib loaded: yes');
         dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
         initAlt1(a1lib);
-      } else if (attempts < 30) {
+      } else if (attempts < 20) {
         attempts++;
-        setTimeout(tryA1lib, 100);
+        setTimeout(tryInit, 100);
       } else {
-        dbg('A1lib: captureHoldFullRs unavailable after 3s');
+        dbg('A1lib loaded but captureHoldFullRs unavailable after 2s');
       }
     }
-    tryA1lib();
+    tryInit();
   };
   a1script.onerror = function() {
-    dbg('Failed to load alt1base.bundle.js - place it in same folder as drops.html');
-    setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
+    dbg('Failed to load alt1base.bundle.js — place it in the same folder as drops.html');
+    setStatus('ok', 'Alt1 active — right-click NPC → hover Examine → press Alt+1');
   };
   document.head.appendChild(a1script);
 
@@ -1375,17 +1391,6 @@ function tryInitAlt1() {
     else dbg('A1lib not loaded yet');
   });
 }
-
-// Try immediately, then every 500ms for 30 seconds
-tryInitAlt1();
-(function() {
-  var elapsed = 0;
-  var poll = setInterval(function() {
-    elapsed += 500;
-    if (alt1InitDone || elapsed >= 30000) { clearInterval(poll); return; }
-    tryInitAlt1();
-  }, 500);
-})();
 
 // ── Image-anchor templates (loaded once) ───────────────────
 var anchorTL      = null;   // TopLeft.png     — top-left corner of examine window
