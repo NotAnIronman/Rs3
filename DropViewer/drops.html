@@ -187,6 +187,15 @@ let inDropsView = false;
 let searchTimer = null;
 let currentMode = 'npc';
 
+// ── Navigation history (remember last view per mode) ────────
+// Each entry: { mode, type, name, title, scrollY }
+// type: 'browser' | 'drops' | 'disambig'
+const navHistory = { npc: null, item: null };
+function saveNavState(type, name, title, scrollY) {
+  navHistory[currentMode] = { mode: currentMode, type, name, title, scrollY: scrollY||0 };
+}
+function getSavedNav() { return navHistory[currentMode] || null; }
+
 // ── Settings ────────────────────────────────────────────────
 const settings = { debugLog: false, ocrCanvas: false, opacity: 100 };
 function saveSetting(k,v){ settings[k]=v; try{localStorage.setItem('dvSettings',JSON.stringify(settings));}catch(e){} }
@@ -254,17 +263,26 @@ document.querySelectorAll('.mode-tab').forEach(tab=>{
     currentMode=mode;
     document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t===tab));
     const inp=document.getElementById('search-input');
-    inp.value='';
     inp.placeholder=mode==='item'?'Search items...':'Search NPCs...';
-    showBrowser(); setStatus('','');
-    if(mode==='npc'){
-      renderNpcList('');
-      document.getElementById('list-label').textContent=allMonsters.length?'All RS3 monsters':'Loading...';
-      document.getElementById('list-count').textContent=allMonsters.length?allMonsters.length+' total':'';
+    setStatus('','');
+    // Restore last view for this mode if we have one
+    const saved=getSavedNav();
+    if(saved&&saved.type==='drops'&&saved.name){
+      inp.value=saved.name;
+      if(mode==='item') lookupItemSources(saved.name);
+      else lookup(saved.name);
     } else {
-      document.getElementById('npc-list').innerHTML='<div id="npc-empty">Type an item name and press Search.<br><small>e.g. "Dragon bones", "Abyssal whip"</small></div>';
-      document.getElementById('list-label').textContent='Item drop source lookup';
-      document.getElementById('list-count').textContent='';
+      inp.value='';
+      showBrowser();
+      if(mode==='npc'){
+        renderNpcList('');
+        document.getElementById('list-label').textContent=allMonsters.length?'All RS3 monsters':'Loading...';
+        document.getElementById('list-count').textContent=allMonsters.length?allMonsters.length+' total':'';
+      } else {
+        document.getElementById('npc-list').innerHTML='<div id="npc-empty">Type an item name and press Search.<br><small>e.g. "Dragon bones", "Abyssal whip"</small></div>';
+        document.getElementById('list-label').textContent='Item drop source lookup';
+        document.getElementById('list-count').textContent='';
+      }
     }
   });
 });
@@ -544,6 +562,7 @@ async function lookupPage(title){
   if(total===0){await suggestAlternatives(title);return;}
   setStatus('ok',`✅ ${total} drops for ${title}`);
   showDrops(); renderAllSections(variants);
+  saveNavState('drops', title, title, 0);
 }
 async function fetchNpcImage(title){
   try{
@@ -744,6 +763,53 @@ function makeDropRow(row,onRowClick){
 }
 function placeholder(name){const d=document.createElement('div');d.className='item-placeholder';d.textContent=(name||'?').charAt(0).toUpperCase();return d;}
 
+// ── Rarity → sort value (higher = more common) ─────────────
+// Returns a float 0–1 representing drop chance, or special values:
+//   2 = Always,  -1 = unknown
+function rarityToChance(r){
+  if(!r)return-1;
+  const s=r.toLowerCase().trim();
+  if(s==='always')return 2;
+  const m=s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
+  if(m){
+    const num=parseFloat(m[1].replace(/,/g,'')),den=parseFloat(m[2].replace(/,/g,''));
+    if(den>0)return num/den;
+  }
+  if(s.includes('always'))return 2;
+  if(s.includes('very rare'))return 0.001;
+  if(s.includes('rare'))return 0.01;
+  if(s.includes('uncommon'))return 0.1;
+  if(s.includes('common'))return 0.5;
+  return -1;
+}
+
+// ── NPC drop row — clicking an item opens Item Sources ──────
+function makeDropRow(row,onRowClick){
+  const el=document.createElement('div');
+  // Items in NPC drops are always clickable to open item sources
+  el.className='drop-row clickable';
+  el.title='Find all sources for "'+row.name+'"';
+  el.addEventListener('click',()=>{
+    if(onRowClick){onRowClick(row);return;}
+    // Cross-mode navigate: switch to item tab and look up sources
+    const prevMode=currentMode;
+    currentMode='item';
+    document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
+    document.getElementById('search-input').placeholder='Search items...';
+    lookupItemSources(row.name);
+  });
+  if(row.img){const img=document.createElement('img');img.className='item-img';img.src=row.img;img.alt=row.name;img.onerror=function(){this.replaceWith(placeholder(row.name));};el.appendChild(img);}
+  else el.appendChild(placeholder(row.name));
+  const info=document.createElement('div');info.className='item-info';
+  const nm=document.createElement('div');nm.className='item-name';nm.textContent=row.name;info.appendChild(nm);
+  if(row.qty){const q=document.createElement('div');q.className='item-qty';q.textContent='x'+row.qty;info.appendChild(q);}
+  el.appendChild(info);
+  if(row.rarity){const{label,cls}=rarityClass(row.rarity);const wrap=document.createElement('div');wrap.className='rarity';const badge=document.createElement('span');badge.className='badge '+cls;badge.textContent=label;wrap.appendChild(badge);el.appendChild(wrap);}
+  // Small arrow hint pointing to item sources
+  const arrow=document.createElement('span');arrow.style.cssText='color:var(--dim);font-size:10px;flex-shrink:0;margin-left:1px;';arrow.textContent='›';el.appendChild(arrow);
+  return el;
+}
+
 // ══════════════════════════════════════════════════════════
 // ── ITEM → DROP SOURCES LOOKUP ────────────────────────────
 // ══════════════════════════════════════════════════════════
@@ -774,6 +840,7 @@ async function lookupItemSources(name){
   }
   setStatus('ok',`✅ ${sources.length} source${sources.length===1?'':'s'} drop "${title}"`);
   renderDropSources(sources,title);
+  saveNavState('drops', title, title, 0);
 }
 
 // ── Extract drop sources from item page HTML ───────────────
@@ -858,28 +925,60 @@ function parseDropSourceTable(table){
   return rows;
 }
 
-// ── Render item drop sources ────────────────────────────────
+// ── Render item drop sources (grouped by rarity) ────────────
+// Groups: Always | High (≥80%) | Medium (50–80%) | Low (<50%)
+// Unknown-rarity sources go in Low. Sources never shown are omitted.
 function renderDropSources(sources,itemTitle){
   const container=document.getElementById('drops'); container.innerHTML='';
+
+  // Banner
   const banner=document.createElement('div');
   banner.style.cssText='background:#1a3a5c;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,.3);text-transform:uppercase;position:sticky;top:0;z-index:2;';
   banner.textContent='🎒 Drop Sources — '+itemTitle;
   container.appendChild(banner);
+
   const hint=document.createElement('div');
   hint.style.cssText='padding:4px 12px;font-size:10px;color:var(--dim);border-bottom:1px solid var(--border);background:var(--bg2);';
   hint.textContent='Tap a monster to view its full drop table →';
   container.appendChild(hint);
-  const wrapper=document.createElement('div'); wrapper.className='section-wrapper';
-  const hdr=document.createElement('div'); hdr.className='section-hdr';
-  hdr.innerHTML=`<span class="hdr-left"><span class="chevron">▼</span><span>${sources.length} monster${sources.length===1?'':'s'} drop this item</span></span><span class="row-count">${sources.length}</span>`;
-  const body=document.createElement('div'); body.className='section-body';
-  const onRowClick=(row)=>{
+
+  // Bucket definitions: [key, label, icon, minChance, maxChance]
+  const BUCKETS=[
+    {key:'always', label:'Always',  icon:'⭐', min:2,    max:Infinity},
+    {key:'high',   label:'High',    icon:'🟢', min:0.8,  max:2},
+    {key:'medium', label:'Medium',  icon:'🟡', min:0.5,  max:0.8},
+    {key:'low',    label:'Low',     icon:'🔴', min:-1,   max:0.5},  // -1 = unknown also lands here
+  ];
+
+  // Sort sources: always first, then high→low by chance desc, unknown at bottom of Low
+  const withChance=sources.map(s=>({...s,_chance:rarityToChance(s.rarity)}));
+  withChance.sort((a,b)=>{
+    // unknown (-1) sorts to bottom
+    const ac=a._chance<0?-2:a._chance, bc=b._chance<0?-2:b._chance;
+    return bc-ac;
+  });
+
+  // Assign to buckets
+  const bucketMap={};
+  for(const b of BUCKETS)bucketMap[b.key]=[];
+  for(const src of withChance){
+    const c=src._chance;
+    if(c>=2)           bucketMap.always.push(src);
+    else if(c>=0.8)    bucketMap.high.push(src);
+    else if(c>=0.5)    bucketMap.medium.push(src);
+    else               bucketMap.low.push(src); // includes unknown (c===-1)
+  }
+
+  // Click handler: switch to NPC mode and look up monster
+  const onRowClick=(src)=>{
     currentMode='npc';
     document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
     document.getElementById('search-input').placeholder='Search NPCs...';
-    lookup(row.name);
+    lookup(src.name);
   };
-  for(const src of sources){
+
+  // Build a source row element
+  function makeSourceRow(src){
     const el=document.createElement('div'); el.className='drop-row clickable';
     el.title='View full drops for '+src.name;
     el.addEventListener('click',()=>onRowClick(src));
@@ -892,15 +991,36 @@ function renderDropSources(sources,itemTitle){
     el.appendChild(info);
     if(src.rarity){const{label,cls}=rarityClass(src.rarity);const wrap=document.createElement('div');wrap.className='rarity';const badge=document.createElement('span');badge.className='badge '+cls;badge.textContent=label;wrap.appendChild(badge);el.appendChild(wrap);}
     const arrow=document.createElement('span');arrow.style.cssText='color:var(--dim);font-size:11px;flex-shrink:0;margin-left:2px;';arrow.textContent='›';el.appendChild(arrow);
-    body.appendChild(el);
+    return el;
   }
-  requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+'px';});
-  hdr.addEventListener('click',()=>{
-    const c=hdr.classList.toggle('collapsed');
-    if(c){body.style.maxHeight=body.scrollHeight+'px';requestAnimationFrame(()=>body.classList.add('collapsed'));}
-    else{body.classList.remove('collapsed');body.style.maxHeight=body.scrollHeight+'px';body.addEventListener('transitionend',()=>{if(!hdr.classList.contains('collapsed'))body.style.maxHeight='none';},{once:true});}
-  });
-  wrapper.appendChild(hdr); wrapper.appendChild(body); container.appendChild(wrapper);
+
+  let anyRendered=false;
+  for(const b of BUCKETS){
+    const rows=bucketMap[b.key];
+    if(!rows.length)continue;
+    anyRendered=true;
+
+    // Section header with coloured left border
+    const borderColors={always:'#4caf50',high:'#81c784',medium:'#ffb74d',low:'#e57373'};
+    const sec={name:`${b.icon} ${b.label} (${rows.length})`,rows};
+    const wrapper=document.createElement('div'); wrapper.className='section-wrapper';
+    const hdr=document.createElement('div'); hdr.className='section-hdr';
+    hdr.style.borderLeft=`3px solid ${borderColors[b.key]}`;
+    hdr.innerHTML=`<span class="hdr-left"><span class="chevron">▼</span><span>${b.icon} ${b.label}</span></span><span class="row-count">${rows.length}</span>`;
+    const body=document.createElement('div'); body.className='section-body';
+    for(const src of rows)body.appendChild(makeSourceRow(src));
+    requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+'px';});
+    hdr.addEventListener('click',()=>{
+      const c=hdr.classList.toggle('collapsed');
+      if(c){body.style.maxHeight=body.scrollHeight+'px';requestAnimationFrame(()=>body.classList.add('collapsed'));}
+      else{body.classList.remove('collapsed');body.style.maxHeight=body.scrollHeight+'px';body.addEventListener('transitionend',()=>{if(!hdr.classList.contains('collapsed'))body.style.maxHeight='none';},{once:true});}
+    });
+    wrapper.appendChild(hdr); wrapper.appendChild(body); container.appendChild(wrapper);
+  }
+
+  if(!anyRendered){
+    container.innerHTML+='<div style="padding:16px;text-align:center;color:var(--dim);font-size:11px;">No sources to display.</div>';
+  }
 }
 
 // ── UI events ───────────────────────────────────────────────
@@ -918,6 +1038,7 @@ searchInput.addEventListener('keydown',e=>{
   if(currentMode==='item')lookupItemSources(v); else lookup(v);
 });
 document.getElementById('back-btn').addEventListener('click',()=>{
+  navHistory[currentMode]=null; // clear saved state so tab returns to browser
   showBrowser(); searchInput.value='';
   if(currentMode==='npc')renderNpcList('');
   else document.getElementById('npc-list').innerHTML='<div id="npc-empty">Type an item name and press Search.<br><small>e.g. "Dragon bones", "Abyssal whip"</small></div>';
