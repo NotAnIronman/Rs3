@@ -532,9 +532,11 @@ function resolveOcrName(raw){
 }
 
 // ── Main lookup (NPC mode) ──────────────────────────────────
+// NOTE: does NOT check currentMode — callers are responsible for
+// setting currentMode before calling. OCR paths call lookupPage()
+// directly to bypass any mode confusion entirely.
 async function lookup(name){
   if(!name)return;
-  if(currentMode==='item'){lookupItemSources(name);return;}
   setStatus('busy',`🔍 Searching for "${name}"...`);
   showDrops();
   document.getElementById('subtitle').textContent=name;
@@ -1211,8 +1213,9 @@ function tryInitAlt1(){
         currentMode='npc';
         document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
         document.getElementById('search-input').placeholder='Search NPCs...';
+        document.getElementById('search-input').value=name;
         setStatus('busy','Detected NPC: '+name);
-        setTimeout(()=>lookup(name),200);
+        setTimeout(()=>{showDrops();document.getElementById('subtitle').textContent=name;document.getElementById('drops').innerHTML='';lookupPage(name);},200);
       } else {
         currentMode='item';
         document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
@@ -1335,14 +1338,16 @@ async function readExamineWindow(){
 
     if(routeToNpc){
       setStatus('busy','✨ NPC detected: '+resolved);
-      // Ensure NPC tab is active
       currentMode='npc';
       document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
       document.getElementById('search-input').placeholder='Search NPCs...';
-      lookup(resolved);
+      document.getElementById('search-input').value=resolved;
+      showDrops();
+      document.getElementById('subtitle').textContent=resolved;
+      document.getElementById('drops').innerHTML='';
+      lookupPage(resolved);
     } else {
       setStatus('busy','✨ Item detected: '+resolved);
-      // Switch to Item Sources tab
       currentMode='item';
       document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
       document.getElementById('search-input').placeholder='Search items...';
