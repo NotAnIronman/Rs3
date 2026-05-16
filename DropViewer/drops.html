@@ -19,16 +19,12 @@ body {
   display: flex; flex-direction: column; overflow: hidden;
 }
 #titlebar, .section-hdr, .drop-row, #status, .npc-item { user-select: none; }
-
 #titlebar {
   background: linear-gradient(135deg, var(--bg3), var(--bg2));
   border-bottom: 2px solid var(--accent);
   padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
 }
-#npc-img {
-  width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated;
-  flex-shrink: 0; display: none; border-radius: 3px;
-}
+#npc-img { width:40px;height:40px;object-fit:contain;image-rendering:pixelated;flex-shrink:0;display:none;border-radius:3px; }
 #titlebar .logo { font-size: 18px; }
 #titlebar .titles { flex: 1; min-width: 0; }
 #titlebar h1 { font-size: 13px; font-weight: 700; color: var(--gold); }
@@ -41,165 +37,88 @@ body {
 #close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 #settings-btn:hover { background: var(--bg3); color: var(--gold); border-color: var(--gold); }
 #settings-btn.active { background: var(--bg3); color: var(--gold); border-color: var(--gold); }
-
 #settings-panel {
   display: none; position: fixed; top: 40px; right: 4px; z-index: 1000;
   background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px 14px; min-width: 200px; box-shadow: 0 4px 16px #0008;
-  font-size: 12px;
+  padding: 10px 14px; min-width: 200px; box-shadow: 0 4px 16px #0008; font-size: 12px;
 }
 #settings-panel.open { display: block; }
-#settings-panel h3 { font-size: 11px; color: var(--dim); margin-bottom: 8px;
-  text-transform: uppercase; letter-spacing: 0.05em; }
-.settings-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 0; gap: 12px;
-}
-.settings-row label { color: var(--text); cursor: pointer; flex: 1; }
-.toggle {
-  width: 32px; height: 18px; background: var(--border); border-radius: 9px;
-  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
-}
+#settings-panel h3 { font-size:11px;color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em; }
+.settings-row { display:flex;align-items:center;justify-content:space-between;padding:4px 0;gap:12px; }
+.settings-row label { color:var(--text);cursor:pointer;flex:1; }
+.toggle { width:32px;height:18px;background:var(--border);border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0; }
 .toggle.on { background: var(--green); }
-.toggle::after {
-  content: ''; position: absolute; width: 12px; height: 12px;
-  background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s;
-}
+.toggle::after { content:'';position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .2s; }
 .toggle.on::after { left: 17px; }
-
-.settings-row--stack { flex-direction: column; align-items: stretch; gap: 4px; }
-.settings-row--stack label { display: flex; justify-content: space-between; }
-#opacity-value { color: var(--dim); font-size: 11px; }
-#opacity-slider {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
-  background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
-}
-#opacity-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
-  background: var(--gold); border-radius: 50%; cursor: pointer; border: none;
-}
-#opacity-slider::-moz-range-thumb {
-  width: 14px; height: 14px; background: var(--gold); border-radius: 50%;
-  cursor: pointer; border: none;
-}
-
-#searchbar {
-  background: var(--bg2); border-bottom: 1px solid var(--border);
-  padding: 7px 10px; display: flex; gap: 5px; flex-shrink: 0;
-}
-#search-input {
-  flex: 1; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text); padding: 5px 8px;
-  font-size: 12px; outline: none; cursor: text;
-  user-select: text; -webkit-user-select: text;
-}
+.settings-row--stack { flex-direction:column;align-items:stretch;gap:4px; }
+.settings-row--stack label { display:flex;justify-content:space-between; }
+#opacity-value { color:var(--dim);font-size:11px; }
+#opacity-slider { -webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer; }
+#opacity-slider::-webkit-slider-thumb { -webkit-appearance:none;appearance:none;width:14px;height:14px;background:var(--gold);border-radius:50%;cursor:pointer;border:none; }
+#opacity-slider::-moz-range-thumb { width:14px;height:14px;background:var(--gold);border-radius:50%;cursor:pointer;border:none; }
+/* Mode tabs */
+#mode-tabs { display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0; }
+.mode-tab { flex:1;padding:6px 0;text-align:center;font-size:11px;font-weight:600;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;user-select:none;letter-spacing:.03em; }
+.mode-tab:hover { color: var(--text); }
+.mode-tab.active { color:var(--gold);border-bottom-color:var(--gold); }
+#searchbar { background:var(--bg2);border-bottom:1px solid var(--border);padding:7px 10px;display:flex;gap:5px;flex-shrink:0; }
+#search-input { flex:1;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:5px 8px;font-size:12px;outline:none;cursor:text;user-select:text;-webkit-user-select:text; }
 #search-input:focus { border-color: var(--accent); }
-#search-btn {
-  background: var(--accent); border: none; border-radius: 4px;
-  color: #fff; padding: 5px 12px; cursor: pointer; font-size: 12px; font-weight: 600;
-}
-#search-btn:hover { opacity: 0.85; }
-
-#status {
-  padding: 5px 12px; font-size: 11px; color: var(--dim);
-  border-bottom: 1px solid var(--border); min-height: 24px; flex-shrink: 0;
-}
-#status.ok   { color: var(--green); }
-#status.err  { color: var(--accent); }
+#search-btn { background:var(--accent);border:none;border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600; }
+#search-btn:hover { opacity: .85; }
+#status { padding:5px 12px;font-size:11px;color:var(--dim);border-bottom:1px solid var(--border);min-height:24px;flex-shrink:0; }
+#status.ok { color: var(--green); }
+#status.err { color: var(--accent); }
 #status.busy { color: var(--gold); }
-
-#back-btn {
-  display: none; background: var(--bg3); border: none; color: var(--dim);
-  padding: 4px 10px; font-size: 11px; cursor: pointer;
-  border-bottom: 1px solid var(--border); width: 100%; text-align: left; flex-shrink: 0;
-}
+#back-btn { display:none;background:var(--bg3);border:none;color:var(--dim);padding:4px 10px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border);width:100%;text-align:left;flex-shrink:0; }
 #back-btn:hover { color: var(--text); }
-
-#content { flex: 1; overflow-y: auto; position: relative; }
+#content { flex:1;overflow-y:auto;position:relative; }
 #content::-webkit-scrollbar { width: 4px; }
-#content::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
-
-/* ── NPC Browser ── */
-#npc-browser { display: flex; flex-direction: column; height: 100%; }
-#npc-list-header {
-  padding: 5px 12px; font-size: 10px; color: var(--dim);
-  border-bottom: 1px solid var(--border); background: var(--bg2);
-  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
-}
-#npc-list { flex: 1; overflow-y: auto; }
+#content::-webkit-scrollbar-thumb { background:var(--bg3);border-radius:2px; }
+#npc-browser { display:flex;flex-direction:column;height:100%; }
+#npc-list-header { padding:5px 12px;font-size:10px;color:var(--dim);border-bottom:1px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center;flex-shrink:0; }
+#npc-list { flex:1;overflow-y:auto; }
 #npc-list::-webkit-scrollbar { width: 4px; }
-#npc-list::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
-.npc-item {
-  padding: 7px 12px; border-bottom: 1px solid rgba(42,42,74,0.4);
-  cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.1s;
-}
-.npc-item:hover { background: rgba(233,69,96,0.1); }
-.npc-item .npc-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
-.npc-item .npc-name { font-size: 12px; color: var(--text); flex: 1; }
-.npc-item .npc-cat  { font-size: 10px; color: var(--dim); }
-#npc-empty  { padding: 20px; text-align: center; color: var(--dim); font-size: 11px; }
-#list-status { padding: 6px 12px; font-size: 10px; color: var(--gold); text-align: center; }
-
-/* ── Disambiguation ── */
-#disambig {
-  display: none; padding: 12px;
-}
-#disambig h3 { font-size: 12px; color: var(--gold); margin-bottom: 8px; }
-#disambig p  { font-size: 11px; color: var(--dim); margin-bottom: 10px; }
-.disambig-option {
-  padding: 7px 10px; background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 4px; margin-bottom: 6px; cursor: pointer; font-size: 12px;
-  transition: background 0.1s;
-}
-.disambig-option:hover { background: var(--bg3); border-color: var(--accent); }
-
-/* ── Drops view ── */
+#npc-list::-webkit-scrollbar-thumb { background:var(--bg3);border-radius:2px; }
+.npc-item { padding:7px 12px;border-bottom:1px solid rgba(42,42,74,.4);cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s; }
+.npc-item:hover { background: rgba(233,69,96,.1); }
+.npc-item .npc-icon { font-size:14px;width:20px;text-align:center;flex-shrink:0; }
+.npc-item .npc-name { font-size:12px;color:var(--text);flex:1; }
+.npc-item .npc-cat  { font-size:10px;color:var(--dim); }
+#npc-empty { padding:20px;text-align:center;color:var(--dim);font-size:11px; }
+#list-status { padding:6px 12px;font-size:10px;color:var(--gold);text-align:center; }
+#disambig { display:none;padding:12px; }
+#disambig h3 { font-size:12px;color:var(--gold);margin-bottom:8px; }
+#disambig p  { font-size:11px;color:var(--dim);margin-bottom:10px; }
+.disambig-option { padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:6px;cursor:pointer;font-size:12px;transition:background .1s; }
+.disambig-option:hover { background:var(--bg3);border-color:var(--accent); }
 #drops { display: none; }
-.section-hdr {
-  background: var(--bg3); padding: 5px 12px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-  color: var(--gold); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 1;
-  display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer; user-select: none;
-  transition: background 0.15s;
-}
+.section-hdr { background:var(--bg3);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gold);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s; }
 .section-hdr:hover { background: #143d6e; }
-.section-hdr .hdr-left { display: flex; align-items: center; gap: 6px; }
-.section-hdr .chevron {
-  font-size: 8px; transition: transform 0.2s; display: inline-block;
-  color: var(--dim);
-}
+.section-hdr .hdr-left { display:flex;align-items:center;gap:6px; }
+.section-hdr .chevron { font-size:8px;transition:transform .2s;display:inline-block;color:var(--dim); }
 .section-hdr.collapsed .chevron { transform: rotate(-90deg); }
-.section-hdr .row-count { font-size: 9px; color: var(--dim); font-weight: 400; }
-.section-body { overflow: hidden; transition: max-height 0.25s ease; }
+.section-hdr .row-count { font-size:9px;color:var(--dim);font-weight:400; }
+.section-body { overflow:hidden;transition:max-height .25s ease; }
 .section-body.collapsed { max-height: 0 !important; }
-.drop-row {
-  display: flex; align-items: center; padding: 4px 10px; gap: 8px;
-  border-bottom: 1px solid rgba(42,42,74,0.4); transition: background 0.1s;
-}
-.drop-row:hover { background: rgba(255,255,255,0.035); }
-.item-img {
-  width: 28px; height: 28px; flex-shrink: 0;
-  object-fit: contain; image-rendering: pixelated;
-}
-.item-placeholder {
-  width: 28px; height: 28px; flex-shrink: 0; background: var(--bg3);
-  border-radius: 3px; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; color: var(--dim);
-}
-.item-info { flex: 1; min-width: 0; }
-.item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
-.item-qty  { font-size: 10px; color: var(--dim); margin-top: 1px; }
+.drop-row { display:flex;align-items:center;padding:4px 10px;gap:8px;border-bottom:1px solid rgba(42,42,74,.4);transition:background .1s;cursor:default; }
+.drop-row:hover { background: rgba(255,255,255,.035); }
+.drop-row.clickable { cursor: pointer; }
+.drop-row.clickable:hover { background: rgba(233,69,96,.12); }
+.item-img { width:28px;height:28px;flex-shrink:0;object-fit:contain;image-rendering:pixelated; }
+.item-placeholder { width:28px;height:28px;flex-shrink:0;background:var(--bg3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--dim); }
+.item-info { flex:1;min-width:0; }
+.item-name { white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px; }
+.item-qty  { font-size:10px;color:var(--dim);margin-top:1px; }
 .rarity    { flex-shrink: 0; }
-.badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; }
-.b-always   { background: var(--green); color: #fff; }
-.b-common   { border: 1px solid var(--green);  color: var(--green); }
-.b-uncommon { border: 1px solid var(--blue);   color: var(--blue); }
-.b-rare     { border: 1px solid var(--purple); color: var(--purple); }
-.b-vr       { border: 1px solid var(--accent); color: var(--accent); }
-.b-ultra    { border: 1px solid var(--orange); color: var(--orange); }
-.b-unknown  { border: 1px solid var(--dim);    color: var(--dim); }
+.badge { display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700; }
+.b-always   { background:var(--green);color:#fff; }
+.b-common   { border:1px solid var(--green);color:var(--green); }
+.b-uncommon { border:1px solid var(--blue);color:var(--blue); }
+.b-rare     { border:1px solid var(--purple);color:var(--purple); }
+.b-vr       { border:1px solid var(--accent);color:var(--accent); }
+.b-ultra    { border:1px solid var(--orange);color:var(--orange); }
+.b-unknown  { border:1px solid var(--dim);color:var(--dim); }
 </style>
 </head>
 <body>
@@ -218,17 +137,22 @@ body {
 <div id="settings-panel">
   <h3>Settings</h3>
   <div class="settings-row">
-    <label for="toggle-debug">Show debug log</label>
+    <label>Show debug log</label>
     <div class="toggle" id="toggle-debug"></div>
   </div>
   <div class="settings-row">
-    <label for="toggle-ocr-canvas">Show OCR preview</label>
+    <label>Show OCR preview</label>
     <div class="toggle" id="toggle-ocr-canvas"></div>
   </div>
   <div class="settings-row settings-row--stack">
-    <label for="opacity-slider">Window opacity <span id="opacity-value">100%</span></label>
+    <label>Window opacity <span id="opacity-value">100%</span></label>
     <input type="range" id="opacity-slider" min="30" max="100" step="5" value="100"/>
   </div>
+</div>
+
+<div id="mode-tabs">
+  <div class="mode-tab active" data-mode="npc">👾 NPC Drops</div>
+  <div class="mode-tab" data-mode="item">🎒 Item Sources</div>
 </div>
 
 <div id="searchbar">
@@ -248,1530 +172,886 @@ body {
     <div id="list-status"></div>
     <div id="npc-list"></div>
   </div>
-
   <div id="disambig">
     <h3>⚠️ Disambiguation</h3>
     <p id="disambig-msg"></p>
     <div id="disambig-options"></div>
   </div>
-
   <div id="drops"></div>
 </div>
 
 <script>
 const WIKI = 'https://runescape.wiki/api.php';
-
-// ── State ──────────────────────────────────────────────────
-let allMonsters = [];   // full list loaded from SMW
+let allMonsters = [];
 let inDropsView = false;
 let searchTimer = null;
+let currentMode = 'npc';
 
-// ── Settings ───────────────────────────────────────────────
+// ── Settings ────────────────────────────────────────────────
 const settings = { debugLog: false, ocrCanvas: false, opacity: 100 };
-
-function saveSetting(key, val) {
-  settings[key] = val;
-  try { localStorage.setItem('dvSettings', JSON.stringify(settings)); } catch(e) {}
-}
-(function loadSettings() {
-  try {
-    const s = JSON.parse(localStorage.getItem('dvSettings') || '{}');
-    if (s.debugLog  !== undefined) settings.debugLog  = s.debugLog;
-    if (s.ocrCanvas !== undefined) settings.ocrCanvas = s.ocrCanvas;
-    if (typeof s.opacity === 'number') settings.opacity = Math.max(30, Math.min(100, s.opacity));
-  } catch(e) {}
+function saveSetting(k,v){ settings[k]=v; try{localStorage.setItem('dvSettings',JSON.stringify(settings));}catch(e){} }
+(function(){
+  try{
+    const s=JSON.parse(localStorage.getItem('dvSettings')||'{}');
+    if(s.debugLog!==undefined)settings.debugLog=s.debugLog;
+    if(s.ocrCanvas!==undefined)settings.ocrCanvas=s.ocrCanvas;
+    if(typeof s.opacity==='number')settings.opacity=Math.max(30,Math.min(100,s.opacity));
+  }catch(e){}
 })();
-
-const DEBUG_OVERLAY_HEIGHT = 180;
-
-function applyToggleUI() {
-  document.getElementById('toggle-debug').classList.toggle('on', settings.debugLog);
-  document.getElementById('toggle-ocr-canvas').classList.toggle('on', settings.ocrCanvas);
-  const slider = document.getElementById('opacity-slider');
-  const valLabel = document.getElementById('opacity-value');
-  if (slider) slider.value = settings.opacity;
-  if (valLabel) valLabel.textContent = settings.opacity + '%';
-  document.body.style.opacity = (settings.opacity / 100).toString();
-  const dbgEl = getOrCreateDebugOverlay();
-  const ocrEl = getOrCreateOcrCanvas();
-  dbgEl.style.display = settings.debugLog  ? 'block' : 'none';
-  ocrEl.style.display = settings.ocrCanvas ? 'block' : 'none';
-  // OCR preview sits directly above the debug overlay when shown, else at window bottom
-  ocrEl.style.bottom = settings.debugLog ? (DEBUG_OVERLAY_HEIGHT + 'px') : '0px';
+const DEBUG_OVERLAY_HEIGHT=180;
+function applyToggleUI(){
+  document.getElementById('toggle-debug').classList.toggle('on',settings.debugLog);
+  document.getElementById('toggle-ocr-canvas').classList.toggle('on',settings.ocrCanvas);
+  const sl=document.getElementById('opacity-slider'),vl=document.getElementById('opacity-value');
+  if(sl)sl.value=settings.opacity; if(vl)vl.textContent=settings.opacity+'%';
+  document.body.style.opacity=(settings.opacity/100).toString();
+  getOrCreateDebugOverlay().style.display=settings.debugLog?'block':'none';
+  const oc=getOrCreateOcrCanvas(); oc.style.display=settings.ocrCanvas?'block':'none';
+  oc.style.bottom=settings.debugLog?(DEBUG_OVERLAY_HEIGHT+'px'):'0px';
 }
-
-function getOrCreateDebugOverlay() {
-  let el = document.getElementById('section-debug');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'section-debug';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.88);color:#00ff00;' +
-      'font-family:monospace;font-size:11px;line-height:1.5;padding:6px 8px;' +
-      'height:' + DEBUG_OVERLAY_HEIGHT + 'px;overflow-y:auto;z-index:9999;white-space:pre-wrap;' +
-      'box-sizing:border-box;';
-    el.style.display = 'none';
-    document.body.appendChild(el);
-  }
+function getOrCreateDebugOverlay(){
+  let el=document.getElementById('section-debug');
+  if(!el){el=document.createElement('div');el.id='section-debug';el.style.cssText='position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.88);color:#00ff00;font-family:monospace;font-size:11px;line-height:1.5;padding:6px 8px;height:'+DEBUG_OVERLAY_HEIGHT+'px;overflow-y:auto;z-index:9999;white-space:pre-wrap;box-sizing:border-box;';el.style.display='none';document.body.appendChild(el);}
   return el;
 }
-
-function getOrCreateOcrCanvas() {
-  let el = document.getElementById('dbg-ocr-canvas');
-  if (!el) {
-    el = document.createElement('canvas');
-    el.id = 'dbg-ocr-canvas';
-    el.style.cssText = 'position:fixed;bottom:0;right:4px;border:2px solid #f5c518;' +
-      'image-rendering:pixelated;z-index:9999;background:#222;max-width:98vw;min-width:40px;min-height:20px;';
-    el.style.display = 'none';
-    document.body.appendChild(el);
-  }
+function getOrCreateOcrCanvas(){
+  let el=document.getElementById('dbg-ocr-canvas');
+  if(!el){el=document.createElement('canvas');el.id='dbg-ocr-canvas';el.style.cssText='position:fixed;bottom:0;right:4px;border:2px solid #f5c518;image-rendering:pixelated;z-index:9999;background:#222;max-width:98vw;min-width:40px;min-height:20px;';el.style.display='none';document.body.appendChild(el);}
   return el;
 }
-
-document.getElementById('settings-btn').addEventListener('click', function(e) {
+document.getElementById('settings-btn').addEventListener('click',function(e){
   e.stopPropagation();
-  const panel = document.getElementById('settings-panel');
-  const btn   = document.getElementById('settings-btn');
-  panel.classList.toggle('open');
-  btn.classList.toggle('active', panel.classList.contains('open'));
-  applyToggleUI();
+  const p=document.getElementById('settings-panel'),b=document.getElementById('settings-btn');
+  p.classList.toggle('open'); b.classList.toggle('active',p.classList.contains('open')); applyToggleUI();
 });
-document.addEventListener('click', function() {
+document.addEventListener('click',function(){
   document.getElementById('settings-panel').classList.remove('open');
   document.getElementById('settings-btn').classList.remove('active');
 });
-document.getElementById('settings-panel').addEventListener('click', function(e) { e.stopPropagation(); });
+document.getElementById('settings-panel').addEventListener('click',e=>e.stopPropagation());
+document.getElementById('toggle-debug').addEventListener('click',function(){saveSetting('debugLog',!settings.debugLog);applyToggleUI();});
+document.getElementById('toggle-ocr-canvas').addEventListener('click',function(){saveSetting('ocrCanvas',!settings.ocrCanvas);applyToggleUI();});
+document.getElementById('opacity-slider').addEventListener('input',function(e){saveSetting('opacity',parseInt(e.target.value,10)||100);applyToggleUI();});
 
-document.getElementById('toggle-debug').addEventListener('click', function() {
-  saveSetting('debugLog', !settings.debugLog);
-  applyToggleUI();
-});
-document.getElementById('toggle-ocr-canvas').addEventListener('click', function() {
-  saveSetting('ocrCanvas', !settings.ocrCanvas);
-  applyToggleUI();
-});
-document.getElementById('opacity-slider').addEventListener('input', function(e) {
-  saveSetting('opacity', parseInt(e.target.value, 10) || 100);
-  applyToggleUI();
-});
-
-// ── Debug ──────────────────────────────────────────────────
-// Always append to the overlay (capped to the last 200 lines) so that toggling
-// "Show debug log" on at any time reveals the full history. The overlay's CSS
-// display is controlled by applyToggleUI() — dbg() never changes visibility.
-const DEBUG_MAX_LINES = 200;
-function dbg(s) {
-  console.log('[DropViewer]', s);
-  const overlay = getOrCreateDebugOverlay();
-  const escaped = String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  overlay.innerHTML += escaped + '<br>';
-  const lines = overlay.innerHTML.split('<br>');
-  if (lines.length > DEBUG_MAX_LINES) overlay.innerHTML = lines.slice(-DEBUG_MAX_LINES).join('<br>');
-  overlay.scrollTop = overlay.scrollHeight;
+// ── Debug ───────────────────────────────────────────────────
+const DEBUG_MAX_LINES=200;
+function dbg(s){
+  console.log('[DropViewer]',s);
+  const o=getOrCreateDebugOverlay();
+  const esc=String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  o.innerHTML+=esc+'<br>';
+  const lines=o.innerHTML.split('<br>');
+  if(lines.length>DEBUG_MAX_LINES)o.innerHTML=lines.slice(-DEBUG_MAX_LINES).join('<br>');
+  o.scrollTop=o.scrollHeight;
 }
+function setStatus(type,msg){const el=document.getElementById('status');el.className=type;el.textContent=msg;}
 
-// ── Status ─────────────────────────────────────────────────
-function setStatus(type, msg) {
-  const el = document.getElementById('status');
-  el.className = type; el.textContent = msg;
-}
-
-// ── View switching ─────────────────────────────────────────
-function showBrowser() {
-  document.getElementById('npc-browser').style.display = 'flex';
-  document.getElementById('disambig').style.display = 'none';
-  document.getElementById('drops').style.display = 'none';
-  document.getElementById('back-btn').style.display = 'none';
-  document.getElementById('subtitle').textContent = 'Search any NPC';
-  // Reset NPC image back to logo
-  document.getElementById('npc-img').style.display = 'none';
-  document.getElementById('titlebar-logo').style.display = 'inline';
-  inDropsView = false;
-}
-function showDisambig() {
-  document.getElementById('npc-browser').style.display = 'none';
-  document.getElementById('disambig').style.display = 'block';
-  document.getElementById('drops').style.display = 'none';
-  document.getElementById('back-btn').style.display = 'block';
-  inDropsView = false;
-}
-function showDrops() {
-  document.getElementById('npc-browser').style.display = 'none';
-  document.getElementById('disambig').style.display = 'none';
-  document.getElementById('drops').style.display = 'block';
-  document.getElementById('back-btn').style.display = 'block';
-  inDropsView = true;
-}
-
-// ── Load full monster list from SMW ───────────────────────
-// Uses the Semantic MediaWiki API to get all pages with a
-// "Monster JSON" property (i.e. all monster pages on the wiki).
-async function loadMonsterList() {
-  document.getElementById('list-status').textContent = '⏳ Loading monster list...';
-  let monsters = [];
-  let offset = 0;
-  const limit = 500;
-
-  try {
-    while (true) {
-      const query = `[[Monster JSON::+]]|?Has name|limit=${limit}|offset=${offset}`;
-      const url = `${WIKI}?action=ask&query=${encodeURIComponent(query)}&format=json&origin=*`;
-      const r = await fetch(url);
-      const d = await r.json();
-      const results = d?.query?.results;
-      if (!results) break;
-
-      const keys = Object.keys(results);
-      if (keys.length === 0) break;
-
-      for (const key of keys) {
-        const page = results[key];
-        const name = page?.printouts?.['Has name']?.[0] || page.fulltext;
-        if (name && !name.includes('/')) {  // skip subpages
-          monsters.push({ name, fulltext: page.fulltext });
-        }
-      }
-
-      dbg(`Loaded ${monsters.length} monsters so far (offset ${offset})`);
-      document.getElementById('list-status').textContent =
-        `⏳ Loading... ${monsters.length} monsters found`;
-
-      if (keys.length < limit) break;
-      offset += limit;
+// ── Mode tabs ───────────────────────────────────────────────
+document.querySelectorAll('.mode-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    const mode=tab.dataset.mode;
+    if(mode===currentMode)return;
+    currentMode=mode;
+    document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t===tab));
+    const inp=document.getElementById('search-input');
+    inp.value='';
+    inp.placeholder=mode==='item'?'Search items...':'Search NPCs...';
+    showBrowser(); setStatus('','');
+    if(mode==='npc'){
+      renderNpcList('');
+      document.getElementById('list-label').textContent=allMonsters.length?'All RS3 monsters':'Loading...';
+      document.getElementById('list-count').textContent=allMonsters.length?allMonsters.length+' total':'';
+    } else {
+      document.getElementById('npc-list').innerHTML='<div id="npc-empty">Type an item name and press Search.<br><small>e.g. "Dragon bones", "Abyssal whip"</small></div>';
+      document.getElementById('list-label').textContent='Item drop source lookup';
+      document.getElementById('list-count').textContent='';
     }
+  });
+});
 
-    // Deduplicate and sort
-    const seen = new Set();
-    allMonsters = monsters
-      .filter(m => { if (seen.has(m.name)) return false; seen.add(m.name); return true; })
-      .sort((a, b) => a.name.localeCompare(b.name));
+// ── View switching ──────────────────────────────────────────
+function showBrowser(){
+  document.getElementById('npc-browser').style.display='flex';
+  document.getElementById('disambig').style.display='none';
+  document.getElementById('drops').style.display='none';
+  document.getElementById('back-btn').style.display='none';
+  document.getElementById('subtitle').textContent=currentMode==='item'?'Search any item':'Search any NPC';
+  document.getElementById('npc-img').style.display='none';
+  document.getElementById('titlebar-logo').style.display='inline';
+  inDropsView=false;
+}
+function showDisambig(){
+  document.getElementById('npc-browser').style.display='none';
+  document.getElementById('disambig').style.display='block';
+  document.getElementById('drops').style.display='none';
+  document.getElementById('back-btn').style.display='block';
+  inDropsView=false;
+}
+function showDrops(){
+  document.getElementById('npc-browser').style.display='none';
+  document.getElementById('disambig').style.display='none';
+  document.getElementById('drops').style.display='block';
+  document.getElementById('back-btn').style.display='block';
+  inDropsView=true;
+}
 
-    document.getElementById('list-status').textContent = '';
-    document.getElementById('list-label').textContent = 'All RS3 monsters';
-    document.getElementById('list-count').textContent = allMonsters.length + ' total';
-    renderNpcList('');
-
-  } catch(e) {
-    dbg('Monster list load error: ' + e.message);
-    document.getElementById('list-status').textContent =
-      '⚠️ Could not load full list — use search box above';
-    // Fall back to popular list
-    allMonsters = POPULAR_NPCS.map(n => ({ name: n.name, fulltext: n.name, cat: n.cat, icon: n.icon }));
-    renderNpcList('');
+// ── Monster list loader ─────────────────────────────────────
+async function loadMonsterList(){
+  document.getElementById('list-status').textContent='⏳ Loading monster list...';
+  let monsters=[],offset=0;const limit=500;
+  try{
+    while(true){
+      const query=`[[Monster JSON::+]]|?Has name|limit=${limit}|offset=${offset}`;
+      const url=`${WIKI}?action=ask&query=${encodeURIComponent(query)}&format=json&origin=*`;
+      const r=await fetch(url); const d=await r.json();
+      const results=d?.query?.results; if(!results)break;
+      const keys=Object.keys(results); if(keys.length===0)break;
+      for(const key of keys){
+        const page=results[key];
+        const name=page?.printouts?.['Has name']?.[0]||page.fulltext;
+        if(name&&!name.includes('/'))monsters.push({name,fulltext:page.fulltext});
+      }
+      dbg(`Loaded ${monsters.length} monsters (offset ${offset})`);
+      document.getElementById('list-status').textContent=`⏳ Loading... ${monsters.length} found`;
+      if(keys.length<limit)break; offset+=limit;
+    }
+    const seen=new Set();
+    allMonsters=monsters.filter(m=>{if(seen.has(m.name))return false;seen.add(m.name);return true;}).sort((a,b)=>a.name.localeCompare(b.name));
+    document.getElementById('list-status').textContent='';
+    document.getElementById('list-label').textContent='All RS3 monsters';
+    document.getElementById('list-count').textContent=allMonsters.length+' total';
+    if(currentMode==='npc')renderNpcList('');
+  }catch(e){
+    dbg('Monster list load error: '+e.message);
+    document.getElementById('list-status').textContent='⚠️ Could not load full list — use search box above';
+    allMonsters=POPULAR_NPCS.map(n=>({name:n.name,fulltext:n.name,cat:n.cat,icon:n.icon}));
+    if(currentMode==='npc')renderNpcList('');
   }
 }
 
-// ── Popular NPC fallback list ──────────────────────────────
-const POPULAR_NPCS = [
-//-Bosses-
-  { name:'Abomination',icon:'⚔️',cat:'Boss' },
-  { name:'Amascut, the Devourer',icon:'🐱',cat:'Boss' },
-  { name:'The Ambassador',icon:'🪼',cat:'Boss' },
-  { name:'Araxxi',icon:'🕷️',cat:'Boss' },
-  { name:'Arch-Glacor',icon:'❄️',cat:'Boss' },
-  { name:'Barrows - Rise of the Six',icon:'👻',cat:'Boss' },
-  { name:'Beastmaster Durzag',icon:'⚔️',cat:'Boss' },
-  { name:'Black stone dragon',icon:'🐉',cat:'Boss' },
-  { name:'Chaos Elemental',icon:'👻',cat:'Boss' },
-  { name:'Commander Zilyana',icon:'⚔️',cat:'Boss' },
-  { name:'Corporeal Beast',icon:'👻',cat:'Boss' },
-  { name:'Croesus',icon:'🌳',cat:'Boss' },
-  { name:'Dagannoth Kings',icon:'🦖',cat:'Boss' },
-  { name:'Exiled Kalphite Queen',icon:'🦂',cat:'Boss' },
-  { name:'Flesh-hatcher Mhekarnahz',icon:'😈',cat:'Boss' },
-  { name:'Gate of Elidinis',icon:'⚒️',cat:'Boss' },
-  { name:'General Graardor',icon:'⚔️',cat:'Boss' },
-  { name:'Giant mole',icon:'🐭',cat:'Boss' },
-  { name:'Gregorovic',icon:'⚔️',cat:'Boss' },
-  { name:'Har-Aken',icon:'🔥',cat:'Boss' },
-  { name:'Helwyr',icon:'🐺',cat:'Boss' },
-  { name:'Hermod',icon:'⚔️',cat:'Boss' },
-  { name:'Ivar, King of Bones',icon:'💀',cat:'Boss' },
-  { name:'Kalphite King',icon:'🦂',cat:'Boss' },
-  { name:'Kalphite Queen',icon:'🦂',cat:'Boss' },
-  { name:'King Black Dragon',icon:'🐉',cat:'Boss' },
-  { name:'Kerapac, the Bound',icon:'🐉',cat:'Boss' },
-  { name:"K'ril Tsutsaroth",icon:'😈',cat:'Boss' },
-  { name:"Kree'arra",icon:'🦅',cat:'Boss' },
-  { name:'Legio Primus',icon:'⚔️',cat:'Boss' },
-  { name:'Magister',icon:'👻',cat:'Boss' },
-  { name:'Nakatra',icon:'⚔️',cat:'Boss' },
-  { name:'Nex',icon:'⚔️',cat:'Boss' },
-  { name:'Nex: Angel of Death',icon:'💀',cat:'Boss' },
-  { name:'Queen Black Dragon',icon:'🐉',cat:'Boss' },
-  { name:'Raksha',icon:'🦖',cat:'Boss' },
-  { name:'Rasial',icon:'💀',cat:'Boss' },
-  { name:'Rex Matriarchs',icon:'🦖',cat:'Boss' },
-  { name:'Seiryu',icon:'🐉',cat:'Boss' },
-  { name:'Silverquill, the Dreadhog',icon:'⚔️',cat:'Boss' },
-  { name:'Solak, Guardian of the Grove',icon:'🌳',cat:'Boss' },
-  { name:'Telos, the Warden',icon:'⚔️',cat:'Boss' },
-  { name:'TzKal-Zuk',icon:'🔥',cat:'Boss' },
-  { name:'Twin Furies',icon:'⚔️',cat:'Boss' },
-  { name:'Vindicta',icon:'🐉',cat:'Boss' },
-  { name:'Vorago',icon:'🪨',cat:'Boss' },
-  { name:'Vorkath',icon:'🐉',cat:'Boss' },
-  { name:'Yakamaru',icon:'🪼',cat:'Boss' },
-  { name:"Zamorak, Lord of Chaos",icon:'😈',cat:'Boss' },
-//-Slayer-
-  { name:'Aberrant spectre', icon:'👻', cat:'Slayer' },
-  { name:'Abyssal beast', icon:'😈', cat:'Slayer' },
-  { name:'Abyssal demon', icon:'😈', cat:'Slayer' },
-  { name:'Abyssal lord', icon:'😈', cat:'Slayer' },
-  { name:'Abyssal savage', icon:'😈', cat:'Slayer' },
-  { name:'Acheron mammoth', icon:'🐘', cat:'Slayer' },
-  { name:'Airut', icon:'🐗', cat:'Slayer' },
-  { name:'Anagami', icon:'🐲', cat:'Slayer' },
-  { name:'Aquanite', icon:'💧', cat:'Slayer' },
-  { name:'Arhat', icon:'🐲', cat:'Slayer' },
-  { name:'Armoured phantom', icon:'👻', cat:'Slayer' },
-  { name:'Automaton Generator', icon:'🤖', cat:'Slayer' },
-  { name:'Automaton Guardian', icon:'🤖', cat:'Slayer' },
-  { name:'Automaton Tracer', icon:'🤖', cat:'Slayer' },
-
-  { name:'Banshee', icon:'👻', cat:'Slayer' },
-  { name:'Basilisk', icon:'🐍', cat:'Slayer' },
-  { name:'Beastmasters hound', icon:'🐕', cat:'Slayer' },
-  { name:'Bladed muspah', icon:'🧛', cat:'Slayer' },
-  { name:'Blood nihil', icon:'🩸', cat:'Slayer' },
-  { name:'Bloodveld', icon:'🩸', cat:'Slayer' },
-  { name:'Brine rat', icon:'🐀', cat:'Slayer' },
-  { name:'Brutish dinosaur', icon:'🦕', cat:'Slayer' },
-  { name:'Bulbour crawler', icon:'⚔️', cat:'Slayer' },
-
-  { name:'Camel warrior', icon:'🐪', cat:'Slayer' },
-  { name:'Capsarius', icon:'💎', cat:'Slayer' },
-  { name:'Cave bug', icon:'🐛', cat:'Slayer' },
-  { name:'Cave crawler', icon:'🐜', cat:'Slayer' },
-  { name:'Cave horror', icon:'😱', cat:'Slayer' },
-  { name:'Cave slime', icon:'🟢', cat:'Slayer' },
-  { name:'Cockatrice', icon:'🐔', cat:'Slayer' },
-  { name:'Corrupted kalphite guardian', icon:'🪲', cat:'Slayer' },  
-  { name:'Corrupted kalphite marauder', icon:'🪲', cat:'Slayer' },
-  { name:'Corrupted lizard', icon:'🦎', cat:'Slayer' },
-  { name:'Corrupted scarab', icon:'🪲', cat:'Slayer' },
-  { name:'Corrupted scorpion', icon:'🦂', cat:'Slayer' },
-  { name:'Corrupted worker', icon:'👨‍🌾', cat:'Slayer' },
-  { name:'Crawling hand', icon:'✋', cat:'Slayer' },
-  { name:'Crocodile akh', icon:'🐊', cat:'Slayer' },
-
-  { name:'Dark beast', icon:'🐺', cat:'Slayer' },
-  { name:'Desert lizard', icon:'🦎', cat:'Slayer' },
-  { name:'Desert strykewyrm', icon:'🐍', cat:'Slayer' },
-  { name:'Devil snare', icon:'🥀', cat:'Slayer' },
-  { name:'Dragonstone dragon', icon:'🐲', cat:'Slayer' },
-  { name:'Dust devil', icon:'🌪️', cat:'Slayer' },
-
-  { name:'Edimmu', icon:'🧟', cat:'Slayer' },
-
-  { name:'Feline akh', icon:'🐈', cat:'Slayer' },
-  { name:'Feral Dinosaur', icon:'🦕', cat:'Slayer' },
-  { name:'Fever spider', icon:'🕷️', cat:'Slayer' },
-  { name:'Force muspah', icon:'🧛', cat:'Slayer' },
-
-  { name:'Ganodermic beast', icon:'🍄', cat:'Slayer' },
-  { name:'Ganodermic runt', icon:'🍄', cat:'Slayer' },
-  { name:'Gargoyle', icon:'🗿', cat:'Slayer' },
-  { name:'Gelatinous abomination', icon:'🪼', cat:'Slayer' },
-  { name:'Gladius', icon:'🤺', cat:'Slayer' },
-  { name:'Gorilla akh', icon:'🦍', cat:'Slayer' },
-  { name:'Grifolapine', icon:'🍄', cat:'Slayer' },
-  { name:'Grifolaroo', icon:'🍄', cat:'Slayer' },
-
-  { name:'Harpie bug swarm', icon:'🪰', cat:'Slayer' },
-  { name:'Hydrix dragon', icon:'🐲', cat:'Slayer' },
-
-  { name:'Ice nihil', icon:'❄️', cat:'Slayer' },
-  { name:'Ice strykewyrm', icon:'❄️', cat:'Slayer' },
-  { name:'Imperial mage akh', icon:'✨', cat:'Slayer' },
-  { name:'Imperial ranger akh', icon:'🏹', cat:'Slayer' },
-  { name:'Imperial warrior akh', icon:'⚔️', cat:'Slayer' },
-  { name:'Infernal mage', icon:'🧙‍♂️', cat:'Slayer' },
-
-  { name:'Jelly', icon:'🧊', cat:'Slayer' },
-  { name:'Jungle strykewyrm', icon:'🐍', cat:'Slayer' },
-
-  { name:'Killerwatt', icon:'⚡', cat:'Slayer' },
-  { name:'Kurask', icon:'🌿', cat:'Slayer' },
-
-  { name:'Lampenflora', icon:'🪔', cat:'Slayer' },
-  { name:'Lava strykewyrm', icon:'🌋', cat:'Slayer' },
-  { name:'Legiones', icon:'💎', cat:'Slayer' },
-  { name:'Liverworts', icon:'🌺', cat:'Slayer' },
-  { name:'Luminous snaggler', icon:'🌿', cat:'Slayer' },
-
-  { name:'Mighty banshee', icon:'🎧', cat:'Slayer' },
-  { name:'Mogre', icon:'👹', cat:'Slayer' },
-  { name:'Molanisk', icon:'🐌', cat:'Slayer' },
-  { name:'Moss golem', icon:'🗿', cat:'Slayer' },
-  { name:'Mutated bloodveld', icon:'🩸', cat:'Slayer' },
-  { name:'Mutated jadinko baby', icon:'🦎', cat:'Slayer' },
-  { name:'Mutated jadinko guard', icon:'🦎', cat:'Slayer' },
-  { name:'Mutated jadinko male', icon:'🦎', cat:'Slayer' },
-  { name:'Mutated zygomite', icon:'🍄', cat:'Slayer' },
-
-  { name:'Nechryael', icon:'😈', cat:'Slayer' },
-  { name:'Night spider', icon:'🕷️', cat:'Slayer' },
-  { name:'Nightmare', icon:'🌙', cat:'Slayer' },
-  { name:'Nodon artificer', icon:'🐉', cat:'Slayer' },
-  { name:'Nodon enforcer', icon:'🐲', cat:'Slayer' },
-  { name:'Nodon engineer', icon:'🐉', cat:'Slayer' },
-  { name:'Nodon guard', icon:'🐲', cat:'Slayer' },
-  { name:'Nodon hunter', icon:'🐉', cat:'Slayer' },
-
-  { name:'Onyx dragon', icon:'🐲', cat:'Slayer' },
-
-  { name:'Profane Scabarite', icon:'🔥', cat:'Slayer' },
-  { name:'Pyrefiend', icon:'🐞', cat:'Slayer' },
-
-  { name:'Ripper demon', icon:'👹', cat:'Slayer' },
-  { name:'Ripper dinosaur', icon:'🦖', cat:'Slayer' },  
-  { name:'Risen ghost', icon:'👻', cat:'Slayer' },
-  { name:'Rockslug', icon:'🐌', cat:'Slayer' },
-  { name:'Rorarius', icon:'💎', cat:'Slayer' },
-
-  { name:'Sakadagami', icon:'💧', cat:'Slayer' },
-  { name:'Salawa akh', icon:'🐩', cat:'Slayer' },
-  { name:'Scarab akh', icon:'🪲', cat:'Slayer' },
-  { name:'Scutarius', icon:'🛡️', cat:'Slayer' },
-  { name:'Seeker', icon:'👁️', cat:'Slayer' },
-  { name:'Shadow nihil', icon:'🌑', cat:'Slayer' },
-  { name:'Siege engine', icon:'🚂', cat:'Slayer' },
-  { name:'Skeletal wyvern', icon:'☠️', cat:'Slayer' },
-  { name:'Slasher Demon', icon:'👹', cat:'Slayer' },
-  { name:'Smoke nihil', icon:'💨', cat:'Slayer' },
-  { name:'Sotapanna', icon:'💧', cat:'Slayer' },
-  { name:'Soulgazer', icon:'👁️', cat:'Slayer' },
-  { name:'Spiritual guardian', icon:'🧝', cat:'Slayer' },
-  { name:'Spiritual mage', icon:'🧝‍♂️', cat:'Slayer' },
-  { name:'Spiritual ranger', icon:'🧝‍♀️', cat:'Slayer' },
-  { name:'Spiritual warrior', icon:'🧞', cat:'Slayer' },
-
-  { name:'Terror dog', icon:'🐕', cat:'Slayer' },
-  { name:'Throwing muspah', icon:'🧛', cat:'Slayer' },
-  { name:'Turoth', icon:'🐉', cat:'Slayer' },
-
-  { name:'Unspeakable horror', icon:'🎭', cat:'Slayer' },
-
-  { name:'Venomous dinosaur', icon:'🦖', cat:'Slayer' },
-  { name:'Vinecrawler', icon:'🌿', cat:'Slayer' },
-
-  { name:'Wall beast', icon:'🧱', cat:'Slayer' },
-  { name:'Warped terrorbird', icon:'🐓', cat:'Slayer' },
-  { name:'Warped tortoise', icon:'🐢', cat:'Slayer' },
-  { name:'Wyvern', icon:'🐲', cat:'Slayer' },
-
-//-Dungeons-
-  { name:'Dragonkin Laboratory',icon:'⚔️',cat:'Dungeon' },
-  { name:'Sanctum of Rebirth',icon:'⚔️',cat:'Dungeon' },
-  { name:'Temple of Aminishi',icon:'⚔️',cat:'Dungeon' },
-  { name:'The Shadow Reef',icon:'⚔️',cat:'Dungeon' },
-  { name:'The Zamorakian Undercity',icon:'⚔️',cat:'Dungeon' },
+const POPULAR_NPCS=[
+  {name:'Abomination',icon:'⚔️',cat:'Boss'},{name:'Amascut, the Devourer',icon:'🐱',cat:'Boss'},
+  {name:'The Ambassador',icon:'🪼',cat:'Boss'},{name:'Araxxi',icon:'🕷️',cat:'Boss'},
+  {name:'Arch-Glacor',icon:'❄️',cat:'Boss'},{name:'Barrows - Rise of the Six',icon:'👻',cat:'Boss'},
+  {name:'Beastmaster Durzag',icon:'⚔️',cat:'Boss'},{name:'Black stone dragon',icon:'🐉',cat:'Boss'},
+  {name:'Chaos Elemental',icon:'👻',cat:'Boss'},{name:'Commander Zilyana',icon:'⚔️',cat:'Boss'},
+  {name:'Corporeal Beast',icon:'👻',cat:'Boss'},{name:'Croesus',icon:'🌳',cat:'Boss'},
+  {name:'Dagannoth Kings',icon:'🦖',cat:'Boss'},{name:'Exiled Kalphite Queen',icon:'🦂',cat:'Boss'},
+  {name:'Gate of Elidinis',icon:'⚒️',cat:'Boss'},{name:'General Graardor',icon:'⚔️',cat:'Boss'},
+  {name:'Giant mole',icon:'🐭',cat:'Boss'},{name:'Gregorovic',icon:'⚔️',cat:'Boss'},
+  {name:'Helwyr',icon:'🐺',cat:'Boss'},{name:'Ivar, King of Bones',icon:'💀',cat:'Boss'},
+  {name:'Kalphite King',icon:'🦂',cat:'Boss'},{name:'Kalphite Queen',icon:'🦂',cat:'Boss'},
+  {name:'King Black Dragon',icon:'🐉',cat:'Boss'},{name:'Kerapac, the Bound',icon:'🐉',cat:'Boss'},
+  {name:"K'ril Tsutsaroth",icon:'😈',cat:'Boss'},{name:"Kree'arra",icon:'🦅',cat:'Boss'},
+  {name:'Legio Primus',icon:'⚔️',cat:'Boss'},{name:'Magister',icon:'👻',cat:'Boss'},
+  {name:'Nakatra',icon:'⚔️',cat:'Boss'},{name:'Nex',icon:'⚔️',cat:'Boss'},
+  {name:'Nex: Angel of Death',icon:'💀',cat:'Boss'},{name:'Queen Black Dragon',icon:'🐉',cat:'Boss'},
+  {name:'Raksha',icon:'🦖',cat:'Boss'},{name:'Rasial',icon:'💀',cat:'Boss'},
+  {name:'Rex Matriarchs',icon:'🦖',cat:'Boss'},{name:'Seiryu',icon:'🐉',cat:'Boss'},
+  {name:'Solak, Guardian of the Grove',icon:'🌳',cat:'Boss'},{name:'Telos, the Warden',icon:'⚔️',cat:'Boss'},
+  {name:'TzKal-Zuk',icon:'🔥',cat:'Boss'},{name:'Twin Furies',icon:'⚔️',cat:'Boss'},
+  {name:'Vindicta',icon:'🐉',cat:'Boss'},{name:'Vorago',icon:'🪨',cat:'Boss'},
+  {name:'Vorkath',icon:'🐉',cat:'Boss'},{name:'Yakamaru',icon:'🪼',cat:'Boss'},
+  {name:'Zamorak, Lord of Chaos',icon:'😈',cat:'Boss'},
+  {name:'Aberrant spectre',icon:'👻',cat:'Slayer'},{name:'Abyssal beast',icon:'😈',cat:'Slayer'},
+  {name:'Abyssal demon',icon:'😈',cat:'Slayer'},{name:'Abyssal lord',icon:'😈',cat:'Slayer'},
+  {name:'Abyssal savage',icon:'😈',cat:'Slayer'},{name:'Acheron mammoth',icon:'🐘',cat:'Slayer'},
+  {name:'Airut',icon:'🐗',cat:'Slayer'},{name:'Aquanite',icon:'💧',cat:'Slayer'},
+  {name:'Armoured phantom',icon:'👻',cat:'Slayer'},{name:'Automaton Generator',icon:'🤖',cat:'Slayer'},
+  {name:'Automaton Guardian',icon:'🤖',cat:'Slayer'},{name:'Automaton Tracer',icon:'🤖',cat:'Slayer'},
+  {name:'Banshee',icon:'👻',cat:'Slayer'},{name:'Basilisk',icon:'🐍',cat:'Slayer'},
+  {name:'Bladed muspah',icon:'🧛',cat:'Slayer'},{name:'Bloodveld',icon:'🩸',cat:'Slayer'},
+  {name:'Brutish dinosaur',icon:'🦕',cat:'Slayer'},{name:'Camel warrior',icon:'🐪',cat:'Slayer'},
+  {name:'Cave horror',icon:'😱',cat:'Slayer'},{name:'Dark beast',icon:'🐺',cat:'Slayer'},
+  {name:'Desert strykewyrm',icon:'🐍',cat:'Slayer'},{name:'Dust devil',icon:'🌪️',cat:'Slayer'},
+  {name:'Edimmu',icon:'🧟',cat:'Slayer'},{name:'Ganodermic beast',icon:'🍄',cat:'Slayer'},
+  {name:'Gargoyle',icon:'🗿',cat:'Slayer'},{name:'Ice strykewyrm',icon:'❄️',cat:'Slayer'},
+  {name:'Jelly',icon:'🧊',cat:'Slayer'},{name:'Jungle strykewyrm',icon:'🐍',cat:'Slayer'},
+  {name:'Kurask',icon:'🌿',cat:'Slayer'},{name:'Lava strykewyrm',icon:'🌋',cat:'Slayer'},
+  {name:'Mutated bloodveld',icon:'🩸',cat:'Slayer'},{name:'Nechryael',icon:'😈',cat:'Slayer'},
+  {name:'Nightmare',icon:'🌙',cat:'Slayer'},{name:'Nodon enforcer',icon:'🐲',cat:'Slayer'},
+  {name:'Onyx dragon',icon:'🐲',cat:'Slayer'},{name:'Ripper demon',icon:'👹',cat:'Slayer'},
+  {name:'Ripper dinosaur',icon:'🦖',cat:'Slayer'},{name:'Soulgazer',icon:'👁️',cat:'Slayer'},
+  {name:'Skeletal wyvern',icon:'☠️',cat:'Slayer'},{name:'Spiritual mage',icon:'🧝‍♂️',cat:'Slayer'},
+  {name:'Spiritual ranger',icon:'🧝‍♀️',cat:'Slayer'},{name:'Spiritual warrior',icon:'🧞',cat:'Slayer'},
+  {name:'Turoth',icon:'🐉',cat:'Slayer'},{name:'Warped tortoise',icon:'🐢',cat:'Slayer'},
+  {name:'Wyvern',icon:'🐲',cat:'Slayer'},
+  {name:'Dragonkin Laboratory',icon:'⚔️',cat:'Dungeon'},{name:'Sanctum of Rebirth',icon:'⚔️',cat:'Dungeon'},
+  {name:'Temple of Aminishi',icon:'⚔️',cat:'Dungeon'},{name:'The Shadow Reef',icon:'⚔️',cat:'Dungeon'},
+  {name:'The Zamorakian Undercity',icon:'⚔️',cat:'Dungeon'},
 ];
 
-// ── Render NPC list ────────────────────────────────────────
-function renderNpcList(filter) {
-  const list = document.getElementById('npc-list');
-  const q = filter.toLowerCase().trim();
-  const source = allMonsters.length > 0 ? allMonsters : POPULAR_NPCS;
-
-  const filtered = q
-    ? source.filter(n => n.name.toLowerCase().includes(q)).slice(0, 100)
-    : source.slice(0, 200);
-
-  if (filtered.length === 0) {
-    list.innerHTML = `<div id="npc-empty">No matches for "<strong>${filter}</strong>"<br>
-      <small>Press Search to look it up directly on the wiki</small></div>`;
+function renderNpcList(filter){
+  const list=document.getElementById('npc-list');
+  const q=filter.toLowerCase().trim();
+  const source=allMonsters.length>0?allMonsters:POPULAR_NPCS;
+  const filtered=q?source.filter(n=>n.name.toLowerCase().includes(q)).slice(0,100):source.slice(0,200);
+  if(filtered.length===0){
+    list.innerHTML=`<div id="npc-empty">No matches for "<strong>${filter}</strong>"<br><small>Press Search to look it up on the wiki</small></div>`;
     return;
   }
-
-  // Use a document fragment for performance
-  const frag = document.createDocumentFragment();
-  for (const npc of filtered) {
-    const el = document.createElement('div');
-    el.className = 'npc-item';
-    el.innerHTML = `
-      <span class="npc-icon">${npc.icon || '👾'}</span>
-      <span class="npc-name">${npc.name}</span>
-      ${npc.cat ? `<span class="npc-cat">${npc.cat}</span>` : ''}`;
-    el.addEventListener('click', () => lookup(npc.fulltext || npc.name));
+  const frag=document.createDocumentFragment();
+  for(const npc of filtered){
+    const el=document.createElement('div');el.className='npc-item';
+    el.innerHTML=`<span class="npc-icon">${npc.icon||'👾'}</span><span class="npc-name">${npc.name}</span>${npc.cat?`<span class="npc-cat">${npc.cat}</span>`:''}`;
+    el.addEventListener('click',()=>lookup(npc.fulltext||npc.name));
     frag.appendChild(el);
   }
+  list.innerHTML=''; list.appendChild(frag);
+}
 
-  list.innerHTML = '';
-  list.appendChild(frag);
-
-  if (q && allMonsters.length > 0 && filtered.length === 100) {
-    const more = document.createElement('div');
-    more.id = 'npc-empty';
-    more.textContent = `Showing first 100 matches — type more to narrow down`;
-    list.appendChild(more);
+// ── Disambiguation ──────────────────────────────────────────
+async function checkDisambig(title){
+  const url=`${WIKI}?action=query&titles=${encodeURIComponent(title)}&prop=pageprops&ppprop=disambiguation&format=json&origin=*`;
+  const r=await fetch(url);const d=await r.json();
+  const pages=d?.query?.pages; if(!pages)return false;
+  const page=Object.values(pages)[0];
+  return page?.pageprops?.hasOwnProperty('disambiguation')??false;
+}
+async function getDisambigLinks(title){
+  const url=`${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=links&format=json&origin=*`;
+  const r=await fetch(url);const d=await r.json();
+  return (d?.parse?.links||[]).filter(l=>l.ns===0).map(l=>l['*']).filter(l=>!l.includes('disambiguation'));
+}
+function showDisambigOptions(title,links,msg){
+  document.getElementById('disambig-msg').textContent=msg||`"${title}" refers to multiple pages. Which one?`;
+  const c=document.getElementById('disambig-options');c.innerHTML='';
+  for(const link of links){
+    const el=document.createElement('div');el.className='disambig-option';el.textContent=link;
+    el.addEventListener('click',()=>currentMode==='item'?lookupItemSources(link):lookupPage(link));
+    c.appendChild(el);
   }
+  showDisambig();document.getElementById('subtitle').textContent='Choose a page';setStatus('','');
 }
 
-// ── Disambiguation detection ───────────────────────────────
-async function checkDisambig(title) {
-  const url = `${WIKI}?action=query&titles=${encodeURIComponent(title)}&prop=pageprops&ppprop=disambiguation&format=json&origin=*`;
-  const r = await fetch(url);
-  const d = await r.json();
-  const pages = d?.query?.pages;
-  if (!pages) return false;
-  const page = Object.values(pages)[0];
-  // 'disambiguation' key present (even if empty string) means it's a disambig page
-  return page?.pageprops?.hasOwnProperty('disambiguation') ?? false;
-}
-
-async function getDisambigLinks(title) {
-  // Get all links on the disambiguation page
-  const url = `${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=links&format=json&origin=*`;
-  const r = await fetch(url);
-  const d = await r.json();
-  return (d?.parse?.links || [])
-    .filter(l => l.ns === 0)  // main namespace only
-    .map(l => l['*'])
-    .filter(l => !l.includes('disambiguation') && !l.includes('(disambiguation)'));
-}
-
-function showDisambigOptions(title, links, msg) {
-  document.getElementById('disambig-msg').textContent =
-    msg || `"${title}" refers to multiple pages. Which one are you looking for?`;
-  const container = document.getElementById('disambig-options');
-  container.innerHTML = '';
-  for (const link of links) {
-    const el = document.createElement('div');
-    el.className = 'disambig-option';
-    el.textContent = link;
-    el.addEventListener('click', () => lookupPage(link));
-    container.appendChild(el);
-  }
-  showDisambig();
-  document.getElementById('subtitle').textContent = 'Choose a page';
-  setStatus('', '');
-}
-
-// ── Suggest alternatives when a page has no drop table ─────
-function editDistance(a, b) {
-  a = a.toLowerCase(); b = b.toLowerCase();
-  const m = a.length, n = b.length;
-  const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i||j));
-  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
-    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+// ── Suggest alternatives ────────────────────────────────────
+function editDistance(a,b){
+  a=a.toLowerCase();b=b.toLowerCase();const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i||j));
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
   return dp[m][n];
 }
-
-function scoreAlternative(suggestion, query) {
-  const s = suggestion.toLowerCase().trim();
-  const q = query.toLowerCase().trim();
-
-  // Heavy penalty for pages that are clearly not NPC drop pages
-  const metaPenalty = /\(storyline\)|\(book\)|\(music\)|\(recipe\)|\(item\)|\(quest\)|\(object\)|\(disambiguation\)/i.test(suggestion) ? 500 : 0;
-  // Moderate penalty for anything in parentheses that isn't a location
-  const parenMatch = suggestion.match(/\(([^)]+)\)/);
-  const parenContent = parenMatch ? parenMatch[1].toLowerCase() : '';
-  const locationBonus = parenContent && !/storyline|book|music|recipe|item|quest|object|disambiguation/.test(parenContent) ? -20 : 0;
-
-  // Exact match on the base name (before any parenthetical)
-  const baseName = s.replace(/\s*\([^)]*\)\s*/g, '').trim();
-  if (baseName === q) return -200 + locationBonus + metaPenalty;
-
-  // Query appears as a whole word at the start
-  if (s.startsWith(q + ' ') || s.startsWith(q + ' (') || s === q)
-    return -100 + editDistance(s, q) + locationBonus + metaPenalty;
-
-  // Query appears as a whole word anywhere
-  const wordRe = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b', 'i');
-  if (wordRe.test(s)) return editDistance(s, q) + locationBonus + metaPenalty;
-
-  // Fallback: edit distance with length penalty for long results
-  return editDistance(s, q) + s.length * 0.3 + metaPenalty;
+function scoreAlternative(s,q){
+  const sl=s.toLowerCase().trim(),ql=q.toLowerCase().trim();
+  const meta=/\(storyline\)|\(book\)|\(music\)|\(recipe\)|\(item\)|\(quest\)|\(object\)|\(disambiguation\)/i.test(s)?500:0;
+  const base=sl.replace(/\s*\([^)]*\)\s*/g,'').trim();
+  if(base===ql)return-200+meta;
+  if(sl.startsWith(ql+' ')||sl===ql)return-100+editDistance(sl,ql)+meta;
+  const re=new RegExp('\\b'+ql.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+  if(re.test(sl))return editDistance(sl,ql)+meta;
+  return editDistance(sl,ql)+sl.length*0.3+meta;
+}
+async function suggestAlternatives(title){
+  try{
+    const url=`${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=30&namespace=0&format=json&origin=*`;
+    const r=await fetch(url);const d=await r.json();
+    let suggestions=(d[1]||[]).filter(s=>s!==title);
+    if(!suggestions.length){setStatus('err',`⚠️ No drop table found for "${title}".`);return;}
+    suggestions.sort((a,b)=>scoreAlternative(a,title)-scoreAlternative(b,title));
+    suggestions=suggestions.slice(0,12);
+    setStatus('busy',`No drops on "${title}" — pick a related page:`);
+    showDisambigOptions(title,suggestions,`"${title}" has no drop table. Did you mean one of these?`);
+  }catch(e){setStatus('err',`⚠️ No drop table found for "${title}".`);}
 }
 
-async function suggestAlternatives(title) {
-  try {
-    const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(title)}&limit=30&namespace=0&format=json&origin=*`;
-    const r = await fetch(url);
-    const d = await r.json();
-    let suggestions = (d[1] || []).filter(s => s !== title);
-    if (!suggestions.length) {
-      setStatus('err', `⚠️ No drop table found for "${title}".`);
-      return;
-    }
-    // Sort by relevance score
-    suggestions.sort((a, b) => scoreAlternative(a, title) - scoreAlternative(b, title));
-    // Cap at 12 to avoid overwhelming the list
-    suggestions = suggestions.slice(0, 12);
-    setStatus('busy', `No drops on "${title}" — pick a related page:`);
-    showDisambigOptions(title, suggestions,
-      `"${title}" has no drop table. Did you mean one of these?`);
-  } catch(e) {
-    dbg('suggestAlternatives error: ' + e.message);
-    setStatus('err', `⚠️ No drop table found for "${title}".`);
-  }
-}
-
-// ── Icon URL fixer ─────────────────────────────────────────
-function fixIconUrl(src) {
-  if (!src) return '';
-  let url = src;
-  if (url.startsWith('/')) url = 'https://runescape.wiki' + url;
-  url = url.replace(/\/thumb\//, '/').replace(/\/\d+px-[^/]+$/, '');
+// ── Helpers ─────────────────────────────────────────────────
+function fixIconUrl(src){
+  if(!src)return'';let url=src;
+  if(url.startsWith('/'))url='https://runescape.wiki'+url;
+  url=url.replace(/\/thumb\//,'/').replace(/\/\d+px-[^/]+$/,'');
   return url;
 }
-
-// ── Rarity classifier ──────────────────────────────────────
-function rarityClass(r) {
-  if (!r) return { label: '?', cls: 'b-unknown' };
-  const s = r.toLowerCase().trim();
-  if (s === 'always') return { label: 'Always', cls: 'b-always' };
-  const m = s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
-  if (m) {
-    const chance = parseFloat(m[1].replace(/,/g,'')) / parseFloat(m[2].replace(/,/g,''));
-    const label = r.split(/[;(]/)[0].trim();
-    if (chance >= 0.25)   return { label, cls: 'b-common' };
-    if (chance >= 0.03)   return { label, cls: 'b-uncommon' };
-    if (chance >= 0.003)  return { label, cls: 'b-rare' };
-    if (chance >= 0.0003) return { label, cls: 'b-vr' };
-    return                       { label, cls: 'b-ultra' };
+function stripNotes(text){return text.replace(/\[\s*[a-z]?\s*\d+\s*\]/gi,'').trim();}
+function rarityClass(r){
+  if(!r)return{label:'?',cls:'b-unknown'};const s=r.toLowerCase().trim();
+  if(s==='always')return{label:'Always',cls:'b-always'};
+  const m=s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
+  if(m){
+    const chance=parseFloat(m[1].replace(/,/g,''))/parseFloat(m[2].replace(/,/g,''));
+    const label=r.split(/[;(]/)[0].trim();
+    if(chance>=0.25)return{label,cls:'b-common'};
+    if(chance>=0.03)return{label,cls:'b-uncommon'};
+    if(chance>=0.003)return{label,cls:'b-rare'};
+    if(chance>=0.0003)return{label,cls:'b-vr'};
+    return{label,cls:'b-ultra'};
   }
-  if (s.includes('very rare')||s.includes('ultra')) return { label:r, cls:'b-vr' };
-  if (s.includes('rare'))     return { label:r, cls:'b-rare' };
-  if (s.includes('uncommon')) return { label:r, cls:'b-uncommon' };
-  if (s.includes('common'))   return { label:r, cls:'b-common' };
-  return { label:r, cls:'b-unknown' };
+  if(s.includes('very rare')||s.includes('ultra'))return{label:r,cls:'b-vr'};
+  if(s.includes('rare'))return{label:r,cls:'b-rare'};
+  if(s.includes('uncommon'))return{label:r,cls:'b-uncommon'};
+  if(s.includes('common'))return{label:r,cls:'b-common'};
+  return{label:r,cls:'b-unknown'};
 }
 
-// ── Strip "(Level: N)" suffix from OCR output ─────────────
-// Tesseract garbles the "(" and the first letter or two of "level" in many ways:
-//   "Wolf level 11J", "Cow leyel220", "Chicken OJevel- 1J", "Bull Ulevel- 5",
-//   "Thrower troll lexeals 67  l", "Monkey Olovel- 3", "Scorpion Uevel- 14  l".
-// Trying to enumerate every spelling with regex is a losing game, so we instead
-// anchor at the first digit run (the level number) and walk back through:
-//   1. separators (whitespace, -, :, ., comma, semicolon, opening parens)
-//   2. a single "level-like" word (3-8 letters, contains 'e', ends in l/s — covers
-//      "level", "leyel", "evel", "Ulevel", "OJevel", "Olovel", "Uevel", "lexel",
-//      "lexeals", "levels", "Jevel", etc.)
-//   3. more separators
-// then cut everything from that point on. Falls through to trim-only when the OCR
-// returns no digits (a bare name with no level info).
-function stripLevelSuffix(raw) {
-  if (!raw) return raw;
-  raw = raw.trim();
-  var parenIdx = raw.search(/[([{<]/);
-  if (parenIdx > 0) raw = raw.slice(0, parenIdx).trim();
-
-  var dm = raw.match(/\d+/);
-  if (dm) {
-    var i = dm.index - 1;
-    while (i >= 0 && /[\s\-:.,;(]/.test(raw[i])) i--;
-    var wordEnd = i + 1;
-    while (i >= 0 && /[a-zA-Z]/.test(raw[i])) i--;
-    var wordStart = i + 1;
-    var word = raw.slice(wordStart, wordEnd);
-    if (word.length >= 3 && word.length <= 8 && /e/i.test(word) && /[ls]$/i.test(word)) {
-      var cutAt = wordStart - 1;
-      while (cutAt >= 0 && /[\s\-:.,;(]/.test(raw[cutAt])) cutAt--;
-      raw = raw.slice(0, cutAt + 1);
+// ── Strip level suffix ──────────────────────────────────────
+function stripLevelSuffix(raw){
+  if(!raw)return raw; raw=raw.trim();
+  var pi=raw.search(/[([{<]/); if(pi>0)raw=raw.slice(0,pi).trim();
+  var dm=raw.match(/\d+/);
+  if(dm){
+    var i=dm.index-1;
+    while(i>=0&&/[\s\-:.,;(]/.test(raw[i]))i--;
+    var we=i+1; while(i>=0&&/[a-zA-Z]/.test(raw[i]))i--;
+    var ws=i+1; var word=raw.slice(ws,we);
+    if(word.length>=3&&word.length<=8&&/e/i.test(word)&&/[ls]$/i.test(word)){
+      var ca=ws-1; while(ca>=0&&/[\s\-:.,;(]/.test(raw[ca]))ca--;
+      raw=raw.slice(0,ca+1);
     }
   }
-  // Trailing junk: stray single letter (misread ')'), residual digits, punctuation
-  raw = raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/, '').trim();
-  raw = raw.replace(/[\s\-]+\d+\s*$/, '').trim();
-  raw = raw.replace(/[\s\-|_.,;:!?]+$/, '').trim();
+  raw=raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/,'').trim();
+  raw=raw.replace(/[\s\-]+\d+\s*$/,'').trim();
+  raw=raw.replace(/[\s\-|_.,;:!?]+$/,'').trim();
+  return raw;
+}
+function resolveOcrName(raw){
+  if(!raw)return raw;
+  raw=raw.trim().replace(/(\s+\d+)+\s*$/,'').trim().replace(/\s+[lLjJiI1]\s*$/,'').trim();
+  if(!allMonsters.length)return raw;
+  const lower=raw.toLowerCase();
+  for(const m of allMonsters)if(m.name.toLowerCase()===lower)return m.name;
+  const parts=raw.split(/\s+/);
+  while(parts.length>1){parts.pop();const sub=parts.join(' ').toLowerCase();for(const m of allMonsters){if(m.name.toLowerCase()===sub){dbg('OCR "'+raw+'"→"'+m.name+'"');return m.name;}}}
   return raw;
 }
 
-// ── Resolve OCR output against the local monster list ─────
-// OCR can corrupt trailing characters (e.g. "Chicken (Level: 2)" → "Chicken OG",
-// "Bull (Level: 11)" → "Bull Ul"). After the regex strip pass, try matching the
-// result against allMonsters; if no exact hit, drop trailing words one at a time
-// until a known monster name matches. Falls back to raw text when nothing matches
-// so the wiki OpenSearch path can still attempt fuzzy fallback.
-function resolveOcrName(raw) {
-  if (!raw) return raw;
-  // Strip trailing pure-digit tokens and lone letters left from level suffix
-  raw = raw.trim().replace(/(\s+\d+)+\s*$/, '').trim();
-  raw = raw.replace(/\s+[lLjJiI1]\s*$/, '').trim();
-  if (!allMonsters.length) return raw;
-  const lower = raw.toLowerCase();
-  for (const m of allMonsters) if (m.name.toLowerCase() === lower) return m.name;
-  const parts = raw.split(/\s+/);
-  while (parts.length > 1) {
-    parts.pop();
-    const sub = parts.join(' ').toLowerCase();
-    for (const m of allMonsters) {
-      if (m.name.toLowerCase() === sub) {
-        dbg('OCR name "' + raw + '" → local match "' + m.name + '"');
-        return m.name;
-      }
-    }
-  }
-  return raw;
-}
-
-// ── Main lookup ────────────────────────────────────────────
-async function lookup(name) {
-  if (!name) return;
-  setStatus('busy', `🔍 Searching for "${name}"...`);
+// ── Main lookup (NPC mode) ──────────────────────────────────
+async function lookup(name){
+  if(!name)return;
+  if(currentMode==='item'){lookupItemSources(name);return;}
+  setStatus('busy',`🔍 Searching for "${name}"...`);
   showDrops();
-  document.getElementById('subtitle').textContent = name;
-  document.getElementById('search-input').value = name;
-  document.getElementById('drops').innerHTML = '';
-
-  // 1. OpenSearch to get best title match
-  let title = null;
-  try {
-    const r = await fetch(`${WIKI}?action=opensearch&search=${encodeURIComponent(name)}&limit=5&format=json&origin=*`);
-    const d = await r.json();
-    if (d[1]?.length) title = d[1][0];
-  } catch(e) {
-    setStatus('err', '❌ Network error: ' + e.message);
-    return;
-  }
-  if (!title) { setStatus('err', `⚠️ "${name}" not found on the RS Wiki.`); return; }
-
+  document.getElementById('subtitle').textContent=name;
+  document.getElementById('search-input').value=name;
+  document.getElementById('drops').innerHTML='';
+  let title=null;
+  try{
+    const r=await fetch(`${WIKI}?action=opensearch&search=${encodeURIComponent(name)}&limit=5&format=json&origin=*`);
+    const d=await r.json(); if(d[1]?.length)title=d[1][0];
+  }catch(e){setStatus('err','❌ Network error: '+e.message);return;}
+  if(!title){setStatus('err',`⚠️ "${name}" not found.`);return;}
   await lookupPage(title);
 }
-
-async function lookupPage(title) {
-  setStatus('busy', `📄 Loading: ${title}...`);
-  document.getElementById('subtitle').textContent = title;
-
-  // Reset NPC image
-  const npcImg = document.getElementById('npc-img');
-  const logo   = document.getElementById('titlebar-logo');
-  npcImg.style.display = 'none';
-  logo.style.display   = 'inline';
-
-  // Check disambiguation
-  try {
-    const isDisambig = await checkDisambig(title);
-    if (isDisambig) {
-      setStatus('busy', `🔀 "${title}" is a disambiguation page...`);
-      const links = await getDisambigLinks(title);
-      showDisambigOptions(title, links);
-      return;
-    }
-  } catch(e) { /* continue */ }
-
-  // Fetch NPC image and page HTML in parallel
-  const [imgUrl, html] = await Promise.all([
-    fetchNpcImage(title),
-    fetchPageHtml(title),
-  ]);
-
-  // Show NPC image if found
-  if (imgUrl) {
-    npcImg.src = imgUrl;
-    npcImg.style.display = 'block';
-    logo.style.display   = 'none';
-    npcImg.onerror = () => { npcImg.style.display='none'; logo.style.display='inline'; };
-  }
-
-  if (!html) { setStatus('err', '❌ Empty page.'); return; }
-
-  const { variants } = extractDrops(html);
-  const total = variants.reduce((s, v) => s + v.sections.reduce((ss, sec) => ss + sec.rows.length, 0), 0);
-
-  if (total === 0) {
-    await suggestAlternatives(title);
-    return;
-  }
-
-  setStatus('ok', `✅ ${total} drops for ${title}`);
-  showDrops();
-  renderAllSections(variants);
+async function lookupPage(title){
+  setStatus('busy',`📄 Loading: ${title}...`);
+  document.getElementById('subtitle').textContent=title;
+  const npcImg=document.getElementById('npc-img'),logo=document.getElementById('titlebar-logo');
+  npcImg.style.display='none'; logo.style.display='inline';
+  try{const isD=await checkDisambig(title);if(isD){const links=await getDisambigLinks(title);showDisambigOptions(title,links);return;}}catch(e){}
+  const[imgUrl,html]=await Promise.all([fetchNpcImage(title),fetchPageHtml(title)]);
+  if(imgUrl){npcImg.src=imgUrl;npcImg.style.display='block';logo.style.display='none';npcImg.onerror=()=>{npcImg.style.display='none';logo.style.display='inline';};}
+  if(!html){setStatus('err','❌ Empty page.');return;}
+  const{variants}=extractDrops(html);
+  const total=variants.reduce((s,v)=>s+v.sections.reduce((ss,sec)=>ss+sec.rows.length,0),0);
+  if(total===0){await suggestAlternatives(title);return;}
+  setStatus('ok',`✅ ${total} drops for ${title}`);
+  showDrops(); renderAllSections(variants);
+}
+async function fetchNpcImage(title){
+  try{
+    const r=await fetch(`${WIKI}?action=query&prop=pageimages&titles=${encodeURIComponent(title)}&pithumbsize=80&piprop=thumbnail&format=json&origin=*`);
+    const d=await r.json();const pages=d?.query?.pages;if(!pages)return null;
+    return Object.values(pages)[0]?.thumbnail?.source||null;
+  }catch(e){return null;}
+}
+async function fetchPageHtml(title){
+  try{
+    const r=await fetch(`${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=text&format=json&origin=*`);
+    const d=await r.json(); return d?.parse?.text?.['*']||'';
+  }catch(e){return'';}
 }
 
-async function fetchNpcImage(title) {
-  try {
-    const url = `${WIKI}?action=query&prop=pageimages&titles=${encodeURIComponent(title)}&pithumbsize=80&piprop=thumbnail&format=json&origin=*`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const pages = d?.query?.pages;
-    if (!pages) return null;
-    const page = Object.values(pages)[0];
-    return page?.thumbnail?.source || null;
-  } catch(e) { return null; }
-}
-
-async function fetchPageHtml(title) {
-  try {
-    const r = await fetch(`${WIKI}?action=parse&page=${encodeURIComponent(title)}&prop=text&format=json&origin=*`);
-    const d = await r.json();
-    return d?.parse?.text?.['*'] || '';
-  } catch(e) { return ''; }
-}
-
-// ── Drop table parser ──────────────────────────────────────
-// Strip footnote markers like [1], [d1], [s2] etc
-function stripNotes(text) {
-  return text.replace(/\[\s*[a-z]?\s*\d+\s*\]/gi, '').trim();
-}
-
-function extractDrops(rawHtml) {
-  const div = document.createElement('div');
-  div.innerHTML = rawHtml;
-
-  const dropHeadings = [];
-  const seenEls = new Set();
-  for (const span of div.querySelectorAll('span[id]')) {
-    if (span.id.toLowerCase().includes('drop')) {
-      const el = span.closest('h2,h3,h4');
-      if (el && !seenEls.has(el)) { seenEls.add(el); dropHeadings.push({ el, text: el.textContent.trim() }); }
+// ══════════════════════════════════════════════════════════
+// ── DROP TABLE PARSER (charm-aware) ───────────────────────
+// ══════════════════════════════════════════════════════════
+function extractDrops(rawHtml){
+  const div=document.createElement('div'); div.innerHTML=rawHtml;
+  const dropHeadings=[]; const seenEls=new Set();
+  for(const span of div.querySelectorAll('span[id]')){
+    if(span.id.toLowerCase().includes('drop')){
+      const el=span.closest('h2,h3,h4');
+      if(el&&!seenEls.has(el)){seenEls.add(el);dropHeadings.push({el,text:el.textContent.trim()});}
     }
   }
-  for (const h of div.querySelectorAll('h2,h3,h4')) {
-    if (h.textContent.toLowerCase().includes('drop') && !seenEls.has(h)) {
-      seenEls.add(h); dropHeadings.push({ el: h, text: h.textContent.trim() });
-    }
+  for(const h of div.querySelectorAll('h2,h3,h4')){
+    if(h.textContent.toLowerCase().includes('drop')&&!seenEls.has(h)){seenEls.add(h);dropHeadings.push({el:h,text:h.textContent.trim()});}
   }
-
-  const allSpanIds = Array.from(div.querySelectorAll('span[id]')).map(s=>s.id);
-  dbg('Span IDs with "drop": ' + allSpanIds.filter(id=>id.toLowerCase().includes('drop')).join(', '));
-  dbg('Drop headings: ' + dropHeadings.map(h=>h.text).join(' | '));
-
-  if (dropHeadings.length === 0) return { variants: [] };
-
-  const variants = [];
-  for (const heading of dropHeadings) {
-    const text = heading.text.toLowerCase();
-    const isHard = text.includes('hard');
-    let label = heading.text
-      .replace(/\bdrops?\b/gi, '').replace(/\btable\b/gi, '')
-      .replace(/[()[\]]/g, '').replace(/\s+/g, ' ').trim() || 'Drops';
-    const sections = parseSectionsFromHeading(div, heading.el);
-    dbg(`Variant "${label}" (hard=${isHard}): ${sections.length} sections`);
-    if (sections.length > 0) variants.push({ label, isHard, sections });
+  dbg('Drop headings: '+dropHeadings.map(h=>h.text).join(' | '));
+  if(dropHeadings.length===0)return{variants:[]};
+  const variants=[];
+  for(const heading of dropHeadings){
+    const isHard=heading.text.toLowerCase().includes('hard');
+    let label=heading.text.replace(/\bdrops?\b/gi,'').replace(/\btable\b/gi,'').replace(/[()[\]]/g,'').replace(/\s+/g,' ').trim()||'Drops';
+    const sections=parseSectionsFromHeading(div,heading.el);
+    dbg(`Variant "${label}": ${sections.length} sections`);
+    if(sections.length>0)variants.push({label,isHard,sections});
   }
-
-  // Suppress labels if all variants have the same label (single drop section)
-  const uniqueLabels = new Set(variants.map(v => v.label));
-  variants.forEach(v => { v.showLabel = uniqueLabels.size > 1; });
-
-  return { variants };
+  const uniqueLabels=new Set(variants.map(v=>v.label));
+  variants.forEach(v=>{v.showLabel=uniqueLabels.size>1;});
+  return{variants};
 }
-
-function parseSectionsFromHeading(div, startEl) {
-  const startLevel = parseInt(startEl.tagName[1]);
-  const allEls = Array.from(div.querySelectorAll('h2,h3,h4,table'));
-
-  // Use contains() instead of indexOf() — closest() can return the same node
-  // but reference equality may fail across different query results
-  let startIdx = allEls.indexOf(startEl);
-  if (startIdx === -1) {
-    // Fallback: find by DOM position using contains
-    startIdx = allEls.findIndex(el =>
-      el === startEl || el.contains(startEl) || startEl.contains(el)
-    );
-  }
-
-  dbg('  parseSections: startEl=' + startEl.textContent.trim().slice(0,30) +
-      ' level=h' + startLevel + ' idx=' + startIdx + ' of ' + allEls.length);
-
-  if (startIdx === -1) return [];
-
-  const sections = [];
-  let sectionName = 'Drops';
-
-  for (let i = startIdx + 1; i < allEls.length; i++) {
-    const el  = allEls[i];
-    const tag = el.tagName.toLowerCase();
-    const level = parseInt(tag[1]);
-
-    if ((tag==='h2'||tag==='h3'||tag==='h4') && level <= startLevel) {
-      dbg('  stopping at: ' + el.textContent.trim().slice(0,30));
-      break;
-    }
-    if (tag==='h3'||tag==='h4') {
-      sectionName = stripNotes(el.textContent);
-      dbg('  section: "' + sectionName + '"');
-    }
-    if (tag==='table') {
-      const rows = parseTable(el);
-      if (rows.length > 0) {
-        const existing = sections.find(s => s.name === sectionName);
-        if (existing) existing.rows.push(...rows);
-        else sections.push({ name: sectionName, rows });
+function parseSectionsFromHeading(div,startEl){
+  const startLevel=parseInt(startEl.tagName[1]);
+  const allEls=Array.from(div.querySelectorAll('h2,h3,h4,table'));
+  let startIdx=allEls.indexOf(startEl);
+  if(startIdx===-1)startIdx=allEls.findIndex(el=>el===startEl||el.contains(startEl)||startEl.contains(el));
+  if(startIdx===-1)return[];
+  const sections=[]; let sectionName='Drops';
+  for(let i=startIdx+1;i<allEls.length;i++){
+    const el=allEls[i],tag=el.tagName.toLowerCase(),level=parseInt(tag[1]);
+    if((tag==='h2'||tag==='h3'||tag==='h4')&&level<=startLevel)break;
+    if(tag==='h3'||tag==='h4')sectionName=stripNotes(el.textContent);
+    if(tag==='table'){
+      const rows=parseTable(el);
+      if(rows.length>0){
+        const existing=sections.find(s=>s.name===sectionName);
+        if(existing)existing.rows.push(...rows);
+        else sections.push({name:sectionName,rows});
       }
     }
   }
   return sections;
 }
 
-function parseTable(table) {
-  const rows = [];
-  for (const tr of table.querySelectorAll('tr')) {
-    // allCells includes th — the RS3 wiki charm table uses <th> for charm names
-    const allCells = Array.from(tr.querySelectorAll('td, th'));
-    const tdCells  = Array.from(tr.querySelectorAll('td'));
-    // Skip rows with no <td> at all (pure header rows)
-    if (tdCells.length < 1) continue;
-    let name='', qty='', rarity='', img='';
-    for (const cell of allCells) {
-      const text = stripNotes(cell.textContent.trim());
-      // Image — scan all cells
-      if (!img) {
-        const i = cell.querySelector('img');
-        if (i) img = fixIconUrl(i.getAttribute('src') || i.src || '');
-      }
-      // Name — scan all cells (charm name is in a <th>)
-      if (!name && cell.querySelector('a')) {
-        const a = cell.querySelector('a');
-        const c = stripNotes(a.textContent.trim());
-        if (c.length > 1 && c.length < 80 && !c.match(/^\d+$/)) name = c;
-      }
-      // Rarity BEFORE qty — "3/128" contains "/" so qty regex won't grab it,
-      // but being explicit prevents any future regression
-      if (!rarity && /^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)) {
-        rarity = stripNotes(text.split(';')[0].trim());
-        continue; // don't also parse this cell as qty
-      }
-      if (!qty && /^\d[\d,–\-\s]*$/.test(text) && text.length < 20) qty = text;
-    }
-    if (!name || name.length > 80) continue;
-    if (name.toLowerCase()==='item'||name.toLowerCase()==='items') continue;
-    rows.push({ name, qty, rarity, img });
+// ── isCharmTable: detect the charm drop table ──────────────
+// The charm table has "Charm" in a header cell, OR the first data rows
+// all contain anchor text matching "charm".
+function isCharmTable(table){
+  for(const th of table.querySelectorAll('th'))
+    if(/charm/i.test(th.textContent))return true;
+  let charmRows=0,dataRows=0;
+  for(const tr of table.querySelectorAll('tr')){
+    if(!tr.querySelector('td'))continue;
+    dataRows++;
+    for(const a of tr.querySelectorAll('a'))
+      if(/charm/i.test(a.textContent)){charmRows++;break;}
+    if(dataRows>=6)break;
   }
-  const seen = new Set();
-  return rows.filter(r => {
-    if (seen.has(r.name)) return false;
-    seen.add(r.name);
-    return true;
-  });
+  return dataRows>0&&charmRows/dataRows>=0.5;
 }
 
-// ── Render drops ───────────────────────────────────────────
-function renderAllSections(variants) {
-  const container = document.getElementById('drops');
-  container.innerHTML = '';
-  const showLabels = variants.length > 1;
-  for (const variant of variants) {
-    if (!variant.sections.length) continue;
-    if (showLabels) {
-      const color = variant.isHard ? '#5c1a1a' : '#1a3a5c';
-      const hdr = document.createElement('div');
-      hdr.style.cssText = `background:${color};padding:5px 12px;font-size:11px;font-weight:700;` +
-        `letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,0.3);` +
-        `text-transform:uppercase;position:sticky;top:0;z-index:2;`;
-      hdr.textContent = (variant.isHard ? '💀 ' : '⚔ ') + variant.label;
+// ── parseCharmTable ────────────────────────────────────────
+// Emits one entry per charm, preserving all four charm types.
+// The wiki charm table has one charm per <tr>; some compact layouts
+// pack multiple charms into a single row — we handle both.
+function parseCharmTable(table){
+  const rows=[];
+  for(const tr of table.querySelectorAll('tr')){
+    if(!tr.querySelector('td'))continue; // skip header-only rows
+    const cells=Array.from(tr.querySelectorAll('td,th'));
+    // Scan cells left-to-right; when we see a charm link, start accumulating
+    // its qty and rarity from subsequent cells until the next charm link.
+    let pendingName='',pendingImg='',pendingQty='';
+    const flush=(rarity)=>{
+      if(pendingName)rows.push({name:pendingName,img:pendingImg,qty:pendingQty,rarity});
+      pendingName='';pendingImg='';pendingQty='';
+    };
+    for(const cell of cells){
+      const text=stripNotes(cell.textContent.trim());
+      const a=cell.querySelector('a');
+      // Charm name cell
+      if(a&&/charm/i.test(a.textContent.trim())&&a.textContent.trim().length>1){
+        flush(''); // flush previous (no rarity collected yet) if any
+        pendingName=stripNotes(a.textContent.trim());
+        const img=cell.querySelector('img');
+        pendingImg=img?fixIconUrl(img.getAttribute('src')||img.src||''):'';
+        continue;
+      }
+      // Rarity fraction
+      if(/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){
+        flush(stripNotes(text.split(';')[0].trim()));
+        continue;
+      }
+      // Quantity
+      if(pendingName&&/^\d[\d,–\-\s]*$/.test(text)&&text.length<20){
+        pendingQty=text; continue;
+      }
+    }
+    flush(''); // flush any trailing charm with no rarity
+  }
+  dbg('parseCharmTable: '+rows.length+' entries: '+rows.map(r=>r.name).join(', '));
+  return rows;
+}
+
+// ── parseTable (standard, non-charm) ──────────────────────
+function parseTable(table){
+  if(isCharmTable(table))return parseCharmTable(table);
+  const rows=[];
+  for(const tr of table.querySelectorAll('tr')){
+    const allCells=Array.from(tr.querySelectorAll('td,th'));
+    const tdCells=Array.from(tr.querySelectorAll('td'));
+    if(tdCells.length<1)continue;
+    let name='',qty='',rarity='',img='';
+    for(const cell of allCells){
+      const text=stripNotes(cell.textContent.trim());
+      if(!img){const i=cell.querySelector('img');if(i)img=fixIconUrl(i.getAttribute('src')||i.src||'');}
+      if(!name&&cell.querySelector('a')){
+        const a=cell.querySelector('a'),c=stripNotes(a.textContent.trim());
+        if(c.length>1&&c.length<80&&!c.match(/^\d+$/))name=c;
+      }
+      if(!rarity&&/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){rarity=stripNotes(text.split(';')[0].trim());continue;}
+      if(!qty&&/^\d[\d,–\-\s]*$/.test(text)&&text.length<20)qty=text;
+    }
+    if(!name||name.length>80)continue;
+    if(name.toLowerCase()==='item'||name.toLowerCase()==='items')continue;
+    rows.push({name,qty,rarity,img});
+  }
+  const seen=new Set();
+  return rows.filter(r=>{if(seen.has(r.name))return false;seen.add(r.name);return true;});
+}
+
+// ── Render NPC drop sections ────────────────────────────────
+function renderAllSections(variants){
+  const container=document.getElementById('drops'); container.innerHTML='';
+  const showLabels=variants.length>1;
+  for(const variant of variants){
+    if(!variant.sections.length)continue;
+    if(showLabels){
+      const color=variant.isHard?'#5c1a1a':'#1a3a5c';
+      const hdr=document.createElement('div');
+      hdr.style.cssText=`background:${color};padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,.3);text-transform:uppercase;position:sticky;top:0;z-index:2;`;
+      hdr.textContent=(variant.isHard?'💀 ':'⚔ ')+variant.label;
       container.appendChild(hdr);
     }
-    for (const sec of variant.sections) {
-      if (sec.rows.length === 0) continue;
-      container.appendChild(makeSectionBlock(sec));
-    }
+    for(const sec of variant.sections){if(sec.rows.length===0)continue;container.appendChild(makeSectionBlock(sec));}
   }
 }
-
-function makeSectionBlock(sec) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'section-wrapper';
-
-  const startCollapsed = sec.rows.length > 25;
-
-  const hdr = document.createElement('div');
-  hdr.className = 'section-hdr' + (startCollapsed ? ' collapsed' : '');
-  hdr.innerHTML = `
-    <span class="hdr-left">
-      <span class="chevron">▼</span>
-      <span>${sec.name}</span>
-    </span>
-    <span class="row-count">${sec.rows.length} items</span>`;
-
-  const body = document.createElement('div');
-  body.className = 'section-body' + (startCollapsed ? ' collapsed' : '');
-  for (const row of sec.rows) body.appendChild(makeDropRow(row));
-
-  if (!startCollapsed) {
-    requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
-  }
-
-  hdr.addEventListener('click', () => {
-    const collapsed = hdr.classList.toggle('collapsed');
-    if (collapsed) {
-      body.style.maxHeight = body.scrollHeight + 'px';
-      requestAnimationFrame(() => body.classList.add('collapsed'));
-    } else {
-      body.classList.remove('collapsed');
-      body.style.maxHeight = body.scrollHeight + 'px';
-      body.addEventListener('transitionend', () => {
-        if (!hdr.classList.contains('collapsed')) body.style.maxHeight = 'none';
-      }, { once: true });
-    }
+function makeSectionBlock(sec,onRowClick){
+  const wrapper=document.createElement('div'); wrapper.className='section-wrapper';
+  const startCollapsed=sec.rows.length>25;
+  const hdr=document.createElement('div'); hdr.className='section-hdr'+(startCollapsed?' collapsed':'');
+  hdr.innerHTML=`<span class="hdr-left"><span class="chevron">▼</span><span>${sec.name}</span></span><span class="row-count">${sec.rows.length} items</span>`;
+  const body=document.createElement('div'); body.className='section-body'+(startCollapsed?' collapsed':'');
+  for(const row of sec.rows)body.appendChild(makeDropRow(row,onRowClick));
+  if(!startCollapsed)requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+'px';});
+  hdr.addEventListener('click',()=>{
+    const collapsed=hdr.classList.toggle('collapsed');
+    if(collapsed){body.style.maxHeight=body.scrollHeight+'px';requestAnimationFrame(()=>body.classList.add('collapsed'));}
+    else{body.classList.remove('collapsed');body.style.maxHeight=body.scrollHeight+'px';body.addEventListener('transitionend',()=>{if(!hdr.classList.contains('collapsed'))body.style.maxHeight='none';},{once:true});}
   });
-
-  wrapper.appendChild(hdr);
-  wrapper.appendChild(body);
-  return wrapper;
+  wrapper.appendChild(hdr); wrapper.appendChild(body); return wrapper;
 }
-
-function makeDropRow(row) {
-  const el = document.createElement('div');
-  el.className = 'drop-row';
-  if (row.img) {
-    const img = document.createElement('img');
-    img.className = 'item-img'; img.src = row.img; img.alt = row.name;
-    img.onerror = function() { this.replaceWith(placeholder(row.name)); };
-    el.appendChild(img);
-  } else { el.appendChild(placeholder(row.name)); }
-  const info = document.createElement('div'); info.className = 'item-info';
-  const nm = document.createElement('div'); nm.className = 'item-name'; nm.textContent = row.name;
-  info.appendChild(nm);
-  if (row.qty) {
-    const q = document.createElement('div'); q.className = 'item-qty'; q.textContent = 'x' + row.qty;
-    info.appendChild(q);
-  }
+function makeDropRow(row,onRowClick){
+  const el=document.createElement('div');
+  el.className='drop-row'+(onRowClick?' clickable':'');
+  if(onRowClick)el.addEventListener('click',()=>onRowClick(row));
+  if(row.img){const img=document.createElement('img');img.className='item-img';img.src=row.img;img.alt=row.name;img.onerror=function(){this.replaceWith(placeholder(row.name));};el.appendChild(img);}
+  else el.appendChild(placeholder(row.name));
+  const info=document.createElement('div');info.className='item-info';
+  const nm=document.createElement('div');nm.className='item-name';nm.textContent=row.name;info.appendChild(nm);
+  if(row.qty){const q=document.createElement('div');q.className='item-qty';q.textContent='x'+row.qty;info.appendChild(q);}
   el.appendChild(info);
-  if (row.rarity) {
-    const { label, cls } = rarityClass(row.rarity);
-    const wrap = document.createElement('div'); wrap.className = 'rarity';
-    const badge = document.createElement('span'); badge.className = 'badge ' + cls; badge.textContent = label;
-    wrap.appendChild(badge); el.appendChild(wrap);
-  }
+  if(row.rarity){const{label,cls}=rarityClass(row.rarity);const wrap=document.createElement('div');wrap.className='rarity';const badge=document.createElement('span');badge.className='badge '+cls;badge.textContent=label;wrap.appendChild(badge);el.appendChild(wrap);}
   return el;
 }
+function placeholder(name){const d=document.createElement('div');d.className='item-placeholder';d.textContent=(name||'?').charAt(0).toUpperCase();return d;}
 
-function placeholder(name) {
-  const d = document.createElement('div'); d.className = 'item-placeholder';
-  d.textContent = (name||'?').charAt(0).toUpperCase(); return d;
-}
-
-// ── UI events ──────────────────────────────────────────────
-const searchInput = document.getElementById('search-input');
-
-searchInput.addEventListener('input', () => {
-  if (inDropsView) return;
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => renderNpcList(searchInput.value), 150);
-});
-
-document.getElementById('search-btn').addEventListener('click', () => {
-  const v = searchInput.value.trim(); if (v) lookup(v);
-});
-searchInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { const v = searchInput.value.trim(); if (v) lookup(v); }
-});
-document.getElementById('back-btn').addEventListener('click', () => {
-  showBrowser();
-  searchInput.value = '';
-  renderNpcList('');
-  setStatus('', '');
-});
-document.getElementById('close').addEventListener('click', () => {
-  fetch('https://bolt-api/close', { method:'POST' }).catch(()=>{});
-});
-
-// ── Message handler (from Lua) ─────────────────────────────
-function handleMsg(text) {
-  if (text.startsWith('LOOKUP:')) lookup(text.slice(7));
-  else if (text === 'FOCUS_SEARCH') {
-    searchInput.value = ''; searchInput.focus();
-    if (inDropsView) { showBrowser(); renderNpcList(''); }
+// ══════════════════════════════════════════════════════════
+// ── ITEM → DROP SOURCES LOOKUP ────────────────────────────
+// ══════════════════════════════════════════════════════════
+async function lookupItemSources(name){
+  if(!name)return;
+  setStatus('busy',`🔍 Finding drop sources for "${name}"...`);
+  showDrops();
+  document.getElementById('subtitle').textContent=name;
+  document.getElementById('search-input').value=name;
+  document.getElementById('drops').innerHTML='';
+  document.getElementById('npc-img').style.display='none';
+  document.getElementById('titlebar-logo').style.display='inline';
+  let title=null;
+  try{
+    const r=await fetch(`${WIKI}?action=opensearch&search=${encodeURIComponent(name)}&limit=5&format=json&origin=*`);
+    const d=await r.json(); if(d[1]?.length)title=d[1][0];
+  }catch(e){setStatus('err','❌ Network error: '+e.message);return;}
+  if(!title){setStatus('err',`⚠️ "${name}" not found.`);return;}
+  try{const isD=await checkDisambig(title);if(isD){const links=await getDisambigLinks(title);showDisambigOptions(title,links,`"${title}" could be multiple items. Which one?`);return;}}catch(e){}
+  const[imgUrl,html]=await Promise.all([fetchNpcImage(title),fetchPageHtml(title)]);
+  if(imgUrl){const ni=document.getElementById('npc-img');ni.src=imgUrl;ni.style.display='block';document.getElementById('titlebar-logo').style.display='none';ni.onerror=()=>{ni.style.display='none';document.getElementById('titlebar-logo').style.display='inline';};}
+  if(!html){setStatus('err','❌ Empty page.');return;}
+  const sources=extractDropSources(html,title);
+  if(sources.length===0){
+    setStatus('err',`⚠️ No "Drop Sources" table found for "${title}".`);
+    document.getElementById('drops').innerHTML=`<div style="padding:16px;text-align:center;color:var(--dim);font-size:11px;"><div style="font-size:24px;margin-bottom:8px;">🔍</div><div style="color:var(--text);margin-bottom:4px;">${title}</div><div>No drop sources found on the wiki for this item.</div><div style="margin-top:8px;">Try the <strong>NPC Drops</strong> tab to look up a monster directly.</div></div>`;
+    return;
   }
+  setStatus('ok',`✅ ${sources.length} source${sources.length===1?'':'s'} drop "${title}"`);
+  renderDropSources(sources,title);
 }
-window.addEventListener('message', evt => {
-  if (!evt.data) return;
-  if (evt.data.type === 'pluginMessage' && evt.data.content) {
-    handleMsg(new TextDecoder().decode(new Uint8Array(evt.data.content)).trim());
-  } else if (typeof evt.data === 'string') {
-    handleMsg(evt.data.trim());
+
+// ── Extract drop sources from item page HTML ───────────────
+function extractDropSources(rawHtml,itemTitle){
+  const div=document.createElement('div'); div.innerHTML=rawHtml;
+  let sourceHeading=null;
+  for(const h of div.querySelectorAll('h2,h3,h4')){
+    const t=h.textContent.toLowerCase();
+    if(t.includes('drop source')||(t.includes('source')&&t.includes('drop'))){sourceHeading=h;break;}
   }
-});
-
-// ── Alt1 Integration ───────────────────────────────────────
-let _alt1Badge = null;
-function flashBadge(color) {
-  if (!_alt1Badge) return;
-  _alt1Badge.style.background = color || '#4caf50';
-  setTimeout(function() { _alt1Badge.style.background = '#e94560'; }, 1500);
-}
-
-let alt1InitDone = false;
-function tryInitAlt1() {
-  if (alt1InitDone) return;
-  if (typeof window.alt1 === 'undefined') return;
-  alt1InitDone = true;
-
-  const badge = document.createElement('div');
-  badge.id = 'alt1badge';
-  badge.style.cssText = 'position:fixed;top:4px;right:30px;background:#e94560;color:#fff;' +
-    'font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;cursor:pointer;';
-  badge.textContent = 'ALT1';
-  badge.title = 'Click to manually read screen';
-  document.body.appendChild(badge);
-  _alt1Badge = badge;
-
-  dbg('alt1 v' + window.alt1.version + ' pixel=' + window.alt1.permissionPixel);
-  dbg('permInstalled=' + window.alt1.permissionInstalled);
-  dbg('permGameState=' + window.alt1.permissionGameState);
-  dbg('permOverlay=' + window.alt1.permissionOverlay);
-  dbg('rsLinked=' + window.alt1.rsLinked);
-
-  try { window.alt1.identifyAppUrl('./appconfig.json'); dbg('identifyApp called'); }
-  catch(e) { dbg('identifyApp err: ' + e.message); }
-
-  var a1lib = null;
-  var a1script = document.createElement('script');
-  a1script.src = './alt1base.bundle.js';
-  a1script.onload = function() {
-    var attempts = 0;
-    function tryA1lib() {
-      a1lib = window.A1lib;
-      if (a1lib && typeof a1lib.captureHoldFullRs === 'function') {
-        dbg('A1lib loaded: yes');
-        dbg('A1lib keys: ' + Object.keys(a1lib).filter(k => !k.startsWith('_')).join(', '));
-        initAlt1(a1lib);
-      } else if (attempts < 30) { attempts++; setTimeout(tryA1lib, 100); }
-      else { dbg('A1lib: captureHoldFullRs unavailable after 3s'); }
+  if(!sourceHeading){
+    for(const span of div.querySelectorAll('span[id]')){
+      const id=span.id.toLowerCase();
+      if(id.includes('source')){sourceHeading=span.closest('h2,h3,h4');if(sourceHeading)break;}
     }
+  }
+  dbg('Drop sources heading: '+(sourceHeading?sourceHeading.textContent.trim():'NOT FOUND'));
+  if(!sourceHeading)return extractDropSourcesFromAnyTable(div);
+  const allEls=Array.from(div.querySelectorAll('h2,h3,h4,table'));
+  const startLevel=parseInt(sourceHeading.tagName[1]);
+  let idx=allEls.indexOf(sourceHeading);
+  if(idx===-1)idx=allEls.findIndex(el=>el.contains(sourceHeading)||sourceHeading.contains(el));
+  if(idx===-1)return extractDropSourcesFromAnyTable(div);
+  for(let i=idx+1;i<allEls.length;i++){
+    const el=allEls[i],tag=el.tagName.toLowerCase();
+    if((tag==='h2'||tag==='h3'||tag==='h4')&&parseInt(tag[1])<=startLevel)break;
+    if(tag==='table'){const rows=parseDropSourceTable(el);if(rows.length>0)return rows;}
+  }
+  return[];
+}
+function extractDropSourcesFromAnyTable(div){
+  for(const table of div.querySelectorAll('table')){
+    const headers=Array.from(table.querySelectorAll('th')).map(th=>th.textContent.toLowerCase());
+    const hasMonster=headers.some(h=>h.includes('monster')||h.includes('source')||h.includes('npc'));
+    const hasRarity=headers.some(h=>h.includes('rarity')||h.includes('chance')||h.includes('rate'));
+    if(hasMonster&&hasRarity){const rows=parseDropSourceTable(table);if(rows.length>0){dbg('Found drop source table via fallback: '+rows.length+' rows');return rows;}}
+  }
+  return[];
+}
+
+// ── Parse a "Drop Sources" table ───────────────────────────
+// Columns detected from headers: Monster | Level | Quantity | Rarity
+function parseDropSourceTable(table){
+  const rows=[];
+  const headerRow=table.querySelector('tr'); if(!headerRow)return rows;
+  const headers=Array.from(headerRow.querySelectorAll('th,td')).map(c=>c.textContent.toLowerCase().trim());
+  dbg('Drop source headers: '+JSON.stringify(headers));
+  let colMonster=-1,colQty=-1,colRarity=-1,colLevel=-1;
+  for(let i=0;i<headers.length;i++){
+    const h=headers[i];
+    if((h.includes('monster')||h.includes('source')||h.includes('npc')||h.includes('name'))&&colMonster===-1)colMonster=i;
+    else if((h.includes('level')||h.includes('combat'))&&colLevel===-1)colLevel=i;
+    else if((h.includes('quant')||h.includes('amount')||h.includes('qty'))&&colQty===-1)colQty=i;
+    else if((h.includes('rarity')||h.includes('chance')||h.includes('rate')||h.includes('drop'))&&colRarity===-1)colRarity=i;
+  }
+  if(colMonster===-1)colMonster=0;
+  if(colRarity===-1&&headers.length>0)colRarity=headers.length-1;
+  dbg(`Drop source cols — monster:${colMonster} level:${colLevel} qty:${colQty} rarity:${colRarity}`);
+  const trs=Array.from(table.querySelectorAll('tr')).slice(1);
+  for(const tr of trs){
+    const cells=Array.from(tr.querySelectorAll('td,th'));
+    if(cells.length<2)continue;
+    let monsterName='',monsterImg='',monsterLevel='';
+    if(colMonster>=0&&colMonster<cells.length){
+      const cell=cells[colMonster];
+      const a=cell.querySelector('a');
+      monsterName=a?stripNotes(a.textContent.trim()):stripNotes(cell.textContent.trim());
+      const img=cell.querySelector('img');
+      if(img)monsterImg=fixIconUrl(img.getAttribute('src')||img.src||'');
+    }
+    if(!monsterName||monsterName.length<1||monsterName.length>100)continue;
+    if(colLevel>=0&&colLevel<cells.length)monsterLevel=stripNotes(cells[colLevel].textContent.trim());
+    let qty='';
+    if(colQty>=0&&colQty<cells.length){qty=stripNotes(cells[colQty].textContent.trim());}
+    else{for(let ci=0;ci<cells.length;ci++){if(ci===colMonster||ci===colLevel||ci===colRarity)continue;const t=stripNotes(cells[ci].textContent.trim());if(/^\d[\d,–\-\s]*$/.test(t)&&t.length<20){qty=t;break;}}}
+    let rarity='';
+    if(colRarity>=0&&colRarity<cells.length){rarity=stripNotes(cells[colRarity].textContent.trim().split(';')[0].split('\n')[0]);}
+    if(/^rarity|^chance|^rate/i.test(rarity))continue;
+    rows.push({name:monsterName,img:monsterImg,level:monsterLevel,qty,rarity});
+  }
+  dbg('parseDropSourceTable: '+rows.length+' rows');
+  return rows;
+}
+
+// ── Render item drop sources ────────────────────────────────
+function renderDropSources(sources,itemTitle){
+  const container=document.getElementById('drops'); container.innerHTML='';
+  const banner=document.createElement('div');
+  banner.style.cssText='background:#1a3a5c;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:1px;color:#fff;border-bottom:2px solid rgba(0,0,0,.3);text-transform:uppercase;position:sticky;top:0;z-index:2;';
+  banner.textContent='🎒 Drop Sources — '+itemTitle;
+  container.appendChild(banner);
+  const hint=document.createElement('div');
+  hint.style.cssText='padding:4px 12px;font-size:10px;color:var(--dim);border-bottom:1px solid var(--border);background:var(--bg2);';
+  hint.textContent='Tap a monster to view its full drop table →';
+  container.appendChild(hint);
+  const wrapper=document.createElement('div'); wrapper.className='section-wrapper';
+  const hdr=document.createElement('div'); hdr.className='section-hdr';
+  hdr.innerHTML=`<span class="hdr-left"><span class="chevron">▼</span><span>${sources.length} monster${sources.length===1?'':'s'} drop this item</span></span><span class="row-count">${sources.length}</span>`;
+  const body=document.createElement('div'); body.className='section-body';
+  const onRowClick=(row)=>{
+    currentMode='npc';
+    document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
+    document.getElementById('search-input').placeholder='Search NPCs...';
+    lookup(row.name);
+  };
+  for(const src of sources){
+    const el=document.createElement('div'); el.className='drop-row clickable';
+    el.title='View full drops for '+src.name;
+    el.addEventListener('click',()=>onRowClick(src));
+    if(src.img){const img=document.createElement('img');img.className='item-img';img.src=src.img;img.alt=src.name;img.onerror=function(){this.replaceWith(placeholder(src.name));};el.appendChild(img);}
+    else el.appendChild(placeholder(src.name));
+    const info=document.createElement('div');info.className='item-info';
+    const nm=document.createElement('div');nm.className='item-name';nm.textContent=src.name;info.appendChild(nm);
+    const sub=[];if(src.level)sub.push('Lvl '+src.level);if(src.qty)sub.push('Qty: '+src.qty);
+    if(sub.length){const q=document.createElement('div');q.className='item-qty';q.textContent=sub.join(' · ');info.appendChild(q);}
+    el.appendChild(info);
+    if(src.rarity){const{label,cls}=rarityClass(src.rarity);const wrap=document.createElement('div');wrap.className='rarity';const badge=document.createElement('span');badge.className='badge '+cls;badge.textContent=label;wrap.appendChild(badge);el.appendChild(wrap);}
+    const arrow=document.createElement('span');arrow.style.cssText='color:var(--dim);font-size:11px;flex-shrink:0;margin-left:2px;';arrow.textContent='›';el.appendChild(arrow);
+    body.appendChild(el);
+  }
+  requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+'px';});
+  hdr.addEventListener('click',()=>{
+    const c=hdr.classList.toggle('collapsed');
+    if(c){body.style.maxHeight=body.scrollHeight+'px';requestAnimationFrame(()=>body.classList.add('collapsed'));}
+    else{body.classList.remove('collapsed');body.style.maxHeight=body.scrollHeight+'px';body.addEventListener('transitionend',()=>{if(!hdr.classList.contains('collapsed'))body.style.maxHeight='none';},{once:true});}
+  });
+  wrapper.appendChild(hdr); wrapper.appendChild(body); container.appendChild(wrapper);
+}
+
+// ── UI events ───────────────────────────────────────────────
+const searchInput=document.getElementById('search-input');
+searchInput.addEventListener('input',()=>{
+  if(inDropsView||currentMode==='item')return;
+  clearTimeout(searchTimer); searchTimer=setTimeout(()=>renderNpcList(searchInput.value),150);
+});
+document.getElementById('search-btn').addEventListener('click',()=>{
+  const v=searchInput.value.trim(); if(!v)return;
+  if(currentMode==='item')lookupItemSources(v); else lookup(v);
+});
+searchInput.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return; const v=searchInput.value.trim(); if(!v)return;
+  if(currentMode==='item')lookupItemSources(v); else lookup(v);
+});
+document.getElementById('back-btn').addEventListener('click',()=>{
+  showBrowser(); searchInput.value='';
+  if(currentMode==='npc')renderNpcList('');
+  else document.getElementById('npc-list').innerHTML='<div id="npc-empty">Type an item name and press Search.<br><small>e.g. "Dragon bones", "Abyssal whip"</small></div>';
+  setStatus('','');
+});
+document.getElementById('close').addEventListener('click',()=>{fetch('https://bolt-api/close',{method:'POST'}).catch(()=>{});});
+
+// ── Message handler (from Lua) ──────────────────────────────
+function handleMsg(text){
+  if(text.startsWith('LOOKUP:'))lookup(text.slice(7));
+  else if(text==='FOCUS_SEARCH'){searchInput.value='';searchInput.focus();if(inDropsView){showBrowser();renderNpcList('');}}
+}
+window.addEventListener('message',evt=>{
+  if(!evt.data)return;
+  if(evt.data.type==='pluginMessage'&&evt.data.content)handleMsg(new TextDecoder().decode(new Uint8Array(evt.data.content)).trim());
+  else if(typeof evt.data==='string')handleMsg(evt.data.trim());
+});
+
+// ── Alt1 Integration ────────────────────────────────────────
+let _alt1Badge=null;
+function flashBadge(color){if(!_alt1Badge)return;_alt1Badge.style.background=color||'#4caf50';setTimeout(()=>{_alt1Badge.style.background='#e94560';},1500);}
+let alt1InitDone=false;
+function tryInitAlt1(){
+  if(alt1InitDone||typeof window.alt1==='undefined')return;
+  alt1InitDone=true;
+  const badge=document.createElement('div');badge.id='alt1badge';
+  badge.style.cssText='position:fixed;top:4px;right:30px;background:#e94560;color:#fff;font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;z-index:100;cursor:pointer;';
+  badge.textContent='ALT1';badge.title='Click to manually read screen';document.body.appendChild(badge);_alt1Badge=badge;
+  dbg('alt1 v'+window.alt1.version);
+  try{window.alt1.identifyAppUrl('./appconfig.json');}catch(e){dbg('identifyApp err: '+e.message);}
+  var a1lib=null,a1script=document.createElement('script');
+  a1script.src='./alt1base.bundle.js';
+  a1script.onload=function(){
+    var attempts=0;
+    function tryA1lib(){a1lib=window.A1lib;if(a1lib&&typeof a1lib.captureHoldFullRs==='function'){dbg('A1lib loaded');loadAnchors();getTesseract();a1lib.on('alt1pressed',function(e){dbg('alt1pressed x='+e.x+' y='+e.y);readExamineWindow();});dbg('Alt+1 hook registered');}else if(attempts<30){attempts++;setTimeout(tryA1lib,100);}else dbg('A1lib unavailable');}
     tryA1lib();
   };
-  a1script.onerror = function() {
-    dbg('Failed to load alt1base.bundle.js');
-    setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
-  };
+  a1script.onerror=function(){dbg('Failed to load alt1base.bundle.js');setStatus('ok','Alt1 — right-click NPC, hover Examine, press Alt+1');};
   document.head.appendChild(a1script);
-
-  function processOpenInfo(info) {
-    if (!info) return false;
-    let text = info;
-    if (typeof info === 'string') {
-      try { const p = JSON.parse(info); text = p.text || p.match || p.string || JSON.stringify(p); }
-      catch(e) {}
-    }
-    dbg('openInfo text: ' + text);
-    const parsed = parseExamineText(text);
-    if (parsed) {
-      const name = resolveOcrName(parsed);
-      flashBadge('#4caf50');
-      setStatus('busy', 'Detected: ' + name);
-      setTimeout(function() { lookup(name); }, 200);
-      return true;
-    }
+  function processOpenInfo(info){
+    if(!info)return false;let text=info;
+    if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
+    const parsed=parseExamineText(text);
+    if(parsed){const name=resolveOcrName(parsed);flashBadge('#4caf50');setStatus('busy','Detected: '+name);setTimeout(()=>lookup(name),200);return true;}
     return false;
   }
-
-  const handled = processOpenInfo(window.alt1.openInfo);
-  if (!handled) setStatus('ok', 'Alt1 - right-click NPC, hover Examine, press Alt+1');
-
-  let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
-  setInterval(function() {
-    const cur = JSON.stringify(window.alt1.openInfo);
-    if (cur !== lastOpenInfo) { lastOpenInfo = cur; dbg('openInfo changed: ' + cur); processOpenInfo(window.alt1.openInfo); }
-  }, 200);
-
-  badge.addEventListener('click', function() {
-    flashBadge('#f5c518');
-    if (a1lib) readExamineWindow();
-    else dbg('A1lib not loaded yet');
-  });
+  if(!processOpenInfo(window.alt1.openInfo))setStatus('ok','Alt1 — right-click NPC, hover Examine, press Alt+1');
+  let lastOpenInfo=JSON.stringify(window.alt1.openInfo);
+  setInterval(()=>{const cur=JSON.stringify(window.alt1.openInfo);if(cur!==lastOpenInfo){lastOpenInfo=cur;processOpenInfo(window.alt1.openInfo);}},200);
+  badge.addEventListener('click',()=>{flashBadge('#f5c518');if(a1lib)readExamineWindow();else dbg('A1lib not loaded yet');});
 }
-
 tryInitAlt1();
-(function() {
-  var elapsed = 0;
-  var poll = setInterval(function() {
-    elapsed += 500;
-    if (alt1InitDone || elapsed >= 30000) { clearInterval(poll); return; }
-    tryInitAlt1();
-  }, 500);
-})();
+(function(){var elapsed=0,poll=setInterval(()=>{elapsed+=500;if(alt1InitDone||elapsed>=30000)clearInterval(poll);else tryInitAlt1();},500);})();
 
-// ── Image-anchor templates (loaded once) ───────────────────
-var anchorTL      = null;   // TopLeft.png     — top-left corner of examine window
-var anchorBR      = null;   // BottomRight.png — bottom-right corner of examine window
-var anchorExamine = null;   // Examine.png     — the "Examine" label in the menu row
-var anchorsLoading = false;
-
-async function loadAnchors() {
-  if (anchorTL && anchorBR && anchorExamine) return true;
-  if (anchorsLoading) return false;
-  anchorsLoading = true;
-  try {
-    var ID = window.A1lib.ImageDetect;
-    anchorTL      = await ID.imageDataFromUrl('./TopLeft.png');
-    anchorBR      = await ID.imageDataFromUrl('./BottomRight.png');
-    anchorExamine = await ID.imageDataFromUrl('./Examine.png');
-    dbg('Anchors loaded — TL:' + anchorTL.width + 'x' + anchorTL.height +
-        ' BR:' + anchorBR.width + 'x' + anchorBR.height +
-        ' Ex:' + anchorExamine.width + 'x' + anchorExamine.height);
-    return true;
-  } catch(e) {
-    dbg('Anchor load error: ' + e.message);
-    anchorsLoading = false;
-    return false;
-  }
+// ── Anchor + Tesseract ──────────────────────────────────────
+var anchorTL=null,anchorBR=null,anchorExamine=null,anchorsLoading=false;
+async function loadAnchors(){
+  if(anchorTL&&anchorBR&&anchorExamine)return true;if(anchorsLoading)return false;anchorsLoading=true;
+  try{const ID=window.A1lib.ImageDetect;anchorTL=await ID.imageDataFromUrl('./TopLeft.png');anchorBR=await ID.imageDataFromUrl('./BottomRight.png');anchorExamine=await ID.imageDataFromUrl('./Examine.png');dbg('Anchors loaded');return true;}
+  catch(e){dbg('Anchor load error: '+e.message);anchorsLoading=false;return false;}
 }
-
-// ── Tesseract loader (loaded once on demand) ────────────────
-var tesseractWorker = null;
-var tesseractLoading = false;
-
-async function getTesseract() {
-  if (tesseractWorker) return tesseractWorker;
-  if (tesseractLoading) {
-    // wait up to 10s for it to finish loading
-    for (var i = 0; i < 100; i++) {
-      await new Promise(function(r){ setTimeout(r, 100); });
-      if (tesseractWorker) return tesseractWorker;
-    }
-    return null;
-  }
-  tesseractLoading = true;
-  return new Promise(function(resolve) {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload = async function() {
-      try {
-        dbg('Tesseract.js loaded — initialising worker...');
-        var worker = await Tesseract.createWorker('eng', 1, {
-          logger: function(m) { if (m.status === 'recognizing text') dbg('OCR progress: ' + Math.round(m.progress * 100) + '%'); }
-        });
-        // Tune for single-line RS3 menu text
-        await worker.setParameters({
-          tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '-,!.",
-          tessedit_pageseg_mode: '7',   // treat image as single text line
-          preserve_interword_spaces: '1',
-        });
-        tesseractWorker = worker;
-        dbg('Tesseract worker ready');
-        resolve(worker);
-      } catch(e) {
-        dbg('Tesseract init error: ' + e.message);
-        tesseractLoading = false;
-        resolve(null);
-      }
-    };
-    s.onerror = function() {
-      dbg('Failed to load Tesseract.js from CDN');
-      tesseractLoading = false;
-      resolve(null);
-    };
+var tesseractWorker=null,tesseractLoading=false;
+async function getTesseract(){
+  if(tesseractWorker)return tesseractWorker;
+  if(tesseractLoading){for(var i=0;i<100;i++){await new Promise(r=>setTimeout(r,100));if(tesseractWorker)return tesseractWorker;}return null;}
+  tesseractLoading=true;
+  return new Promise(resolve=>{
+    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=async()=>{try{const w=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')dbg('OCR: '+Math.round(m.progress*100)+'%');}});await w.setParameters({tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '-,!.",tessedit_pageseg_mode:'7',preserve_interword_spaces:'1'});tesseractWorker=w;resolve(w);}catch(e){dbg('Tesseract init error: '+e.message);tesseractLoading=false;resolve(null);}};
+    s.onerror=()=>{dbg('Failed to load Tesseract.js');tesseractLoading=false;resolve(null);};
     document.head.appendChild(s);
   });
 }
+function imgDataToCanvas(d){const c=document.createElement('canvas');c.width=d.width;c.height=d.height;const ctx=c.getContext('2d');const id=ctx.createImageData(d.width,d.height);id.data.set(d.data);ctx.putImageData(id,0,0);return c;}
+function scaleCanvas(src,scale){const dst=document.createElement('canvas');dst.width=src.width*scale;dst.height=src.height*scale;const ctx=dst.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(src,0,0,dst.width,dst.height);return dst;}
 
-function initAlt1(a1lib) {
-  // Pre-load anchors and warm up Tesseract as soon as A1lib is ready
-  loadAnchors();
-  getTesseract();
-
-  a1lib.on('alt1pressed', function(e) {
-    dbg('alt1pressed x=' + e.x + ' y=' + e.y);
-    readExamineWindow();
-  });
-  dbg('Alt+1 hook registered');
+async function readExamineWindow(){
+  if(!window.alt1||!window.alt1.permissionPixel){setStatus('err','Pixel permission not granted');return;}
+  setStatus('busy','🔍 Scanning for Examine window...');
+  if(!await loadAnchors()){setStatus('err','Anchor images missing');return;}
+  try{
+    const a1lib=window.A1lib,screen=a1lib.captureHoldFullRs();
+    if(!screen){setStatus('err','Screen capture failed');return;}
+    const tlHits=screen.findSubimage(anchorTL),brHits=screen.findSubimage(anchorBR),exHits=screen.findSubimage(anchorExamine);
+    dbg('Hits TL:'+tlHits.length+' BR:'+brHits.length+' Ex:'+exHits.length);
+    if(!tlHits.length||!brHits.length){setStatus('err','Examine window not found');return;}
+    let bestTriple=null;
+    for(const t of tlHits)for(const b of brHits){
+      if(b.x<t.x||b.y<t.y+anchorTL.height)continue;
+      const w=(b.x+anchorBR.width)-t.x,h=(b.y+anchorBR.height)-t.y;
+      if(w>800||h>500)continue;
+      let ex=null;
+      for(const e of exHits){if(e.x>=t.x&&e.x+anchorExamine.width<=b.x+anchorBR.width&&e.y>=t.y+anchorTL.height&&e.y+anchorExamine.height<=b.y){ex=e;break;}}
+      const score=(ex?0:1e9)+w*h;
+      if(!bestTriple||score<bestTriple.score)bestTriple={tl:t,br:b,ex,score,w,h};
+    }
+    if(!bestTriple){setStatus('err','Examine window not found');return;}
+    const{tl,br,ex}=bestTriple,PAD=3;
+    let nameAbsX,nameAbsY,nameW,nameH;
+    if(ex){nameAbsX=ex.x+anchorExamine.width+3;nameAbsY=ex.y-PAD;nameH=anchorExamine.height+PAD*2;nameW=(br.x+anchorBR.width)-nameAbsX;}
+    else{nameAbsX=tl.x;nameAbsY=tl.y+anchorTL.height-PAD;nameW=(br.x+anchorBR.width)-tl.x;nameH=br.y-(tl.y+anchorTL.height)+PAD*2;}
+    if(nameAbsY<0){nameH+=nameAbsY;nameAbsY=0;}if(nameAbsX<0){nameW+=nameAbsX;nameAbsX=0;}
+    if(nameAbsX+nameW>screen.width)nameW=screen.width-nameAbsX;
+    if(nameAbsY+nameH>screen.height)nameH=screen.height-nameAbsY;
+    if(nameW<=0){setStatus('err','Name crop zero-width');return;}
+    const stripRaw=screen.toData(nameAbsX,nameAbsY,nameW,nameH);
+    const SW=stripRaw.width||nameW,SH=stripRaw.height||nameH,SD=stripRaw.data;
+    const colBright=new Uint8Array(SW);
+    for(let cx=0;cx<SW;cx++)for(let cy=0;cy<SH;cy++){const si=(cy*SW+cx)*4;if((SD[si]+SD[si+1]+SD[si+2])/3>55){colBright[cx]=1;break;}}
+    const gaps=[];let inGap=false,gapStart=0;
+    for(let gx=0;gx<SW;gx++){if(!colBright[gx]&&!inGap){inGap=true;gapStart=gx;}else if(colBright[gx]&&inGap){gaps.push({start:gapStart,end:gx-1});inGap=false;}}
+    if(inGap)gaps.push({start:gapStart,end:SW-1});
+    let clipCol=SW;
+    for(let gi=gaps.length-1;gi>=0;gi--){const g=gaps[gi];if(g.end-g.start+1<2)continue;let hL=false,hR=false;for(let lx=g.start-1;lx>=0;lx--)if(colBright[lx]){hL=true;break;}for(let rx=g.end+1;rx<SW;rx++)if(colBright[rx]){hR=true;break;}if(hL&&hR){clipCol=g.start;break;}}
+    const cW=Math.max(1,clipCol),cD={width:cW,height:SH,data:new Uint8ClampedArray(cW*SH*4)};
+    for(let r=0;r<SH;r++)for(let c=0;c<cW;c++){const s=(r*SW+c)*4,d=(r*cW+c)*4;cD.data[d]=SD[s];cD.data[d+1]=SD[s+1];cD.data[d+2]=SD[s+2];cD.data[d+3]=255;}
+    const scaled=scaleCanvas(imgDataToCanvas(cD),4);
+    const ctx=scaled.getContext('2d'),px=ctx.getImageData(0,0,scaled.width,scaled.height);
+    let avg=0;for(let i=0;i<px.data.length;i+=4)avg+=(px.data[i]+px.data[i+1]+px.data[i+2])/3;avg/=px.data.length/4;
+    if(avg<128){const inv=ctx.createImageData(scaled.width,scaled.height);for(let i=0;i<px.data.length;i+=4){inv.data[i]=255-px.data[i];inv.data[i+1]=255-px.data[i+1];inv.data[i+2]=255-px.data[i+2];inv.data[i+3]=255;}ctx.putImageData(inv,0,0);}
+    const oc=getOrCreateOcrCanvas();oc.width=scaled.width;oc.height=scaled.height;oc.getContext('2d').drawImage(scaled,0,0);oc.style.bottom=settings.debugLog?(DEBUG_OVERLAY_HEIGHT+'px'):'0px';if(settings.ocrCanvas)oc.style.display='block';
+    setStatus('busy','🔡 Running OCR...');
+    const worker=await getTesseract();if(!worker){setStatus('err','Tesseract not available');return;}
+    const result=await worker.recognize(scaled);
+    let raw=(result.data.text||'').trim();dbg('Tesseract raw: "'+raw+'"');raw=stripLevelSuffix(raw);
+    if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
+    const resolved=resolveOcrName(raw);dbg('OCR: "'+raw+'"→"'+resolved+'"');
+    flashBadge('#4caf50');setStatus('busy','✨ Detected: '+resolved);lookup(resolved);
+  }catch(e){dbg('readExamineWindow error: '+e.message);setStatus('err','Error: '+e.message.slice(0,80));}
 }
+function parseExamineText(text){if(!text)return null;const m=text.match(/Examine[^a-z]+(.+)/i);return m?m[1].trim():null;}
 
-// ── Helpers ─────────────────────────────────────────────────
-
-// Convert an ImageData-like {data, width, height} to a data-URL via canvas
-function imgDataToCanvas(imgData) {
-  var c = document.createElement('canvas');
-  c.width  = imgData.width;
-  c.height = imgData.height;
-  var ctx = c.getContext('2d');
-  var id  = ctx.createImageData(imgData.width, imgData.height);
-  id.data.set(imgData.data);
-  ctx.putImageData(id, 0, 0);
-  return c;
-}
-
-// Scale a canvas up by an integer factor (makes Tesseract work better on tiny strips)
-function scaleCanvas(src, scale) {
-  var dst = document.createElement('canvas');
-  dst.width  = src.width  * scale;
-  dst.height = src.height * scale;
-  var ctx = dst.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(src, 0, 0, dst.width, dst.height);
-  return dst;
-}
-
-// ── Core: find examine window → OCR monster name ────────────
-async function readExamineWindow() {
-  if (!window.alt1 || !window.alt1.permissionPixel) {
-    setStatus('err', 'Pixel permission not granted — check appconfig.json');
-    return;
-  }
-
-  setStatus('busy', '🔍 Scanning for Examine window...');
-
-  // Ensure anchors are loaded
-  var anchorsOk = await loadAnchors();
-  if (!anchorsOk) {
-    setStatus('err', 'Anchor images missing — place TopLeft.png, BottomRight.png, Examine.png in the app folder');
-    return;
-  }
-
-  try {
-    var a1lib = window.A1lib;
-
-    // ── 1. Capture the full RS client screen ──────────────────
-    var screen = a1lib.captureHoldFullRs();
-    if (!screen) {
-      setStatus('err', 'Screen capture failed — is RS running?');
-      return;
-    }
-    dbg('Screen: ' + screen.width + 'x' + screen.height);
-
-    // ── 2. Locate the examine window corners + Examine label ────────────────
-    // Find all candidate anchors, then pair them up. Pairing rules:
-    //   * BR must be below and right of TL (BR.x >= TL.x, BR.y >= TL.y + anchorTL.height).
-    //   * Window dims must be sensible (≥ anchor sizes, ≤ ~800x500).
-    //   * An Examine anchor must fall inside the window — this rejects spurious
-    //     TL/BR matches from other UI corners.
-    // Among valid triples, pick the one with the smallest window area (the actual
-    // examine menu is typically the smallest such enclosure on screen).
-    var tlHits = screen.findSubimage(anchorTL);
-    var brHits = screen.findSubimage(anchorBR);
-    var exHits = screen.findSubimage(anchorExamine);
-    dbg('Anchor hits — TL:' + tlHits.length + ' BR:' + brHits.length + ' Examine:' + exHits.length);
-
-    if (!tlHits.length || !brHits.length) {
-      setStatus('err', 'Examine window not found — right-click an NPC, hover Examine, then press Alt+1');
-      return;
-    }
-
-    var MAX_W = 800, MAX_H = 500;
-    var bestTriple = null;
-    for (var ti = 0; ti < tlHits.length; ti++) {
-      var t = tlHits[ti];
-      for (var bi = 0; bi < brHits.length; bi++) {
-        var b = brHits[bi];
-        // BR must be below+right of TL with non-trivial window dimensions
-        if (b.x < t.x) continue;
-        if (b.y < t.y + anchorTL.height) continue;
-        var w = (b.x + anchorBR.width) - t.x;
-        var h = (b.y + anchorBR.height) - t.y;
-        if (w > MAX_W || h > MAX_H) continue;
-        // Find an Examine label inside this window (interior rows only)
-        var interiorY = t.y + anchorTL.height;
-        var interiorBottom = b.y;
-        var ex = null;
-        for (var ei = 0; ei < exHits.length; ei++) {
-          var e = exHits[ei];
-          if (e.x >= t.x && e.x + anchorExamine.width <= b.x + anchorBR.width &&
-              e.y >= interiorY && e.y + anchorExamine.height <= interiorBottom) {
-            ex = e; break;
-          }
-        }
-        // Prefer triples with an Examine label; fall back to bare TL/BR if needed
-        var area = w * h;
-        var score = (ex ? 0 : 1e9) + area;  // pairs without Examine penalised
-        if (!bestTriple || score < bestTriple.score) {
-          bestTriple = { tl: t, br: b, ex: ex, score: score, w: w, h: h };
-        }
-      }
-    }
-
-    if (!bestTriple) {
-      setStatus('err', 'Examine window not found — right-click an NPC, hover Examine, then press Alt+1');
-      return;
-    }
-    var tl = bestTriple.tl, br = bestTriple.br, ex = bestTriple.ex;
-
-    // Window interior rect
-    var winX = tl.x;
-    var winY = tl.y + anchorTL.height;
-    var winW = (br.x + anchorBR.width) - winX;
-    var winH = br.y - winY;
-    dbg('Window: tl=(' + tl.x + ',' + tl.y + ') br=(' + br.x + ',' + br.y + ')' +
-        ' interior w=' + winW + ' h=' + winH + ' ex=' + (ex ? '(' + ex.x + ',' + ex.y + ')' : 'none'));
-
-    // ── 3. Define the name-strip crop based on Examine label position ────────
-    var nameAbsX, nameAbsY, nameW, nameH;
-    // Pad 3px above and below so descenders (g,y,Q) and ascenders (') are captured
-    var PAD = 3;
-
-    if (ex) {
-      nameAbsX = ex.x + anchorExamine.width + 3;       // 3px past drop shadow
-      nameAbsY = ex.y - PAD;
-      nameH    = anchorExamine.height + PAD * 2;
-      nameW    = (br.x + anchorBR.width) - nameAbsX;   // up to right wall of window
-    } else {
-      dbg('No Examine label in window — falling back to full window OCR');
-      nameAbsX = winX; nameAbsY = winY - PAD; nameW = winW; nameH = winH + PAD * 2;
-    }
-
-    // Clamp to screen bounds — negative Y causes bindGetRegion crash
-    if (nameAbsY < 0) { nameH += nameAbsY; nameAbsY = 0; }
-    if (nameAbsX < 0) { nameW += nameAbsX; nameAbsX = 0; }
-    if (nameAbsX + nameW > screen.width)  nameW = screen.width  - nameAbsX;
-    if (nameAbsY + nameH > screen.height) nameH = screen.height - nameAbsY;
-    if (nameW <= 0) {
-      setStatus('err', 'Name crop region zero-width — check Examine.png / BottomRight.png anchors');
-      return;
-    }
-
-    // ── 4. Grab the name-strip pixels ────────────────────────────────────────
-    var stripRaw = screen.toData(nameAbsX, nameAbsY, nameW, nameH);
-    var SW = stripRaw.width  || nameW;
-    var SH = stripRaw.height || nameH;
-    var SD = stripRaw.data;
-
-    // ── 4a. Find word blocks to locate the "(level: N)" suffix ───────────────
-    // Strategy: scan the full strip and record all "word blocks" — contiguous
-    // runs of columns that have at least one bright pixel. Then find all gap
-    // positions (transitions from bright→dark). The "(level: N)" block always
-    // sits at the far right of the strip. The gap BEFORE the last word block
-    // is our clip point IF the last word block looks like a level suffix
-    // (i.e. it starts with something other than a capital letter — but we
-    // can't tell from pixels alone, so instead: clip at the LAST gap that is
-    // followed by another gap somewhere to its right, meaning there is at
-    // least one more word after the gap. If the name has no level suffix,
-    // clipCol stays at SW).
-    //
-    // Simpler & robust: build a column brightness map, then find all gap runs.
-    // The last gap run that has bright pixels on BOTH sides is the space before
-    // "(level:". If the strip ends in bright pixels (no trailing gap) and there
-    // is exactly one gap, that gap separates name from level. If there are
-    // multiple gaps (multi-word name + level), clip at the LAST gap.
-
-    var BRIGHT_THRESH = 55;
-
-    // Build per-column bright flag
-    var colBright = new Uint8Array(SW);
-    for (var cx = 0; cx < SW; cx++) {
-      for (var cy = 0; cy < SH; cy++) {
-        var si = (cy * SW + cx) * 4;
-        if ((SD[si] + SD[si+1] + SD[si+2]) / 3 > BRIGHT_THRESH) {
-          colBright[cx] = 1;
-          break;
-        }
-      }
-    }
-
-    // Find all gap runs: [{start, end}] — runs of dark columns
-    var gaps = [];
-    var inGap = false, gapStart = 0;
-    for (var gx = 0; gx < SW; gx++) {
-      if (!colBright[gx] && !inGap) { inGap = true; gapStart = gx; }
-      else if (colBright[gx] && inGap) { gaps.push({ start: gapStart, end: gx - 1 }); inGap = false; }
-    }
-    if (inGap) gaps.push({ start: gapStart, end: SW - 1 });
-
-    dbg('Word gaps: ' + gaps.map(function(g){ return g.start+'-'+g.end+'('+( g.end-g.start+1)+'px)'; }).join(' '));
-
-    // The clip point is the start of the LAST gap that:
-    //   1. Has at least 1 bright column to its left (i.e. name exists)
-    //   2. Has at least 1 bright column to its right (i.e. something follows)
-    //   3. Is at least 2px wide (rules out intra-letter dark columns)
-    var clipCol = SW;
-    for (var gi = gaps.length - 1; gi >= 0; gi--) {
-      var g = gaps[gi];
-      var gapWidth = g.end - g.start + 1;
-      if (gapWidth < 2) continue;
-      // Check bright pixels exist to the left
-      var hasLeft = false;
-      for (var lx = g.start - 1; lx >= 0; lx--) { if (colBright[lx]) { hasLeft = true; break; } }
-      // Check bright pixels exist to the right
-      var hasRight = false;
-      for (var rx = g.end + 1; rx < SW; rx++) { if (colBright[rx]) { hasRight = true; break; } }
-      if (hasLeft && hasRight) {
-        clipCol = g.start;  // clip at the start of this gap
-        dbg('Clip at last qualifying gap: col ' + clipCol + ' (gap ' + g.start + '-' + g.end + ')');
-        break;
-      }
-    }
-
-    dbg('Final clipCol=' + clipCol + ' / SW=' + SW);
-
-    // Build the (possibly clipped) strip ImageData
-    var clippedW    = Math.max(1, clipCol);
-    var clippedData = { width: clippedW, height: SH,
-                        data: new Uint8ClampedArray(clippedW * SH * 4) };
-    for (var row = 0; row < SH; row++) {
-      for (var col = 0; col < clippedW; col++) {
-        var src = (row * SW + col) * 4;
-        var dst = (row * clippedW + col) * 4;
-        clippedData.data[dst]   = SD[src];
-        clippedData.data[dst+1] = SD[src+1];
-        clippedData.data[dst+2] = SD[src+2];
-        clippedData.data[dst+3] = 255;
-      }
-    }
-
-    var stripCanvas = imgDataToCanvas(clippedData);
-
-    // Scale up 4× — Tesseract needs enough pixels for small RS menu text
-    var SCALE = 4;
-    var scaledCanvas = scaleCanvas(stripCanvas, SCALE);
-
-    // Check average brightness of the strip
-    var avgCtx   = scaledCanvas.getContext('2d');
-    var samplePx = avgCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
-    var avgBright = 0;
-    for (var pi = 0; pi < samplePx.data.length; pi += 4)
-      avgBright += (samplePx.data[pi] + samplePx.data[pi+1] + samplePx.data[pi+2]) / 3;
-    avgBright /= (samplePx.data.length / 4);
-    dbg('Strip avg brightness: ' + avgBright.toFixed(1));
-
-    // Invert dark backgrounds using pixel manipulation (CSS filter is unreliable)
-    if (avgBright < 128) {
-      var inv = avgCtx.createImageData(scaledCanvas.width, scaledCanvas.height);
-      for (var ii = 0; ii < samplePx.data.length; ii += 4) {
-        inv.data[ii]   = 255 - samplePx.data[ii];
-        inv.data[ii+1] = 255 - samplePx.data[ii+1];
-        inv.data[ii+2] = 255 - samplePx.data[ii+2];
-        inv.data[ii+3] = 255;
-      }
-      avgCtx.putImageData(inv, 0, 0);
-      dbg('Inverted strip for Tesseract');
-    }
-
-    // Always draw to the OCR canvas (it shows if setting is on)
-    (function() {
-      var el = getOrCreateOcrCanvas();
-      el.width  = scaledCanvas.width;
-      el.height = scaledCanvas.height;
-      el.getContext('2d').drawImage(scaledCanvas, 0, 0);
-      el.title  = 'OCR strip — clipCol=' + clipCol + ' scale=' + SCALE + 'x';
-      el.style.bottom = settings.debugLog ? (DEBUG_OVERLAY_HEIGHT + 'px') : '0px';
-      if (settings.ocrCanvas) el.style.display = 'block';
-    })();
-
-    // ── 5. Run Tesseract OCR on the clipped strip ─────────────────────────────
-    setStatus('busy', '🔡 Running OCR...');
-    var worker = await getTesseract();
-    if (!worker) {
-      setStatus('err', 'Tesseract not available — check network/CDN');
-      return;
-    }
-
-    var result = await worker.recognize(scaledCanvas);
-    var raw = (result.data.text || '').trim();
-    dbg('Tesseract raw: "' + raw + '"');
-
-    raw = stripLevelSuffix(raw);
-
-    if (!raw || raw.length < 2) {
-      setStatus('err', 'OCR returned no text — try hovering Examine and pressing Alt+1 again');
-      return;
-    }
-
-    var resolved = resolveOcrName(raw);
-    dbg('OCR result: "' + raw + '" → "' + resolved + '"');
-    flashBadge('#4caf50');
-    setStatus('busy', '✨ Detected: ' + resolved);
-    lookup(resolved);
-
-  } catch(e) {
-    dbg('readExamineWindow error: ' + e.message + '\n' + (e.stack || '').slice(0, 200));
-    setStatus('err', 'Error: ' + e.message.slice(0, 80));
-  }
-}
-
-function parseExamineText(text) {
-  if (!text) return null;
-  var m = text.match(/Examine[^a-z]+(.+)/i);
-  if (m) return m[1].trim();
-  return null;
-}
-
-// ── Init ───────────────────────────────────────────────────
-applyToggleUI();   // sync saved opacity + toggle state to the DOM
+// ── Init ────────────────────────────────────────────────────
+applyToggleUI();
 showBrowser();
 searchInput.focus();
 loadMonsterList();
