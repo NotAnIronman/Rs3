@@ -1202,12 +1202,17 @@ function tryInitAlt1(){
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
     if(parsed){
+      const parsedLower=parsed.toLowerCase().trim();
       const name=resolveOcrName(parsed);
-      const nameLower=name.toLowerCase();
-      const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>m.name.toLowerCase()===nameLower);
+      const nameLower=name.toLowerCase().trim();
+      const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>{
+        const ml=m.name.toLowerCase();
+        return ml===nameLower||ml===parsedLower||
+               ml.startsWith(parsedLower)||parsedLower.startsWith(ml);
+      });
       const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test(text.trim());
       const routeToNpc=isKnownMonster||(!allMonsters.length&&rawHadTrailingNumber);
-      dbg('openInfo name="'+name+'" isKnownMonster='+isKnownMonster+' → '+(routeToNpc?'NPC':'Item'));
+      dbg('openInfo parsed="'+parsed+'" resolved="'+name+'" isKnownMonster='+isKnownMonster+' routeToNpc='+routeToNpc);
       flashBadge('#4caf50');
       if(routeToNpc){
         currentMode='npc';
@@ -1322,19 +1327,32 @@ async function readExamineWindow(){
     // number in the raw text (the rare cases where level DOES get captured).
     raw=stripLevelSuffix(raw);
     if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
+
+    // ── Determine NPC vs Item ──────────────────────────────
+    // resolveOcrName returns the corrected monster name if it finds a match,
+    // or the raw string if it doesn't. We check both the raw and resolved
+    // strings, and use partial/contains matching, not just exact match.
+    const rawLower=raw.toLowerCase().trim();
     const resolved=resolveOcrName(raw);
-    dbg('OCR resolved: "'+resolved+'"');
+    const resolvedLower=resolved.toLowerCase().trim();
+    dbg('OCR raw="'+raw+'" resolved="'+resolved+'"');
     flashBadge('#4caf50');
 
-    // Check monster list first (most reliable signal)
-    const resolvedLower=resolved.toLowerCase();
-    const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>m.name.toLowerCase()===resolvedLower);
+    // resolveOcrName returns the corrected monster name if it finds a match,
+    // or the raw string unchanged if it doesn't. Two cases to handle:
+    //   1. OCR was garbled → resolveOcrName corrects it → resolved !== raw  (monster)
+    //   2. OCR was perfect → resolved === raw, but name IS in monster list   (monster)
+    //   3. resolved === raw and NOT in monster list                           (item)
+    const isKnownMonster = allMonsters.length > 0 && allMonsters.some(m => {
+      const ml = m.name.toLowerCase();
+      return ml === resolvedLower || ml === rawLower ||
+             ml.startsWith(rawLower) || rawLower.startsWith(ml);
+    });
 
-    // Fallback: trailing number in original raw text (level sometimes captured)
+    // Fallback when monster list not loaded: trailing number = level = NPC
     const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test((result.data.text||'').trim());
-
     const routeToNpc = isKnownMonster || (!allMonsters.length && rawHadTrailingNumber);
-    dbg('isKnownMonster='+isKnownMonster+' rawHadTrailingNum='+rawHadTrailingNumber+' → '+(routeToNpc?'NPC':'Item'));
+    dbg('isKnownMonster='+isKnownMonster+' routeToNpc='+routeToNpc);
 
     if(routeToNpc){
       setStatus('busy','✨ NPC detected: '+resolved);
