@@ -1202,19 +1202,12 @@ function tryInitAlt1(){
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
     if(parsed){
-      const parsedLower=parsed.toLowerCase().trim();
-      const name=resolveOcrName(parsed);
-      const nameLower=name.toLowerCase().trim();
-      const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>{
-        const ml=m.name.toLowerCase();
-        return ml===nameLower||ml===parsedLower||
-               ml.startsWith(parsedLower)||parsedLower.startsWith(ml);
-      });
-      const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test(text.trim());
-      const routeToNpc=isKnownMonster||(!allMonsters.length&&rawHadTrailingNumber);
-      dbg('openInfo parsed="'+parsed+'" resolved="'+name+'" isKnownMonster='+isKnownMonster+' routeToNpc='+routeToNpc);
+      const stripped=stripLevelSuffix(parsed);
+      const levelWasStripped=stripped!==parsed;
+      const name=resolveOcrName(stripped);
+      dbg('openInfo parsed="'+parsed+'" stripped="'+stripped+'" levelWasStripped='+levelWasStripped+' resolved="'+name+'"');
       flashBadge('#4caf50');
-      if(routeToNpc){
+      if(levelWasStripped){
         currentMode='npc';
         document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
         document.getElementById('search-input').placeholder='Search NPCs...';
@@ -1222,11 +1215,16 @@ function tryInitAlt1(){
         setStatus('busy','Detected NPC: '+name);
         setTimeout(()=>{showDrops();document.getElementById('subtitle').textContent=name;document.getElementById('drops').innerHTML='';lookupPage(name);},200);
       } else {
-        currentMode='item';
-        document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
-        document.getElementById('search-input').placeholder='Search items...';
-        setStatus('busy','Detected item: '+name);
-        setTimeout(()=>lookupItemSources(name),200);
+        // No level found — search in current mode
+        document.getElementById('search-input').value=name;
+        setStatus('busy','🔍 Searching: '+name);
+        if(currentMode==='npc'){
+          document.getElementById('search-input').placeholder='Search NPCs...';
+          setTimeout(()=>{showDrops();document.getElementById('subtitle').textContent=name;document.getElementById('drops').innerHTML='';lookupPage(name);},200);
+        } else {
+          document.getElementById('search-input').placeholder='Search items...';
+          setTimeout(()=>lookupItemSources(name),200);
+        }
       }
       return true;
     }
@@ -1313,63 +1311,49 @@ async function readExamineWindow(){
     let raw=(result.data.text||'').trim();
     dbg('Tesseract raw: "'+raw+'"');
 
-    // ── Determine NPC vs Item ──────────────────────────────
-    // We can't reliably detect the level from OCR because the RS3 examine
-    // tooltip renders the NPC name and level in separate UI elements —
-    // our crop captures the name line only, so the level digits are never
-    // in the OCR result.
+    // ── NPC vs Item detection ──────────────────────────────
+    // Key insight: stripLevelSuffix removes the combat level that always
+    // appears in RS3 NPC examine text (e.g. "Ogress leyel- 56  l" → "Ogress").
+    // Items never have a level, so stripLevelSuffix leaves their text unchanged.
     //
-    // Instead: after resolving the name, check whether it appears in the
-    // monster list we already loaded from the wiki SMW.  If it's there →
-    // NPC Drops.  If not → Item Sources.
-    //
-    // Fallback when the monster list hasn't loaded yet: look for ANY trailing
-    // number in the raw text (the rare cases where level DOES get captured).
-    raw=stripLevelSuffix(raw);
-    if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
+    // Therefore:
+    //   rawBefore !== rawAfter  →  level was stripped  →  NPC
+    //   rawBefore === rawAfter  →  nothing stripped     →  use current mode
+    const rawBefore = raw;
+    raw = stripLevelSuffix(raw);
+    const levelWasStripped = raw !== rawBefore;
+    dbg('rawBefore="'+rawBefore+'" rawAfter="'+raw+'" levelWasStripped='+levelWasStripped);
 
-    // ── Determine NPC vs Item ──────────────────────────────
-    // resolveOcrName returns the corrected monster name if it finds a match,
-    // or the raw string if it doesn't. We check both the raw and resolved
-    // strings, and use partial/contains matching, not just exact match.
-    const rawLower=raw.toLowerCase().trim();
+    if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
     const resolved=resolveOcrName(raw);
-    const resolvedLower=resolved.toLowerCase().trim();
-    dbg('OCR raw="'+raw+'" resolved="'+resolved+'"');
+    dbg('resolved="'+resolved+'"');
     flashBadge('#4caf50');
 
-    // resolveOcrName returns the corrected monster name if it finds a match,
-    // or the raw string unchanged if it doesn't. Two cases to handle:
-    //   1. OCR was garbled → resolveOcrName corrects it → resolved !== raw  (monster)
-    //   2. OCR was perfect → resolved === raw, but name IS in monster list   (monster)
-    //   3. resolved === raw and NOT in monster list                           (item)
-    const isKnownMonster = allMonsters.length > 0 && allMonsters.some(m => {
-      const ml = m.name.toLowerCase();
-      return ml === resolvedLower || ml === rawLower ||
-             ml.startsWith(rawLower) || rawLower.startsWith(ml);
-    });
-
-    // Fallback when monster list not loaded: trailing number = level = NPC
-    const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test((result.data.text||'').trim());
-    const routeToNpc = isKnownMonster || (!allMonsters.length && rawHadTrailingNumber);
-    dbg('isKnownMonster='+isKnownMonster+' routeToNpc='+routeToNpc);
-
-    if(routeToNpc){
-      setStatus('busy','✨ NPC detected: '+resolved);
+    if(levelWasStripped){
+      // Level was present → definitely an NPC
       currentMode='npc';
       document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
       document.getElementById('search-input').placeholder='Search NPCs...';
       document.getElementById('search-input').value=resolved;
+      setStatus('busy','✨ NPC detected: '+resolved);
       showDrops();
       document.getElementById('subtitle').textContent=resolved;
       document.getElementById('drops').innerHTML='';
       lookupPage(resolved);
     } else {
-      setStatus('busy','✨ Item detected: '+resolved);
-      currentMode='item';
-      document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
-      document.getElementById('search-input').placeholder='Search items...';
-      lookupItemSources(resolved);
+      // No level stripped → search in whichever tab the user is currently on
+      document.getElementById('search-input').value=resolved;
+      setStatus('busy','🔍 Searching: '+resolved);
+      if(currentMode==='npc'){
+        document.getElementById('search-input').placeholder='Search NPCs...';
+        showDrops();
+        document.getElementById('subtitle').textContent=resolved;
+        document.getElementById('drops').innerHTML='';
+        lookupPage(resolved);
+      } else {
+        document.getElementById('search-input').placeholder='Search items...';
+        lookupItemSources(resolved);
+      }
     }
   }catch(e){dbg('readExamineWindow error: '+e.message);setStatus('err','Error: '+e.message.slice(0,80));}
 }
