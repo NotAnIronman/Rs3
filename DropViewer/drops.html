@@ -501,34 +501,64 @@ function rarityClass(r){
 }
 
 // ── Strip level suffix ──────────────────────────────────────
+// stripLevelSuffix: removes the combat level from NPC examine text.
+// Returns { text, hadLevel } where hadLevel=true means actual level
+// content (digits and/or a "level" word) was removed — not just the
+// trailing OCR border artifact (lone "l" / "1" / "i").
+//
+// The examine box right edge always bleeds a lone "l" or "1" into the
+// OCR result for BOTH NPCs and items, so stripping that artifact alone
+// is NOT a reliable NPC signal. We only set hadLevel=true when we also
+// removed digits or a "level"-like word.
 function stripLevelSuffix(raw){
-  if(!raw)return raw; raw=raw.trim();
-  var pi=raw.search(/[([{<]/); if(pi>0)raw=raw.slice(0,pi).trim();
+  if(!raw)return{text:raw,hadLevel:false};
+  raw=raw.trim();
+  var hadLevel=false;
+
+  // Step 1: strip trailing bracket group e.g. "(level-85)" or "(56)"
+  // This is unambiguously level content if it contains a digit.
+  var bracketMatch=raw.match(/\s*[\(\[{<][^\)\]}>]*\d[^\)\]}>]*[\)\]}>]\s*$/);
+  if(bracketMatch){raw=raw.slice(0,raw.length-bracketMatch[0].length).trim();hadLevel=true;}
+
+  // Step 2: strip "level"-like word followed by digits
+  // e.g. "level-85", "leyel- 56", "Uevels", "levels"
   var dm=raw.match(/\d+/);
   if(dm){
     var i=dm.index-1;
     while(i>=0&&/[\s\-:.,;(]/.test(raw[i]))i--;
     var we=i+1; while(i>=0&&/[a-zA-Z]/.test(raw[i]))i--;
     var ws=i+1; var word=raw.slice(ws,we);
-    if(word.length>=3&&word.length<=8&&/e/i.test(word)&&/[ls]$/i.test(word)){
+    if(word.length>=3&&word.length<=8&&/[eua]/i.test(word)&&/[lsvy]$/i.test(word)){
       var ca=ws-1; while(ca>=0&&/[\s\-:.,;(]/.test(raw[ca]))ca--;
       raw=raw.slice(0,ca+1);
+      hadLevel=true;
+    } else if(dm){
+      // bare digits with no preceding word — still a level
+      raw=raw.replace(/[\s\-]+\d+\s*$/,'').trim();
+      if(raw.length<dm.index+dm[0].length)hadLevel=true;
     }
   }
+
+  // Step 3: strip trailing lone OCR artifact (l / L / 1 / i / j / I)
+  // This fires for BOTH npcs and items — do NOT set hadLevel here.
   raw=raw.replace(/(?<=[a-zA-Z\d])\s+[lLjJiI1]\s*$/,'').trim();
-  raw=raw.replace(/[\s\-]+\d+\s*$/,'').trim();
+
+  // Step 4: clean up any remaining trailing punctuation/junk
   raw=raw.replace(/[\s\-|_.,;:!?]+$/,'').trim();
-  return raw;
+
+  return{text:raw,hadLevel};
 }
 function resolveOcrName(raw){
   if(!raw)return raw;
-  raw=raw.trim().replace(/(\s+\d+)+\s*$/,'').trim().replace(/\s+[lLjJiI1]\s*$/,'').trim();
-  if(!allMonsters.length)return raw;
-  const lower=raw.toLowerCase();
+  // Strip level suffix (returns {text, hadLevel}); also strip trailing artifacts
+  var stripped=stripLevelSuffix(raw).text;
+  stripped=stripped.trim().replace(/(\s+\d+)+\s*$/,'').trim().replace(/\s+[lLjJiI1]\s*$/,'').trim();
+  if(!allMonsters.length)return stripped;
+  const lower=stripped.toLowerCase();
   for(const m of allMonsters)if(m.name.toLowerCase()===lower)return m.name;
-  const parts=raw.split(/\s+/);
-  while(parts.length>1){parts.pop();const sub=parts.join(' ').toLowerCase();for(const m of allMonsters){if(m.name.toLowerCase()===sub){dbg('OCR "'+raw+'"→"'+m.name+'"');return m.name;}}}
-  return raw;
+  const parts=stripped.split(/\s+/);
+  while(parts.length>1){parts.pop();const sub=parts.join(' ').toLowerCase();for(const m of allMonsters){if(m.name.toLowerCase()===sub){dbg('OCR "'+stripped+'"→"'+m.name+'"');return m.name;}}}
+  return stripped;
 }
 
 // ── Main lookup (NPC mode) ──────────────────────────────────
@@ -1202,10 +1232,10 @@ function tryInitAlt1(){
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
     if(parsed){
-      const stripped=stripLevelSuffix(parsed);
-      const levelWasStripped=stripped!==parsed;
-      const name=resolveOcrName(stripped);
-      dbg('openInfo parsed="'+parsed+'" stripped="'+stripped+'" levelWasStripped='+levelWasStripped+' resolved="'+name+'"');
+      const strippedResult=stripLevelSuffix(parsed);
+      const levelWasStripped=strippedResult.hadLevel;
+      const name=resolveOcrName(strippedResult.text);
+      dbg('openInfo parsed="'+parsed+'" stripped="'+strippedResult.text+'" levelWasStripped='+levelWasStripped+' resolved="'+name+'"');
       flashBadge('#4caf50');
       if(levelWasStripped){
         currentMode='npc';
@@ -1311,18 +1341,13 @@ async function readExamineWindow(){
     let raw=(result.data.text||'').trim();
     dbg('Tesseract raw: "'+raw+'"');
 
-    // ── NPC vs Item detection ──────────────────────────────
-    // Key insight: stripLevelSuffix removes the combat level that always
-    // appears in RS3 NPC examine text (e.g. "Ogress leyel- 56  l" → "Ogress").
-    // Items never have a level, so stripLevelSuffix leaves their text unchanged.
-    //
-    // Therefore:
-    //   rawBefore !== rawAfter  →  level was stripped  →  NPC
-    //   rawBefore === rawAfter  →  nothing stripped     →  use current mode
-    const rawBefore = raw;
-    raw = stripLevelSuffix(raw);
-    const levelWasStripped = raw !== rawBefore;
-    dbg('rawBefore="'+rawBefore+'" rawAfter="'+raw+'" levelWasStripped='+levelWasStripped);
+    // stripLevelSuffix now returns {text, hadLevel}.
+    // hadLevel=true only when actual level content (digits + level word or bracket group)
+    // was removed — NOT just the trailing "l" artifact that appears for all examine text.
+    const stripped=stripLevelSuffix(raw);
+    const levelWasStripped=stripped.hadLevel;
+    raw=stripped.text;
+    dbg('rawAfter="'+raw+'" levelWasStripped='+levelWasStripped);
 
     if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
     const resolved=resolveOcrName(raw);
