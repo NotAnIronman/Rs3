@@ -1200,16 +1200,14 @@ function tryInitAlt1(){
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
     if(parsed){
-      const hasLevel=(
-        /\blevel[-\s]*\d{1,4}\b/i.test(text)
-        || /\blvl[-\s]*\d{1,4}\b/i.test(text)
-        || /\(\s*level[-\s]*\d{1,4}\s*\)/i.test(text)
-        || /\(\s*\d{1,4}\s*\)/.test(text)
-        || /\s\d{2,4}\s*$/.test(text)
-      );
       const name=resolveOcrName(parsed);
+      const nameLower=name.toLowerCase();
+      const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>m.name.toLowerCase()===nameLower);
+      const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test(text.trim());
+      const routeToNpc=isKnownMonster||(!allMonsters.length&&rawHadTrailingNumber);
+      dbg('openInfo name="'+name+'" isKnownMonster='+isKnownMonster+' → '+(routeToNpc?'NPC':'Item'));
       flashBadge('#4caf50');
-      if(hasLevel){
+      if(routeToNpc){
         currentMode='npc';
         document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
         document.getElementById('search-input').placeholder='Search NPCs...';
@@ -1307,35 +1305,35 @@ async function readExamineWindow(){
     let raw=(result.data.text||'').trim();
     dbg('Tesseract raw: "'+raw+'"');
 
-    // ── Determine NPC vs Item from raw OCR text ────────────
-    // RS3 examine tooltip format:
-    //   NPC:  "<Name> (level-85)"  or  "<Name> level 85"  or  "<Name> 85"
-    //   Item: "<Name>"  — no number at all (items never have a level in examine)
+    // ── Determine NPC vs Item ──────────────────────────────
+    // We can't reliably detect the level from OCR because the RS3 examine
+    // tooltip renders the NPC name and level in separate UI elements —
+    // our crop captures the name line only, so the level digits are never
+    // in the OCR result.
     //
-    // We check the RAW text before any stripping, looking for:
-    //   1. Explicit "level" word followed by digits          e.g. "level-85", "Level 120"
-    //   2. Parenthesised level                              e.g. "(level-85)", "(85)"
-    //   3. A trailing standalone number ≥2 digits           e.g. "Goblin 85"
-    //      (items virtually never end in a bare number)
+    // Instead: after resolving the name, check whether it appears in the
+    // monster list we already loaded from the wiki SMW.  If it's there →
+    // NPC Drops.  If not → Item Sources.
     //
-    // We deliberately do NOT use the /\bl\s?\d/ shorthand — too many false positives
-    // on items whose names contain digits (e.g. "3rd age", "2h sword").
-    const hasLevel = (
-      /\blevel[-\s]*\d{1,4}\b/i.test(raw)          // "level-85", "Level 120"
-      || /\blvl[-\s]*\d{1,4}\b/i.test(raw)         // "lvl 85"
-      || /\(\s*level[-\s]*\d{1,4}\s*\)/i.test(raw) // "(level-85)"
-      || /\(\s*\d{1,4}\s*\)/.test(raw)              // "(85)"
-      || /\s\d{2,4}\s*$/.test(raw)                  // trailing " 85" or " 120"
-    );
-
-    dbg('hasLevel='+hasLevel+' raw="'+raw+'"');
+    // Fallback when the monster list hasn't loaded yet: look for ANY trailing
+    // number in the raw text (the rare cases where level DOES get captured).
     raw=stripLevelSuffix(raw);
     if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
     const resolved=resolveOcrName(raw);
-    dbg('OCR: "'+raw+'" → "'+resolved+'" hasLevel='+hasLevel);
+    dbg('OCR resolved: "'+resolved+'"');
     flashBadge('#4caf50');
 
-    if(hasLevel){
+    // Check monster list first (most reliable signal)
+    const resolvedLower=resolved.toLowerCase();
+    const isKnownMonster=allMonsters.length>0&&allMonsters.some(m=>m.name.toLowerCase()===resolvedLower);
+
+    // Fallback: trailing number in original raw text (level sometimes captured)
+    const rawHadTrailingNumber=/\s\d{2,4}\s*$/.test((result.data.text||'').trim());
+
+    const routeToNpc = isKnownMonster || (!allMonsters.length && rawHadTrailingNumber);
+    dbg('isKnownMonster='+isKnownMonster+' rawHadTrailingNum='+rawHadTrailingNumber+' → '+(routeToNpc?'NPC':'Item'));
+
+    if(routeToNpc){
       setStatus('busy','✨ NPC detected: '+resolved);
       // Ensure NPC tab is active
       currentMode='npc';
