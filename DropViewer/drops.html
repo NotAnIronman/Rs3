@@ -1200,8 +1200,13 @@ function tryInitAlt1(){
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
     if(parsed){
-      const hasLevel=/\blevel[-\s]*\d+\b|\blvl[-\s]*\d+\b|\d+\s*\(\s*level\b/i.test(text)
-                   || /\bl[-\s]?\d{2,3}\b/.test(text);
+      const hasLevel=(
+        /\blevel[-\s]*\d{1,4}\b/i.test(text)
+        || /\blvl[-\s]*\d{1,4}\b/i.test(text)
+        || /\(\s*level[-\s]*\d{1,4}\s*\)/i.test(text)
+        || /\(\s*\d{1,4}\s*\)/.test(text)
+        || /\s\d{2,4}\s*$/.test(text)
+      );
       const name=resolveOcrName(parsed);
       flashBadge('#4caf50');
       if(hasLevel){
@@ -1302,13 +1307,28 @@ async function readExamineWindow(){
     let raw=(result.data.text||'').trim();
     dbg('Tesseract raw: "'+raw+'"');
 
-    // Detect whether raw text contains a level indicator BEFORE stripping.
-    // RS3 NPC examine text is:  "Examine  Level-XXX  NPC Name"
-    // Item examine text has no level at all.
-    // If no level pattern found → route to Item Sources instead of NPC drops.
-    const hasLevel=/\blevel[-\s]*\d+\b|\blvl[-\s]*\d+\b|\d+\s*\(\s*level\b/i.test(raw)
-                || /\bl[-\s]?\d{2,3}\b/.test(raw); // shorthand "l 85" etc.
+    // ── Determine NPC vs Item from raw OCR text ────────────
+    // RS3 examine tooltip format:
+    //   NPC:  "<Name> (level-85)"  or  "<Name> level 85"  or  "<Name> 85"
+    //   Item: "<Name>"  — no number at all (items never have a level in examine)
+    //
+    // We check the RAW text before any stripping, looking for:
+    //   1. Explicit "level" word followed by digits          e.g. "level-85", "Level 120"
+    //   2. Parenthesised level                              e.g. "(level-85)", "(85)"
+    //   3. A trailing standalone number ≥2 digits           e.g. "Goblin 85"
+    //      (items virtually never end in a bare number)
+    //
+    // We deliberately do NOT use the /\bl\s?\d/ shorthand — too many false positives
+    // on items whose names contain digits (e.g. "3rd age", "2h sword").
+    const hasLevel = (
+      /\blevel[-\s]*\d{1,4}\b/i.test(raw)          // "level-85", "Level 120"
+      || /\blvl[-\s]*\d{1,4}\b/i.test(raw)         // "lvl 85"
+      || /\(\s*level[-\s]*\d{1,4}\s*\)/i.test(raw) // "(level-85)"
+      || /\(\s*\d{1,4}\s*\)/.test(raw)              // "(85)"
+      || /\s\d{2,4}\s*$/.test(raw)                  // trailing " 85" or " 120"
+    );
 
+    dbg('hasLevel='+hasLevel+' raw="'+raw+'"');
     raw=stripLevelSuffix(raw);
     if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
     const resolved=resolveOcrName(raw);
