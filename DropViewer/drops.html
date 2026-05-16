@@ -630,89 +630,206 @@ function parseSectionsFromHeading(div,startEl){
   return sections;
 }
 
-// ── isCharmTable: detect the charm drop table ──────────────
-// The charm table has "Charm" in a header cell, OR the first data rows
-// all contain anchor text matching "charm".
+// ── Column layout detection ────────────────────────────────
+// RS3 wiki drop tables have a header row with th cells.
+// Typical order: Item | Quantity | Rarity | Price  (sometimes GE price omitted)
+// We detect col indices so we never mistake Price for Quantity.
+function detectCols(table){
+  const headerRow=table.querySelector('tr');
+  if(!headerRow)return null;
+  const ths=Array.from(headerRow.querySelectorAll('th,td'));
+  if(ths.length<2)return null;
+  const cols={item:-1,qty:-1,rarity:-1,price:-1};
+  for(let i=0;i<ths.length;i++){
+    const t=ths[i].textContent.toLowerCase().trim();
+    if((t.includes('item')||t.includes('name'))&&cols.item===-1)cols.item=i;
+    else if((t.includes('quant')||t.includes('amount')||t==='qty'||t==='#')&&cols.qty===-1)cols.qty=i;
+    else if((t.includes('rarity')||t.includes('chance'))&&cols.rarity===-1)cols.rarity=i;
+    else if((t.includes('price')||t.includes('value')||t.includes('coin')||t.includes('gp'))&&cols.price===-1)cols.price=i;
+  }
+  // If we detected at least item+rarity, trust the layout
+  if(cols.item!==-1&&cols.rarity!==-1)return cols;
+  return null; // fall back to heuristic scan
+}
+
+// ── isCharmTable ───────────────────────────────────────────
+// A charm table is one whose *data* rows are predominantly charm entries.
+// We require: header contains "Charm" as a standalone word in a TH,
+// OR ≥3 of the first 5 data-rows contain a "charm" link.
+// This prevents false-positive on tables that merely mention charms.
 function isCharmTable(table){
-  for(const th of table.querySelectorAll('th'))
-    if(/charm/i.test(th.textContent))return true;
+  // Check for a TH whose full text is just "Charm" (case-insensitive)
+  for(const th of table.querySelectorAll('th')){
+    if(/^\s*charm\s*$/i.test(th.textContent))return true;
+  }
+  // Count data rows that have a charm link
   let charmRows=0,dataRows=0;
   for(const tr of table.querySelectorAll('tr')){
     if(!tr.querySelector('td'))continue;
     dataRows++;
     for(const a of tr.querySelectorAll('a'))
-      if(/charm/i.test(a.textContent)){charmRows++;break;}
-    if(dataRows>=6)break;
+      if(/\bcharm\b/i.test(a.textContent)){charmRows++;break;}
+    if(dataRows>=5)break;
   }
-  return dataRows>0&&charmRows/dataRows>=0.5;
+  return dataRows>0&&charmRows>=Math.min(3,dataRows);
 }
 
 // ── parseCharmTable ────────────────────────────────────────
-// Emits one entry per charm, preserving all four charm types.
-// The wiki charm table has one charm per <tr>; some compact layouts
-// pack multiple charms into a single row — we handle both.
+// Handles both layouts the RS3 wiki uses:
+//   Layout A: one charm per <tr>  (most monsters)
+//   Layout B: all 4 charms as columns in a SINGLE <tr> (compact tables)
+//
+// Strategy: collect all (charmName, qty, rarity) triples found anywhere
+// in the table by scanning every cell. We don't care about row boundaries.
 function parseCharmTable(table){
-  const rows=[];
-  for(const tr of table.querySelectorAll('tr')){
-    if(!tr.querySelector('td'))continue; // skip header-only rows
-    const cells=Array.from(tr.querySelectorAll('td,th'));
-    // Scan cells left-to-right; when we see a charm link, start accumulating
-    // its qty and rarity from subsequent cells until the next charm link.
-    let pendingName='',pendingImg='',pendingQty='';
-    const flush=(rarity)=>{
-      if(pendingName)rows.push({name:pendingName,img:pendingImg,qty:pendingQty,rarity});
-      pendingName='';pendingImg='';pendingQty='';
-    };
-    for(const cell of cells){
-      const text=stripNotes(cell.textContent.trim());
-      const a=cell.querySelector('a');
-      // Charm name cell
-      if(a&&/charm/i.test(a.textContent.trim())&&a.textContent.trim().length>1){
-        flush(''); // flush previous (no rarity collected yet) if any
-        pendingName=stripNotes(a.textContent.trim());
+  const CHARM_NAMES=['gold charm','crimson charm','blue charm','green charm'];
+  // Accumulate results in insertion order, keyed by normalised charm name
+  const found=new Map(); // normName → {name,img,qty,rarity}
+
+  // Pass 1: find all charm name cells and their images
+  for(const cell of table.querySelectorAll('td,th')){
+    for(const a of cell.querySelectorAll('a')){
+      const txt=stripNotes(a.textContent.trim());
+      const norm=txt.toLowerCase().replace(/\s+/g,' ');
+      if(CHARM_NAMES.includes(norm)&&!found.has(norm)){
         const img=cell.querySelector('img');
-        pendingImg=img?fixIconUrl(img.getAttribute('src')||img.src||''):'';
-        continue;
-      }
-      // Rarity fraction
-      if(/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){
-        flush(stripNotes(text.split(';')[0].trim()));
-        continue;
-      }
-      // Quantity
-      if(pendingName&&/^\d[\d,–\-\s]*$/.test(text)&&text.length<20){
-        pendingQty=text; continue;
+        found.set(norm,{
+          name:txt,
+          img:img?fixIconUrl(img.getAttribute('src')||img.src||''):'',
+          qty:'',rarity:''
+        });
       }
     }
-    flush(''); // flush any trailing charm with no rarity
   }
-  dbg('parseCharmTable: '+rows.length+' entries: '+rows.map(r=>r.name).join(', '));
+
+  if(found.size===0){
+    dbg('parseCharmTable: no charm names found, falling back');
+    return[];
+  }
+
+  // Pass 2: walk the table row by row.
+  // For each row determine which charm it belongs to (by the charm link present),
+  // then pick up qty and rarity from the other cells in that row.
+  for(const tr of table.querySelectorAll('tr')){
+    if(!tr.querySelector('td'))continue;
+    // Which charm does this row belong to?
+    let rowCharm=null;
+    for(const a of tr.querySelectorAll('a')){
+      const norm=stripNotes(a.textContent.trim()).toLowerCase().replace(/\s+/g,' ');
+      if(found.has(norm)){rowCharm=norm;break;}
+    }
+    if(!rowCharm)continue;
+    const entry=found.get(rowCharm);
+
+    for(const cell of tr.querySelectorAll('td,th')){
+      const text=stripNotes(cell.textContent.trim());
+      // Skip the charm-name cell itself
+      if(cell.querySelector('a[href]')){
+        const aText=stripNotes(cell.querySelector('a').textContent.trim()).toLowerCase().replace(/\s+/g,' ');
+        if(CHARM_NAMES.includes(aText))continue;
+      }
+      // Rarity fraction
+      if(!entry.rarity&&/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){
+        entry.rarity=stripNotes(text.split(';')[0].trim());
+        continue;
+      }
+      // Quantity (plain integer, not a fraction)
+      if(!entry.qty&&/^\d[\d,]*$/.test(text)&&text.length<12&&!text.includes('/')){
+        entry.qty=text;
+      }
+    }
+  }
+
+  const rows=Array.from(found.values()).filter(r=>r.name);
+  dbg('parseCharmTable: '+rows.length+' entries: '+rows.map(r=>r.name+'('+r.rarity+')').join(', '));
   return rows;
 }
 
 // ── parseTable (standard, non-charm) ──────────────────────
+// Uses header-detected column layout when available so that the
+// Price column (e.g. "558–837") is never mistaken for Quantity.
 function parseTable(table){
   if(isCharmTable(table))return parseCharmTable(table);
+
+  const cols=detectCols(table);
+  const trs=Array.from(table.querySelectorAll('tr'));
+
+  // Skip the header row if we have column info
+  const dataRows=cols?trs.slice(1):trs;
+
   const rows=[];
-  for(const tr of table.querySelectorAll('tr')){
+  for(const tr of dataRows){
     const allCells=Array.from(tr.querySelectorAll('td,th'));
-    const tdCells=Array.from(tr.querySelectorAll('td'));
+    const tdCells=tr.querySelectorAll('td');
     if(tdCells.length<1)continue;
+
     let name='',qty='',rarity='',img='';
-    for(const cell of allCells){
-      const text=stripNotes(cell.textContent.trim());
-      if(!img){const i=cell.querySelector('img');if(i)img=fixIconUrl(i.getAttribute('src')||i.src||'');}
-      if(!name&&cell.querySelector('a')){
-        const a=cell.querySelector('a'),c=stripNotes(a.textContent.trim());
-        if(c.length>1&&c.length<80&&!c.match(/^\d+$/))name=c;
+
+    if(cols){
+      // ── Header-guided extraction ──
+      const get=i=>(i>=0&&i<allCells.length)?allCells[i]:null;
+
+      // Item name + icon
+      const itemCell=get(cols.item>=0?cols.item:0);
+      if(itemCell){
+        if(!img){const i=itemCell.querySelector('img');if(i)img=fixIconUrl(i.getAttribute('src')||i.src||'');}
+        const a=itemCell.querySelector('a');
+        if(a){const c=stripNotes(a.textContent.trim());if(c.length>1&&c.length<80)name=c;}
+        if(!name)name=stripNotes(itemCell.textContent.trim());
       }
-      if(!rarity&&/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){rarity=stripNotes(text.split(';')[0].trim());continue;}
-      if(!qty&&/^\d[\d,–\-\s]*$/.test(text)&&text.length<20)qty=text;
+
+      // Quantity — only from the qty column, never from price column
+      if(cols.qty>=0){
+        const qCell=get(cols.qty);
+        if(qCell){
+          // Quantity cell may contain "2–3 (noted)" — extract the number range
+          const raw=stripNotes(qCell.textContent.trim());
+          // Strip trailing parenthetical like "(noted)" "(unnoted)"
+          const cleaned=raw.replace(/\s*\([^)]*\)/g,'').trim();
+          if(cleaned)qty=raw; // keep full string including "(noted)" for display
+        }
+      }
+
+      // Rarity
+      if(cols.rarity>=0){
+        const rCell=get(cols.rarity);
+        if(rCell){rarity=stripNotes(rCell.textContent.trim().split(';')[0].split('\n')[0]);}
+      }
+
+      // Image fallback: scan all cells if not found in item cell
+      if(!img){
+        for(const cell of allCells){
+          const i=cell.querySelector('img');
+          if(i){img=fixIconUrl(i.getAttribute('src')||i.src||'');break;}
+        }
+      }
+
+    } else {
+      // ── Heuristic extraction (no recognisable header) ──
+      for(const cell of allCells){
+        const text=stripNotes(cell.textContent.trim());
+        if(!img){const i=cell.querySelector('img');if(i)img=fixIconUrl(i.getAttribute('src')||i.src||'');}
+        if(!name&&cell.querySelector('a')){
+          const a=cell.querySelector('a'),c=stripNotes(a.textContent.trim());
+          if(c.length>1&&c.length<80&&!c.match(/^\d+$/))name=c;
+        }
+        if(!rarity&&/^(always|\d[\d,]*\s*\/\s*[\d,]+)/i.test(text)){rarity=stripNotes(text.split(';')[0].trim());continue;}
+        // Only grab qty if it doesn't look like a coin value (no commas in 3+ digit numbers
+        // unless it's a range). Large comma-numbers like "1,234" are prices, not quantities.
+        if(!qty&&/^[\d,–\-]+(\s*\([^)]*\))?$/.test(text)&&text.length<30){
+          // Reject if it looks like a coin value: >4 digits with commas e.g. "5,000"
+          const noComma=text.replace(/,/g,'').replace(/[^0-9]/g,'');
+          if(noComma.length<=5)qty=text;
+        }
+      }
     }
+
     if(!name||name.length>80)continue;
-    if(name.toLowerCase()==='item'||name.toLowerCase()==='items')continue;
+    const nl=name.toLowerCase();
+    if(nl==='item'||nl==='items'||nl==='drop'||nl==='name')continue;
     rows.push({name,qty,rarity,img});
   }
+
   const seen=new Set();
   return rows.filter(r=>{if(seen.has(r.name))return false;seen.add(r.name);return true;});
 }
@@ -1082,7 +1199,26 @@ function tryInitAlt1(){
     if(!info)return false;let text=info;
     if(typeof info==='string'){try{const p=JSON.parse(info);text=p.text||p.match||p.string||JSON.stringify(p);}catch(e){}}
     const parsed=parseExamineText(text);
-    if(parsed){const name=resolveOcrName(parsed);flashBadge('#4caf50');setStatus('busy','Detected: '+name);setTimeout(()=>lookup(name),200);return true;}
+    if(parsed){
+      const hasLevel=/\blevel[-\s]*\d+\b|\blvl[-\s]*\d+\b|\d+\s*\(\s*level\b/i.test(text)
+                   || /\bl[-\s]?\d{2,3}\b/.test(text);
+      const name=resolveOcrName(parsed);
+      flashBadge('#4caf50');
+      if(hasLevel){
+        currentMode='npc';
+        document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
+        document.getElementById('search-input').placeholder='Search NPCs...';
+        setStatus('busy','Detected NPC: '+name);
+        setTimeout(()=>lookup(name),200);
+      } else {
+        currentMode='item';
+        document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
+        document.getElementById('search-input').placeholder='Search items...';
+        setStatus('busy','Detected item: '+name);
+        setTimeout(()=>lookupItemSources(name),200);
+      }
+      return true;
+    }
     return false;
   }
   if(!processOpenInfo(window.alt1.openInfo))setStatus('ok','Alt1 — right-click NPC, hover Examine, press Alt+1');
@@ -1163,10 +1299,37 @@ async function readExamineWindow(){
     setStatus('busy','🔡 Running OCR...');
     const worker=await getTesseract();if(!worker){setStatus('err','Tesseract not available');return;}
     const result=await worker.recognize(scaled);
-    let raw=(result.data.text||'').trim();dbg('Tesseract raw: "'+raw+'"');raw=stripLevelSuffix(raw);
+    let raw=(result.data.text||'').trim();
+    dbg('Tesseract raw: "'+raw+'"');
+
+    // Detect whether raw text contains a level indicator BEFORE stripping.
+    // RS3 NPC examine text is:  "Examine  Level-XXX  NPC Name"
+    // Item examine text has no level at all.
+    // If no level pattern found → route to Item Sources instead of NPC drops.
+    const hasLevel=/\blevel[-\s]*\d+\b|\blvl[-\s]*\d+\b|\d+\s*\(\s*level\b/i.test(raw)
+                || /\bl[-\s]?\d{2,3}\b/.test(raw); // shorthand "l 85" etc.
+
+    raw=stripLevelSuffix(raw);
     if(!raw||raw.length<2){setStatus('err','OCR returned no text');return;}
-    const resolved=resolveOcrName(raw);dbg('OCR: "'+raw+'"→"'+resolved+'"');
-    flashBadge('#4caf50');setStatus('busy','✨ Detected: '+resolved);lookup(resolved);
+    const resolved=resolveOcrName(raw);
+    dbg('OCR: "'+raw+'" → "'+resolved+'" hasLevel='+hasLevel);
+    flashBadge('#4caf50');
+
+    if(hasLevel){
+      setStatus('busy','✨ NPC detected: '+resolved);
+      // Ensure NPC tab is active
+      currentMode='npc';
+      document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='npc'));
+      document.getElementById('search-input').placeholder='Search NPCs...';
+      lookup(resolved);
+    } else {
+      setStatus('busy','✨ Item detected: '+resolved);
+      // Switch to Item Sources tab
+      currentMode='item';
+      document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode==='item'));
+      document.getElementById('search-input').placeholder='Search items...';
+      lookupItemSources(resolved);
+    }
   }catch(e){dbg('readExamineWindow error: '+e.message);setStatus('err','Error: '+e.message.slice(0,80));}
 }
 function parseExamineText(text){if(!text)return null;const m=text.match(/Examine[^a-z]+(.+)/i);return m?m[1].trim():null;}
