@@ -1,0 +1,67 @@
+/* --- HAMBURGER ICON --- */
+    .hamburger {
+      top: 5px;
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+      gap: 5px;
+    }
+
+    .hamburger span {
+      width: 25px;
+      height: 3px;
+      background: white;
+      border-radius: 3px;
+    }
+    
+    /* --- MOBILE MENU (HIDDEN BY DEFAULT) --- */
+    nav.mobile {
+      display: none;
+      flex-direction: column;
+      background: #333;
+      position: absolute;
+      top: 20px;
+      left: center;
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 9999;
+    }
+
+    nav.mobile a {
+      padding: 8px;
+      display: block;
+    }
+    
+     /* --- RESPONSIVE BEHAVIOR --- */
+    @media (max-width: 700px) {
+      nav.desktop {
+        display: none;
+      }
+      .hamburger {
+        display: flex;
+      }
+    }
+    
+    .scrollable-content {
+    display: none;
+    }
+    
+    .icon {
+      max-height: 30px; 
+      max-width: 30px;
+      vertical-align: middle;
+      z-index: -99;
+    }
+    
+    div.Area {
+    font-size:150%;
+    text-decoration: underline;
+    }
+
+    .hidden {
+      opacity: 0.3;       /* faded */
+    }
+
+    #page1 {
+      display: block;
+    }
