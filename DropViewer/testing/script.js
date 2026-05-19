@@ -325,11 +325,7 @@ document.querySelectorAll(".mode-tab").forEach((tab) => {
       inp.value = "";
       showBrowser();
       if (mode === "npc") {
-        renderNpcL
-
-
-
- ist("");
+        renderNpcList("");
         document.getElementById("list-label").textContent = allMonsters.length
           ? "All RS3 monsters"
           : "Loading...";
@@ -437,7 +433,7 @@ async function loadMonsterList() {
 const POPULAR_NPCS = [
   //-Bosses-
   { name: "Abomination", icon: "⚔️", cat: "Boss" },
-  { name: "Hydrix dragon", icon: "🐲", cat: "Slayer" },
+  { name: "Hydrix dragon", icon: "🐲", cat: "Slayer" }
 ];
 
 function renderNpcList(filter) {
@@ -603,7 +599,7 @@ function rarityClass(r) {
   if (s.includes("rare")) return { label: r, cls: "b-rare" };
   if (s.includes("uncommon")) return { label: r, cls: "b-uncommon" };
   if (s.includes("common")) return { label: r, cls: "b-common" };
-  return {label: r, cls: "b-unknown" };
+  return { label: r, cls: "b-unknown" };
 }
 
 // Strip level suffix
@@ -884,74 +880,6 @@ function makeSectionBlock(sec, onRowClick) {
 
 function makeDropRow(row, onRowClick) {
   const el = document.createElement("div");
-  el.className = "drop-row" + (onRowClick ? " clickable" : "");
-  if (onRowClick) el.addEventListener("click", () => onRowClick(row));
-  if (row.img) {
-    const img = document.createElement("img");
-    img.className = "item-img";
-    img.src = row.img;
-    img.alt = row.name;
-    img.onerror = function () {
-      this.replaceWith(placeholder(row.name));
-    };
-    el.appendChild(img);
-  } else el.appendChild(placeholder(row.name));
-  const info = document.createElement("div");
-  info.className = "item-info";
-  const nm = document.createElement("div");
-  nm.className = "item-name";
-  nm.textContent = row.name;
-  info.appendChild(nm);
-  if (row.qty) {
-    const q = document.createElement("div");
-    q.className = "item-qty";
-    q.textContent = "x" + row.qty;
-    info.appendChild(q);
-  }
-  el.appendChild(info);
-  if (row.rarity) {
-    const { label, cls } = rarityClass(row.rarity);
-    const wrap = document.createElement("div");
-    wrap.className = "rarity";
-    const badge = document.createElement("span");
-    badge.className = "badge " + cls;
-    badge.textContent = label;
-    wrap.appendChild(badge);
-    el.appendChild(wrap);
-  }
-  return el;
-}
-function placeholder(name) {
-  const d = document.createElement("div");
-  d.className = "item-placeholder";
-  d.textContent = (name || "?").charAt(0).toUpperCase();
-  return d;
-}
-
-// Rarity → sort value (higher = more common)
-// Returns a float 0–1 representing drop chance, or special values:
-// 2 = Always,  -1 = unknown
-function rarityToChance(r) {
-  if (!r) return -1;
-  const s = r.toLowerCase().trim();
-  if (s === "always") return 2;
-  const m = s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
-  if (m) {
-    const num = parseFloat(m[1].replace(/,/g, "")),
-      den = parseFloat(m[2].replace(/,/g, ""));
-    if (den > 0) return num / den;
-  }
-  if (s.includes("always")) return 2;
-  if (s.includes("very rare")) return 0.001;
-  if (s.includes("rare")) return 0.01;
-  if (s.includes("uncommon")) return 0.1;
-  if (s.includes("common")) return 0.5;
-  return -1;
-}
-
-// NPC drop row — clicking an item opens Item Sources
-function makeDropRow(row, onRowClick) {
-  const el = document.createElement("div");
   // Items in NPC drops are always clickable to open item sources
   el.className = "drop-row clickable";
   el.title = 'Find all sources for "' + row.name + '"';
@@ -1009,6 +937,33 @@ function makeDropRow(row, onRowClick) {
   arrow.textContent = "›";
   el.appendChild(arrow);
   return el;
+}
+function placeholder(name) {
+  const d = document.createElement("div");
+  d.className = "item-placeholder";
+  d.textContent = (name || "?").charAt(0).toUpperCase();
+  return d;
+}
+
+// Rarity → sort value (higher = more common)
+// Returns a float 0–1 representing drop chance, or special values:
+// 2 = Always,  -1 = unknown
+function rarityToChance(r) {
+  if (!r) return -1;
+  const s = r.toLowerCase().trim();
+  if (s === "always") return 2;
+  const m = s.match(/(\d[\d,.]*)\/(\d[\d,.]*)/);
+  if (m) {
+    const num = parseFloat(m[1].replace(/,/g, "")),
+      den = parseFloat(m[2].replace(/,/g, ""));
+    if (den > 0) return num / den;
+  }
+  if (s.includes("always")) return 2;
+  if (s.includes("very rare")) return 0.001;
+  if (s.includes("rare")) return 0.01;
+  if (s.includes("uncommon")) return 0.1;
+  if (s.includes("common")) return 0.5;
+  return -1;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1437,7 +1392,7 @@ function tryInitAlt1() {
     }
     return false;
   }
-  
+
   if (!processOpenInfo(window.alt1.openInfo))
     setStatus("ok", "Alt1 — right-click NPC, hover Examine, press Alt+1");
   let lastOpenInfo = JSON.stringify(window.alt1.openInfo);
@@ -1464,12 +1419,11 @@ tryInitAlt1();
     }, 500);
 })();
 
-// Anchor + Alt1 OCR
+// Anchor + OCR
 var anchorTL = null,
   anchorBR = null,
   anchorExamine = null,
   anchorsLoading = false;
-
 async function loadAnchors() {
   if (anchorTL && anchorBR && anchorExamine) return true;
   if (anchorsLoading) return false;
@@ -1485,109 +1439,6 @@ async function loadAnchors() {
     dbg("Anchor load error: " + e.message);
     anchorsLoading = false;
     return false;
-  }
-}
-
-// Alt1 OCR font handling (auto-detect once, cache in localStorage)
-let alt1OcrFont = null;
-let alt1OcrFontName = null;
-let alt1OcrDetecting = false;
-
-function getStoredOcrFontName() {
-  try {
-    return localStorage.getItem("dvOcrFontName") || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function storeOcrFontName(name) {
-  try {
-    localStorage.setItem("dvOcrFontName", name);
-  } catch (e) {}
-}
-
-async function detectBestOcrFont(imgData) {
-  const a1lib = window.A1lib;
-  if (!a1lib || !a1lib.ocr || !a1lib.ocr.loadFont) return null;
-
-  const candidates = [
-    "rs3_small",
-    "rs3",
-    "plain11",
-    "small",
-    "chat",
-    "rs3_chat"
-  ];
-
-  let best = { name: null, score: -1, text: "" };
-
-  for (const name of candidates) {
-    try {
-      const font = await a1lib.ocr.loadFont(name);
-      const lines = a1lib.ocr.readLines(imgData, font) || [];
-      const text = (lines[0]?.text || "").trim();
-      if (!text) continue;
-
-      // Simple scoring: prefer longer, more alphabetic strings
-      const letters = (text.match(/[A-Za-z]/g) || []).length;
-      const score = text.length + letters * 2;
-
-      dbg(`OCR font "${name}" -> "${text}" (score=${score})`);
-
-      if (score > best.score) {
-        best = { name, score, text };
-      }
-    } catch (e) {
-      dbg(`OCR font "${name}" failed: ${e.message}`);
-    }
-  }
-
-  return best.name;
-}
-
-async function ensureAlt1OcrFont(imgDataForDetection) {
-  const a1lib = window.A1lib;
-  if (!a1lib || !a1lib.ocr || !a1lib.ocr.loadFont) return null;
-
-  if (alt1OcrFont) return alt1OcrFont;
-
-  if (!alt1OcrFontName) {
-    // Try stored font first
-    const stored = getStoredOcrFontName();
-    if (stored) {
-      try {
-        dbg(`Using stored OCR font "${stored}"`);
-        alt1OcrFont = await a1lib.ocr.loadFont(stored);
-        alt1OcrFontName = stored;
-        return alt1OcrFont;
-      } catch (e) {
-        dbg(`Stored OCR font "${stored}" failed: ${e.message}`);
-      }
-    }
-
-    if (alt1OcrDetecting) return null;
-    alt1OcrDetecting = true;
-
-    const bestName = await detectBestOcrFont(imgDataForDetection);
-    alt1OcrDetecting = false;
-
-    if (!bestName) {
-      dbg("Could not auto-detect OCR font");
-      return null;
-    }
-
-    alt1OcrFontName = bestName;
-    storeOcrFontName(bestName);
-  }
-
-  try {
-    alt1OcrFont = await a1lib.ocr.loadFont(alt1OcrFontName);
-    dbg(`Alt1 OCR font loaded: "${alt1OcrFontName}"`);
-    return alt1OcrFont;
-  } catch (e) {
-    dbg(`Failed to load OCR font "${alt1OcrFontName}": ${e.message}`);
-    return null;
   }
 }
 
@@ -1734,8 +1585,6 @@ async function readExamineWindow() {
     const SW = stripRaw.width || nameW,
       SH = stripRaw.height || nameH,
       SD = stripRaw.data;
-
-    // Column brightness analysis to clip trailing empty space
     const colBright = new Uint8Array(SW);
     for (let cx = 0; cx < SW; cx++)
       for (let cy = 0; cy < SH; cy++) {
@@ -1791,8 +1640,6 @@ async function readExamineWindow() {
         cD.data[d + 2] = SD[s + 2];
         cD.data[d + 3] = 255;
       }
-
-    // Debug canvas (unchanged visual behavior)
     const scaled = scaleCanvas(imgDataToCanvas(cD), 4);
     const ctx = scaled.getContext("2d"),
       px = ctx.getImageData(0, 0, scaled.width, scaled.height);
@@ -1819,20 +1666,54 @@ async function readExamineWindow() {
 
     setStatus("busy", "Running OCR...");
 
-    // Alt1 OCR instead of Tesseract
-    const font = await ensureAlt1OcrFont(cD);
+    // Alt1 OCR: convert scaled canvas to A1lib.ImageData and read text
+    const ocrImgData = ctx.getImageData(0, 0, scaled.width, scaled.height);
+    const a1Img = new window.A1lib.ImageData(
+      scaled.width,
+      scaled.height,
+      ocrImgData.data
+    );
+
+    let font = null;
+    try {
+      const fonts = window.A1lib.ocr.listFonts
+        ? window.A1lib.ocr.listFonts()
+        : [];
+      // Heuristic: prefer RS3-style fonts if present, else first available
+      font =
+        fonts.find((f) =>
+          /rs3|plain|small|menu|context/i.test(f.name || f)
+        ) || fonts[0] || null;
+    } catch (e) {
+      dbg("Alt1 OCR font list error: " + e.message);
+    }
+
     if (!font) {
+      dbg("Alt1 OCR not available (no font)");
       setStatus("err", "Alt1 OCR not available");
       return;
     }
 
-    const lines = window.A1lib.ocr.readLines(cD, font) || [];
-    const ocrRaw = (lines[0]?.text || "").trim();
-    dbg('Alt1 OCR raw: "' + ocrRaw + '"');
+    let lines = [];
+    try {
+      if (window.A1lib.ocr.readLines) {
+        lines = window.A1lib.ocr.readLines(a1Img, font) || [];
+      } else if (window.A1lib.ocr.readLine) {
+        const single = window.A1lib.ocr.readLine(a1Img, font);
+        if (single && single.text) lines = [single];
+      }
+    } catch (e) {
+      dbg("Alt1 OCR error: " + e.message);
+      setStatus("err", "Alt1 OCR not available");
+      return;
+    }
+
+    const tesseractRaw = (lines.map((l) => l.text).join(" ") || "").trim();
+    dbg('Alt1 OCR raw: "' + tesseractRaw + '"');
 
     // If stripLevelSuffix removed level content, it's an NPC. Items never have a level.
     // The lone trailing "l" artifact that appears for both NPCs and items does NOT count.
-    const stripped = stripLevelSuffix(ocrRaw);
+    const stripped = stripLevelSuffix(tesseractRaw);
     dbg(
       'rawAfter="' + stripped.text + '" levelWasStripped=' + stripped.hadLevel
     );
@@ -1868,7 +1749,7 @@ async function readExamineWindow() {
         );
       document.getElementById("search-input").placeholder = "Search items...";
       document.getElementById("search-input").value = resolved;
-      setStatus("busy",  "Item: " + resolved);
+      setStatus("busy", "Item: " + resolved);
       lookupItemSources(resolved);
     }
   } catch (e) {
