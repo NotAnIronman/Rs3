@@ -65,5 +65,13 @@
   </div>
 
 </body>
-<script src="script.js" defer></script>
+<!-- Load @alt1/base first (screen capture + image detect) -->
+<script src="./alt1base.bundle.js" defer></script>
+<!-- Load @alt1/ocr next — exposes window.OCR -->
+<script src="./alt1ocr.bundle.js" defer></script>
+<!-- Pre-built font definitions — each exposes window.OCR_<name> -->
+<script src="./fonts/aa_8px_mono.js" defer></script>
+<script src="./fonts/aa_10px_mono.js" defer></script>
+<script src="./fonts/aa_12px_mono.js" defer></script>
+<script src="./script.js" defer></script>
 </html>
