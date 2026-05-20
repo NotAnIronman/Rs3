@@ -3,31 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <title>Drop Viewer</title>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
 </head>
-<link rel="stylesheet" href="styles.css">
+
 <body>
 
   <div id="titlebar">
     <img id="npc-img" alt="NPC" />
     <span class="logo" id="titlebar-logo">📜</span>
+
     <div class="titles">
       <h1>Drop Viewer</h1>
       <div class="subtitle" id="subtitle">Search any NPC</div>
     </div>
+
     <button id="settings-btn" title="Settings">⚙</button>
     <button id="close">✕</button>
   </div>
 
   <div id="settings-panel">
     <h3>Settings</h3>
+
     <div class="settings-row">
       <label>Show debug log</label>
       <div class="toggle" id="toggle-debug"></div>
     </div>
+
     <div class="settings-row">
       <label>Show OCR preview</label>
       <div class="toggle" id="toggle-ocr-canvas"></div>
     </div>
+
     <div class="settings-row settings-row--stack">
       <label>Window opacity <span id="opacity-value">100%</span></label>
       <input type="range" id="opacity-slider" min="30" max="100" step="5" value="100" />
@@ -48,30 +56,28 @@
   <button id="back-btn">← Back</button>
 
   <div id="content">
+
     <div id="npc-browser">
       <div id="npc-list-header">
         <span id="list-label">Loading monster list from wiki...</span>
         <span id="list-count"></span>
       </div>
+
       <div id="list-status"></div>
       <div id="npc-list"></div>
     </div>
+
     <div id="disambig">
       <h3>⚠️ Disambiguation</h3>
       <p id="disambig-msg"></p>
       <div id="disambig-options"></div>
     </div>
+
     <div id="drops"></div>
   </div>
 
+  <!-- Single entry point for the entire app -->
+  <script type="module" src="core.js"></script>
+
 </body>
-<!-- Load @alt1/base first (screen capture + image detect) -->
-<script src="./alt1base.bundle.js" defer></script>
-<!-- Load @alt1/ocr next — exposes window.OCR -->
-<script src="./alt1ocr.bundle.js" defer></script>
-<!-- Pre-built font definitions — each exposes window.OCR_<name> -->
-<script src="./fonts/aa_8px_mono.js" defer></script>
-<script src="./fonts/aa_10px_mono.js" defer></script>
-<script src="./fonts/aa_12px_mono.js" defer></script>
-<script src="./script.js" defer></script>
 </html>
