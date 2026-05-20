@@ -23,8 +23,8 @@ import {
 // OCR core helpers
 // ============================================================================
 
-let _ocr = null;          // window.OCR once loaded
-let _font = null;         // FontDefinition once ready
+let _ocr = null;
+let _font = null;
 let _fontLoading = false;
 
 function getOCR() {
@@ -36,10 +36,6 @@ function getOCR() {
   return null;
 }
 
-/**
- * Load the best available FontDefinition for OCR.
- * Priority: rightclick font (custom) → aa_8px_mono → aa_10px_mono → aa_12px_mono
- */
 async function loadFont() {
   if (_font) return _font;
   if (_fontLoading) return null;
@@ -52,7 +48,7 @@ async function loadFont() {
     return null;
   }
 
-  // 1) Try rightclick.fontmeta.json + rightclick.data.png (custom font)
+  // Try custom right-click font
   try {
     const meta = await fetch("./fonts/rightclick.fontmeta.json").then((r) =>
       r.json()
@@ -68,7 +64,7 @@ async function loadFont() {
     dbg("rightclick font load failed: " + e.message);
   }
 
-  // 2) Fall back to pre-built fonts exposed as window.OCR_*
+  // Built-in fallback fonts
   const builtins = [
     { global: "OCR_aa_8px_mono", label: "aa_8px_mono" },
     { global: "OCR_aa_10px_mono", label: "aa_10px_mono" },
@@ -88,12 +84,7 @@ async function loadFont() {
   return null;
 }
 
-/**
- * Build an OCR.FontDefinition from a .fontmeta.json + .data.png pair.
- * Mirrors @alt1/font-loader behaviour.
- */
 async function buildFontFromFiles(ocr, meta, pngUrl) {
-  // Step 1: fetch raw PNG bytes and decode without sRGB correction
   const blob = await fetch(pngUrl).then((r) => r.blob());
   const bitmap = await createImageBitmap(blob, {
     colorSpaceConversion: "none",
@@ -110,7 +101,6 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   const W = raw.width;
   const H = raw.height;
 
-  // Step 2: separate pixel rows from the marker row
   const pxheight = H - 1;
   const glyphData = new Uint8ClampedArray(W * pxheight * 4);
   glyphData.set(raw.data.subarray(0, W * pxheight * 4));
@@ -122,21 +112,13 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
     inimg = { width: W, height: pxheight, data: glyphData };
   }
 
-  // Step 3: unblend glyph rows
   const color =
     meta.color && meta.color.length >= 3 ? meta.color : [255, 255, 255];
   const shadow = !!meta.shadow;
-  let outimg;
 
+  let outimg;
   if (meta.unblendmode === "raw") {
     outimg = ocr.unblendTrans(inimg, shadow, color[0], color[1], color[2]);
-  } else if (meta.unblendmode === "blackbg") {
-    outimg = ocr.unblendBlackBackground(
-      inimg,
-      color[0],
-      color[1],
-      color[2]
-    );
   } else {
     outimg = ocr.unblendBlackBackground(
       inimg,
@@ -146,7 +128,6 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
     );
   }
 
-  // Step 4: reassemble — unblended glyph rows + ORIGINAL marker row
   const unblendedData = new Uint8ClampedArray(W * (pxheight + 1) * 4);
   unblendedData.set(outimg.data.subarray(0, W * pxheight * 4));
 
@@ -167,7 +148,6 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
     unblended = { width: W, height: pxheight + 1, data: unblendedData };
   }
 
-  // Step 5: generate the FontDefinition
   const chars = meta.chars || "";
   const seconds = meta.seconds || "";
   const basey = meta.basey !== undefined ? meta.basey : 10;
@@ -192,7 +172,7 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
 }
 
 // ============================================================================
-// Name cleanup helpers (strip level, resolve OCR name to known NPC)
+// Name cleanup helpers
 // ============================================================================
 
 export function stripLevelSuffix(raw) {
@@ -300,9 +280,12 @@ async function loadAnchors() {
 
   try {
     const ID = window.A1lib.ImageDetect;
-    anchorTL = await ID.imageDataFromUrl("./TopLeft.png");
-    anchorBR = await ID.imageDataFromUrl("./BottomRight.png");
-    anchorExamine = await ID.imageDataFromUrl("./Examine.png");
+
+    // UPDATED PATHS
+    anchorTL = await ID.imageDataFromUrl("./menuTracking/TopLeft.png");
+    anchorBR = await ID.imageDataFromUrl("./menuTracking/BottomRight.png");
+    anchorExamine = await ID.imageDataFromUrl("./menuTracking/Examine.png");
+
     dbg("Anchors loaded");
     return true;
   } catch (e) {
@@ -533,7 +516,7 @@ async function readExamineWindow() {
 
     let avg = 0;
     for (let i = 0; i < px.data.length; i += 4) {
-      avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
+            avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
     }
     avg /= px.data.length / 4;
 
@@ -559,7 +542,6 @@ async function readExamineWindow() {
 
     setStatus("busy", "Running OCR...");
 
-    // OCR using window.OCR + loaded font
     const ocr = getOCR();
     if (!ocr) {
       setStatus("err", "OCR module not loaded");
@@ -672,9 +654,7 @@ function processOpenInfo(info) {
     try {
       const p = JSON.parse(info);
       text = p.text || p.match || p.string || JSON.stringify(p);
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
   }
 
   const parsed = parseExamineText(text);
@@ -729,7 +709,6 @@ export function initAlt1Integration() {
   if (alt1InitDone || typeof window.alt1 === "undefined") return;
   alt1InitDone = true;
 
-  // Hide close button — Bolt-only feature
   const closeBtn = document.getElementById("close");
   if (closeBtn) closeBtn.style.display = "none";
 
@@ -751,23 +730,23 @@ export function initAlt1Integration() {
     dbg("identifyApp err: " + e.message);
   }
 
-  // Load alt1base bundle
-  let a1lib = null;
+  // UPDATED PATH
   const a1script = document.createElement("script");
-  a1script.src = "./alt1base.bundle.js";
+  a1script.src = "./menuTracking/alt1base.bundle.js";
 
   a1script.onload = function () {
     let attempts = 0;
     function tryA1lib() {
-      a1lib = window.A1lib;
+      const a1lib = window.A1lib;
       if (a1lib && typeof a1lib.captureHoldFullRs === "function") {
         dbg("A1lib loaded");
         loadAnchors();
 
-        a1lib.on("alt1pressed", function (e) {
-          dbg("alt1pressed x=" + e.x + " y=" + e.y);
+        a1lib.on("alt1pressed", function () {
+          dbg("alt1pressed");
           readExamineWindow();
         });
+
         dbg("Alt+1 hook registered");
 
         const ocr = getOCR();
@@ -808,12 +787,10 @@ export function initAlt1Integration() {
 
   badge.addEventListener("click", () => {
     flashBadge("#f5c518");
-    if (a1lib) readExamineWindow();
-    else dbg("A1lib not loaded yet");
+    readExamineWindow();
   });
 }
 
-// Optional: auto-poll for Alt1 for up to 30s
 export function autoPollAlt1() {
   let elapsed = 0;
   const poll = setInterval(() => {
