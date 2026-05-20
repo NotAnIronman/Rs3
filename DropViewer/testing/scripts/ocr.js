@@ -50,6 +50,7 @@ async function loadFont() {
 
   // Try custom right-click font
   try {
+    if (!window.A1lib) throw new Error("A1lib not ready");   // ← add this guard
     const meta = await fetch("./fonts/rightclick.fontmeta.json").then((r) =>
       r.json()
     );
