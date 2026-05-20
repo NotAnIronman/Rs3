@@ -107,7 +107,7 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
 
   let inimg;
   try {
-    inimg = new window.A1lib.ImageData(W, pxheight, glyphData);
+    inimg = new window.A1lib.ImageData(glyphData, W, pxheight);
   } catch (e) {
     inimg = { width: W, height: pxheight, data: glyphData };
   }
@@ -140,9 +140,9 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   let unblended;
   try {
     unblended = new window.A1lib.ImageData(
+      unblendedData,
       W,
-      pxheight + 1,
-      unblendedData
+      pxheight + 1
     );
   } catch (e) {
     unblended = { width: W, height: pxheight + 1, data: unblendedData };
@@ -153,6 +153,8 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   const basey = meta.basey !== undefined ? meta.basey : 10;
   const sw = meta.spacewidth !== undefined ? meta.spacewidth : 4;
   const thresh = meta.treshold !== undefined ? meta.treshold : 0.4;
+
+  dbg(`rightclick fontmeta: chars="${chars}" basey=${basey} sw=${sw} thresh=${thresh} shadow=${shadow} color=${JSON.stringify(color)} unblendmode=${meta.unblendmode}`);
 
   const fontDef = ocr.generatefont(
     unblended,
@@ -543,7 +545,11 @@ async function readExamineWindow() {
     oc.style.bottom = settings.debugLog
       ? DEBUG_OVERLAY_HEIGHT + "px"
       : "0px";
-    if (settings.ocrCanvas) oc.style.display = "block";
+    // Always show OCR canvas during this debug session so you can see what's being read
+    oc.style.display = "block";
+
+    // Dump the unscaled image as a data URL so you can inspect it in the debug log
+    dbg("OCR image preview (copy URL into browser): " + unscaledCanvas.toDataURL());
 
     setStatus("busy", "Running OCR...");
 
@@ -579,9 +585,9 @@ async function readExamineWindow() {
 
     const ocrImgData = unscaledCtx.getImageData(0, 0, unscaledCanvas.width, unscaledCanvas.height);
     const a1Img = new window.A1lib.ImageData(
+      ocrImgData.data,
       unscaledCanvas.width,
-      unscaledCanvas.height,
-      ocrImgData.data
+      unscaledCanvas.height
     );
 
     const textColor = [255, 255, 255];
