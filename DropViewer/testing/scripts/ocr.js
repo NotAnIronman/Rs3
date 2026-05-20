@@ -510,26 +510,31 @@ async function readExamineWindow() {
       }
     }
 
-    const scaled = scaleCanvas(imgDataToCanvas(cD), 4);
-    const ctx = scaled.getContext("2d");
-    const px = ctx.getImageData(0, 0, scaled.width, scaled.height);
+    // --- Unscaled canvas: this is what OCR actually reads ---
+    const unscaledCanvas = imgDataToCanvas(cD);
+    const unscaledCtx = unscaledCanvas.getContext("2d");
 
+    // Brightness check on unscaled pixels to decide whether to invert
+    const px = unscaledCtx.getImageData(0, 0, unscaledCanvas.width, unscaledCanvas.height);
     let avg = 0;
     for (let i = 0; i < px.data.length; i += 4) {
-            avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
+      avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
     }
     avg /= px.data.length / 4;
 
     if (avg < 128) {
-      const inv = ctx.createImageData(scaled.width, scaled.height);
+      const inv = unscaledCtx.createImageData(unscaledCanvas.width, unscaledCanvas.height);
       for (let i = 0; i < px.data.length; i += 4) {
         inv.data[i] = 255 - px.data[i];
         inv.data[i + 1] = 255 - px.data[i + 1];
         inv.data[i + 2] = 255 - px.data[i + 2];
         inv.data[i + 3] = 255;
       }
-      ctx.putImageData(inv, 0, 0);
+      unscaledCtx.putImageData(inv, 0, 0);
     }
+
+    // --- Scaled canvas: only used for the debug preview overlay ---
+    const scaled = scaleCanvas(unscaledCanvas, 4);
 
     const oc = getOrCreateOcrCanvas();
     oc.width = scaled.width;
@@ -572,10 +577,10 @@ async function readExamineWindow() {
       return;
     }
 
-    const ocrImgData = ctx.getImageData(0, 0, scaled.width, scaled.height);
+    const ocrImgData = unscaledCtx.getImageData(0, 0, unscaledCanvas.width, unscaledCanvas.height);
     const a1Img = new window.A1lib.ImageData(
-      scaled.width,
-      scaled.height,
+      unscaledCanvas.width,
+      unscaledCanvas.height,
       ocrImgData.data
     );
 
