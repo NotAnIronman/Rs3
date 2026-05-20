@@ -755,7 +755,12 @@ export function initAlt1Integration() {
     dbg("identifyApp err: " + e.message);
   }
 
-  // UPDATED PATH
+  // Load OCR bundle first so window.OCR is available before alt1pressed fires
+  const ocrScript = document.createElement("script");
+  ocrScript.src = "./menuTracking/alt1ocr.bundle.js";
+  ocrScript.onload = () => dbg("alt1ocr bundle loaded — window.OCR: " + (typeof window.OCR));
+  document.head.appendChild(ocrScript);
+
   const a1script = document.createElement("script");
   a1script.src = "./menuTracking/alt1base.bundle.js";
 
