@@ -76,56 +76,79 @@ async function loadFont() {
 
 /**
  * Build an OCR.FontDefinition from a .fontmeta.json + .data.png pair.
- * This replicates what @alt1/font-loader does at webpack build time, but at runtime.
+ * Mirrors exactly what @alt1/font-loader does at webpack build time:
+ *   1. Load PNG bytes with NO sRGB colour-space correction
+ *   2. Separate pixel rows from the marker row (last row)
+ *   3. Unblend according to meta.unblendmode
+ *   4. Reattach the ORIGINAL marker row (generatefont reads it to find char boundaries)
+ *   5. Call OCR.generatefont with the reassembled image
  */
 async function buildFontFromFiles(ocr, meta, pngUrl) {
-  // Load the .data.png into an ImageData
-  const img = await new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const c = document.createElement("canvas");
-      c.width = image.naturalWidth;
-      c.height = image.naturalHeight;
-      const ctx = c.getContext("2d");
-      // Disable colour-space transforms so pixel values are raw
-      ctx.drawImage(image, 0, 0);
-      resolve(ctx.getImageData(0, 0, c.width, c.height));
-    };
-    image.onerror = () => reject(new Error("Failed to load font PNG: " + pngUrl));
-    image.src = pngUrl;
-  });
+  // ── Step 1: fetch raw PNG bytes and decode without sRGB correction ────────
+  // createImageBitmap with colorSpaceConversion:"none" prevents the browser
+  // from remapping pixel values through the PNG's embedded colour profile,
+  // which would corrupt the carefully-encoded font pixel data.
+  const blob = await fetch(pngUrl).then(r => r.blob());
+  const bitmap = await createImageBitmap(blob, { colorSpaceConversion: "none" });
+  const c = document.createElement("canvas");
+  c.width = bitmap.width; c.height = bitmap.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const raw = ctx.getImageData(0, 0, c.width, c.height); // raw RGBA, no sRGB remap
 
-  // Convert to an A1lib ImageData if possible (OCR functions expect it)
-  let a1img;
-  try {
-    a1img = new window.A1lib.ImageData(img.width, img.height, img.data);
-  } catch(e) {
-    // Fall back: plain object with same shape
-    a1img = { width: img.width, height: img.height, data: img.data };
+  const W = raw.width, H = raw.height;
+
+  // ── Step 2: separate pixel rows from the marker row ───────────────────────
+  // The font-loader treats the LAST row as character boundary markers.
+  // pxheight = H - 1  (the actual glyph pixel rows)
+  const pxheight = H - 1;
+  const rowBytes = W * 4;
+
+  // Build an A1lib.ImageData for just the glyph rows
+  const glyphData = new Uint8ClampedArray(W * pxheight * 4);
+  glyphData.set(raw.data.subarray(0, W * pxheight * 4));
+  let inimg;
+  try { inimg = new window.A1lib.ImageData(W, pxheight, glyphData); }
+  catch(e) { inimg = { width: W, height: pxheight, data: glyphData }; }
+
+  // ── Step 3: unblend glyph rows ────────────────────────────────────────────
+  const color = (meta.color && meta.color.length >= 3) ? meta.color : [255, 255, 255];
+  const shadow = !!meta.shadow;
+  let outimg;
+  if (meta.unblendmode === "raw") {
+    outimg = ocr.unblendTrans(inimg, shadow, color[0], color[1], color[2]);
+  } else if (meta.unblendmode === "blackbg") {
+    outimg = ocr.unblendBlackBackground(inimg, color[0], color[1], color[2]);
+  } else {
+    // removebg and unknown: fall back to blackbg
+    outimg = ocr.unblendBlackBackground(inimg, color[0], color[1], color[2]);
   }
 
-  // Determine unblend mode & colour from the meta
-  const color = (meta.color && meta.color.length >= 3)
-    ? meta.color
-    : [255, 255, 255];
+  // ── Step 4: reassemble — unblended glyph rows + ORIGINAL marker row ───────
+  // generatefont reads outimg.data at row (height-1) for the red=255 markers.
+  // We must use the ORIGINAL raw pixel values there, not the unblended ones.
+  const unblendedData = new Uint8ClampedArray(W * (pxheight + 1) * 4);
+  // Copy unblended glyph rows
+  unblendedData.set(outimg.data.subarray(0, W * pxheight * 4));
+  // Copy original last row verbatim
+  const markerRowSrc = raw.data.subarray(W * pxheight * 4, W * (pxheight + 1) * 4);
+  unblendedData.set(markerRowSrc, W * pxheight * 4);
 
   let unblended;
-  if (meta.unblendmode === "raw") {
-    // Raw mode: pixels are already extracted; use unblendTrans
-    unblended = ocr.unblendTrans(a1img, !!meta.shadow, color[0], color[1], color[2]);
-  } else {
-    // Default: black background unblend
-    unblended = ocr.unblendBlackBackground(a1img, color[0], color[1], color[2]);
-  }
+  try { unblended = new window.A1lib.ImageData(W, pxheight + 1, unblendedData); }
+  catch(e) { unblended = { width: W, height: pxheight + 1, data: unblendedData }; }
 
+  // ── Step 5: generate the FontDefinition ───────────────────────────────────
   const chars   = meta.chars   || "";
   const seconds = meta.seconds || "";
   const basey   = meta.basey   !== undefined ? meta.basey : 10;
   const sw      = meta.spacewidth !== undefined ? meta.spacewidth : 4;
   const thresh  = meta.treshold  !== undefined ? meta.treshold   : 0.4;
-  const shadow  = !!meta.shadow;
 
-  return ocr.generatefont(unblended, chars, seconds, {}, basey, sw, thresh, shadow);
+  const fontDef = ocr.generatefont(unblended, chars, seconds, meta.bonus || {}, basey, sw, thresh, shadow);
+  dbg(`Font generated: ${fontDef.chars.length} chars, width=${fontDef.width}, height=${fontDef.height}, basey=${fontDef.basey}, shadow=${fontDef.shadow}`);
+  return fontDef;
 }
 
 // ── BUCKET & WIKI GROUPING ────────────────────────────────────────────────────
@@ -1114,8 +1137,16 @@ async function readExamineWindow() {
 
     let result;
     try {
-      // findReadLine scans the strip for the best character start position automatically
-      result = ocr.findReadLine(a1Img, font, [textColor], Math.floor(a1Img.width/2), Math.floor(a1Img.height/2));
+      // findReadLine: x should be somewhere in the middle of the text strip,
+      // y should be AT the text baseline. The font's basey property gives the
+      // baseline offset from the top of a character cell. Since we scaled 4x,
+      // multiply by 4. Scan a wide window (w=font.width*2, h=font.height*2)
+      // so findChar can locate the exact character start automatically.
+      const scale = 4;
+      const baseY = Math.round((font.basey || 11) * scale);
+      const safeY = Math.max(0, Math.min(baseY, a1Img.height - 1));
+      dbg(`OCR: img ${a1Img.width}x${a1Img.height}, font basey=${font.basey} height=${font.height}, scanning y=${safeY}`);
+      result = ocr.findReadLine(a1Img, font, [textColor], Math.floor(a1Img.width / 2), safeY);
     } catch(e) { dbg("OCR error: " + e.message); setStatus("err","OCR error: " + e.message.slice(0,60)); return; }
 
     const tesseractRaw = (result?.text || "").trim();
