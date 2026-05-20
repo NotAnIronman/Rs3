@@ -50,7 +50,6 @@ async function loadFont() {
 
   // Try custom right-click font
   try {
-    if (!window.A1lib) throw new Error("A1lib not ready");   // ← add this guard
     const meta = await fetch("./fonts/rightclick.fontmeta.json").then((r) =>
       r.json()
     );
@@ -549,8 +548,26 @@ async function readExamineWindow() {
       return;
     }
 
-    const font = await loadFont();
-    if (!font) {
+    // Build font candidate list — rightclick first (only if A1lib ready), then built-ins
+    const fontCandidates = [];
+
+    if (window.A1lib) {
+      try {
+        const meta = await fetch("./fonts/rightclick.fontmeta.json").then(r => r.json());
+        const fontDef = await buildFontFromFiles(ocr, meta, "./fonts/rightclick.data.png");
+        if (fontDef) fontCandidates.push({ def: fontDef, label: "rightclick" });
+      } catch (e) {
+        dbg("rightclick font skipped: " + e.message);
+      }
+    }
+
+    for (const name of ["OCR_aa_8px_mono", "OCR_aa_10px_mono", "OCR_aa_12px_mono"]) {
+      if (typeof window[name] !== "undefined") {
+        fontCandidates.push({ def: window[name], label: name });
+      }
+    }
+
+    if (!fontCandidates.length) {
       setStatus("err", "OCR font not available");
       return;
     }
@@ -564,28 +581,35 @@ async function readExamineWindow() {
 
     const textColor = [255, 255, 255];
 
-    let result;
-    try {
-      const scale = 4;
-      const baseY = Math.round((font.basey || 11) * scale);
-      const safeY = Math.max(0, Math.min(baseY, a1Img.height - 1));
-      dbg(
-        `OCR: img ${a1Img.width}x${a1Img.height}, font basey=${font.basey} height=${font.height}, scanning y=${safeY}`
-      );
-      result = ocr.findReadLine(
-        a1Img,
-        font,
-        [textColor],
-        Math.floor(a1Img.width / 2),
-        safeY
-      );
-    } catch (e) {
-      dbg("OCR error: " + e.message);
-      setStatus("err", "OCR error: " + e.message.slice(0, 60));
-      return;
+    let tesseractRaw = "";
+
+    for (const candidate of fontCandidates) {
+      try {
+        const font = candidate.def;
+        // safeY stays in font/image space — do NOT multiply by the canvas scale factor
+        const safeY = Math.max(0, Math.min(font.basey || 11, a1Img.height - 1));
+        dbg(
+          `OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}, basey=${font.basey}, scanning y=${safeY}`
+        );
+        const result = ocr.findReadLine(
+          a1Img,
+          font,
+          [textColor],
+          Math.floor(a1Img.width / 2),
+          safeY
+        );
+        const text = (result?.text || "").trim();
+        dbg(`OCR [${candidate.label}] raw: "${text}"`);
+        if (text.length >= 2) {
+          tesseractRaw = text;
+          dbg(`✅ Font [${candidate.label}] produced text`);
+          break;
+        }
+      } catch (e) {
+        dbg(`OCR [${candidate.label}] error: ` + e.message);
+      }
     }
 
-    const tesseractRaw = (result?.text || "").trim();
     dbg('OCR raw: "' + tesseractRaw + '"');
 
     const stripped = stripLevelSuffix(tesseractRaw);
@@ -731,14 +755,9 @@ export function initAlt1Integration() {
     dbg("identifyApp err: " + e.message);
   }
 
-// Load OCR bundle first
-const ocrScript = document.createElement("script");
-ocrScript.src = "./menuTracking/alt1ocr.bundle.js";
-document.head.appendChild(ocrScript);
-
-// Then load alt1base bundle
-const a1script = document.createElement("script");
-a1script.src = "./menuTracking/alt1base.bundle.js";
+  // UPDATED PATH
+  const a1script = document.createElement("script");
+  a1script.src = "./menuTracking/alt1base.bundle.js";
 
   a1script.onload = function () {
     let attempts = 0;
