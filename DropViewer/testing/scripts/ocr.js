@@ -592,37 +592,39 @@ async function readExamineWindow() {
       unscaledCanvas.height
     );
 
-    const textColor = [
-      [255, 255, 255],  // white — text becomes this after inversion
-      [170, 170, 170],  // inverted 85-grey, in case inversion isn't perfect
-    ];
+    // Single colour avoids the GetChatColorMono/Rect path in findReadLine
+    // After inversion: original 85-grey text becomes 170, original 0-black becomes 255
+    const textColor = [[170, 170, 170]];
 
     let tesseractRaw = "";
 
     for (const candidate of fontCandidates) {
       try {
         const font = candidate.def;
-        // safeY stays in font/image space — do NOT multiply by the canvas scale factor
-        const safeY = Math.max(0, Math.min(font.basey || 11, a1Img.height - 1));
+        const safeY = Math.max(font.basey || 11, 0);
         dbg(
           `OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}, basey=${font.basey}, scanning y=${safeY}`
         );
-        const result = ocr.findReadLine(
-          a1Img,
-          font,
-          textColor,
-          0,       // x: start from left edge
-          safeY,
-          a1Img.width,  // w: scan full width
-          font.height || 14  // h: font height
-        );
-        const text = (result?.text || "").trim();
-        dbg(`OCR [${candidate.label}] raw: "${text}"`);
-        if (text.length >= 2) {
-          tesseractRaw = text;
-          dbg(`✅ Font [${candidate.label}] produced text`);
-          break;
+        // Try 170 (inverted 85-grey text) then 255 (inverted black text)
+        for (const col of [[170,170,170],[255,255,255],[200,200,200]]) {
+          const result = ocr.readLine(
+            a1Img,
+            font,
+            [col],
+            0,       // x: start from left
+            safeY,
+            true     // forward
+          );
+          const text = (result?.text || "").trim();
+          if (text.length >= 2) {
+            dbg(`OCR [${candidate.label}] col=${col[0]} raw: "${text}"`);
+            tesseractRaw = text;
+            dbg(`✅ Font [${candidate.label}] produced text`);
+            break;
+          }
         }
+        if (tesseractRaw) break;
+        dbg(`OCR [${candidate.label}] raw: ""`);
       } catch (e) {
         dbg(`OCR [${candidate.label}] error: ` + e.message);
       }
