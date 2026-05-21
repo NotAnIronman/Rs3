@@ -525,7 +525,8 @@ async function readExamineWindow() {
     }
     avg /= px.data.length / 4;
 
-    if (avg < 128) {
+    if (avg > 128) {
+      // Light background — invert so text becomes white-on-dark as OCR fonts expect
       const inv = unscaledCtx.createImageData(unscaledCanvas.width, unscaledCanvas.height);
       for (let i = 0; i < px.data.length; i += 4) {
         inv.data[i] = 255 - px.data[i];
@@ -592,9 +593,8 @@ async function readExamineWindow() {
     );
 
     const textColor = [
-      [255, 255, 255],  // pure white
-      [226, 226, 226],  // RS3 examine menu light grey
-      [200, 200, 200],  // slightly darker grey
+      [255, 255, 255],  // white — text becomes this after inversion
+      [170, 170, 170],  // inverted 85-grey, in case inversion isn't perfect
     ];
 
     let tesseractRaw = "";
@@ -611,8 +611,10 @@ async function readExamineWindow() {
           a1Img,
           font,
           textColor,
-          Math.floor(a1Img.width / 2),
-          safeY
+          0,       // x: start from left edge
+          safeY,
+          a1Img.width,  // w: scan full width
+          font.height || 14  // h: font height
         );
         const text = (result?.text || "").trim();
         dbg(`OCR [${candidate.label}] raw: "${text}"`);
@@ -771,16 +773,15 @@ export function initAlt1Integration() {
     dbg("identifyApp err: " + e.message);
   }
 
-  // Load OCR bundle first so window.OCR is available before alt1pressed fires
-  const ocrScript = document.createElement("script");
-  ocrScript.src = "./menuTracking/alt1ocr.bundle.js";
-  ocrScript.onload = () => dbg("alt1ocr bundle loaded — window.OCR: " + (typeof window.OCR));
-  document.head.appendChild(ocrScript);
-
   const a1script = document.createElement("script");
   a1script.src = "./menuTracking/alt1base.bundle.js";
 
   a1script.onload = function () {
+    // Load OCR bundle AFTER alt1base so Rect and other A1lib classes are available
+    const ocrScript = document.createElement("script");
+    ocrScript.src = "./menuTracking/alt1ocr.bundle.js";
+    ocrScript.onload = () => dbg("alt1ocr bundle loaded — window.OCR: " + (typeof window.OCR));
+    document.head.appendChild(ocrScript);
     let attempts = 0;
     function tryA1lib() {
       const a1lib = window.A1lib;
