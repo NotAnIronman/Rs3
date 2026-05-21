@@ -105,21 +105,11 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   const glyphData = new Uint8ClampedArray(W * pxheight * 4);
   glyphData.set(raw.data.subarray(0, W * pxheight * 4));
 
-  // The rightclick font PNG encodes glyph data in RGB (not alpha).
-  // unblendTrans reads the alpha channel, so we must copy R→alpha before unblending.
-  const rgbFixed = new Uint8ClampedArray(W * pxheight * 4);
-  for (let i = 0; i < W * pxheight * 4; i += 4) {
-    rgbFixed[i + 0] = glyphData[i + 0]; // R
-    rgbFixed[i + 1] = glyphData[i + 1]; // G
-    rgbFixed[i + 2] = glyphData[i + 2]; // B
-    rgbFixed[i + 3] = glyphData[i + 0]; // A = R (luminance as alpha)
-  }
-
   let inimg;
   try {
-    inimg = new window.A1lib.ImageData(rgbFixed, W, pxheight);
+    inimg = new window.A1lib.ImageData(W, pxheight, glyphData);
   } catch (e) {
-    inimg = { width: W, height: pxheight, data: rgbFixed };
+    inimg = { width: W, height: pxheight, data: glyphData };
   }
 
   const color =
@@ -150,9 +140,9 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   let unblended;
   try {
     unblended = new window.A1lib.ImageData(
-      unblendedData,
       W,
-      pxheight + 1
+      pxheight + 1,
+      unblendedData
     );
   } catch (e) {
     unblended = { width: W, height: pxheight + 1, data: unblendedData };
@@ -163,8 +153,6 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   const basey = meta.basey !== undefined ? meta.basey : 10;
   const sw = meta.spacewidth !== undefined ? meta.spacewidth : 4;
   const thresh = meta.treshold !== undefined ? meta.treshold : 0.4;
-
-  dbg(`rightclick fontmeta: chars="${chars}" basey=${basey} sw=${sw} thresh=${thresh} shadow=${shadow} color=${JSON.stringify(color)} unblendmode=${meta.unblendmode}`);
 
   const fontDef = ocr.generatefont(
     unblended,
@@ -177,12 +165,8 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
     shadow
   );
 
-  // Log pixel counts for first 10 chars to verify glyphs have data
-  const charSummary = fontDef.chars.slice(0, 10).map((c, i) =>
-    `${chars[i]}:${c.pixels ? c.pixels.length : 0}px`
-  ).join(' ');
   dbg(
-    `Font generated: ${fontDef.chars.length} chars, width=${fontDef.width}, height=${fontDef.height}, basey=${fontDef.basey}, shadow=${fontDef.shadow} | ${charSummary}`
+    `Font generated: ${fontDef.chars.length} chars, width=${fontDef.width}, height=${fontDef.height}, basey=${fontDef.basey}, shadow=${fontDef.shadow}`
   );
   return fontDef;
 }
@@ -484,7 +468,7 @@ async function readExamineWindow() {
     let clipCol = SW;
     for (let gi = gaps.length - 1; gi >= 0; gi--) {
       const g = gaps[gi];
-      if (g.end - g.start + 1 < 2) continue;
+      if (g.end - g.start + 1 < 10) continue; // skip word-space gaps, only clip large gaps (border/noise)
 
       let hL = false;
       let hR = false;
@@ -508,8 +492,7 @@ async function readExamineWindow() {
       }
     }
 
-    // Trim 1px from right edge to drop the window border bleed
-    const cW = Math.max(1, clipCol - 1);
+    const cW = Math.max(1, clipCol);
     const cD = {
       width: cW,
       height: SH,
@@ -527,29 +510,26 @@ async function readExamineWindow() {
       }
     }
 
-    // --- Remap examine strip: dark text on light background → invert to white-on-black ---
-    // The rightclick colourspace remapper is for the RS3 context menu (teal bg),
-    // not the examine tooltip. Examine uses dark grey text on light grey — just invert.
-    const remapped = new Uint8ClampedArray(cW * SH * 4);
-    for (let i = 0; i < cW * SH; i++) {
-      const r = 255 - cD.data[i * 4 + 0];
-      const g = 255 - cD.data[i * 4 + 1];
-      const b = 255 - cD.data[i * 4 + 2];
-      // Threshold: only keep pixels that were clearly dark (text), zero everything else
-      const br = (r + g + b) / 3;
-      const col = br < 128 ? 255 : 0; // dark text → white, light bg → black
-      remapped[i * 4 + 0] = col;
-      remapped[i * 4 + 1] = col;
-      remapped[i * 4 + 2] = col;
-      remapped[i * 4 + 3] = 255;
+    const scaled = scaleCanvas(imgDataToCanvas(cD), 4);
+    const ctx = scaled.getContext("2d");
+    const px = ctx.getImageData(0, 0, scaled.width, scaled.height);
+
+    let avg = 0;
+    for (let i = 0; i < px.data.length; i += 4) {
+            avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
     }
+    avg /= px.data.length / 4;
 
-    const remappedData = { width: cW, height: SH, data: remapped };
-    const unscaledCanvas = imgDataToCanvas(remappedData);
-    const unscaledCtx = unscaledCanvas.getContext("2d");
-
-    // --- Scaled canvas: only used for the debug preview overlay ---
-    const scaled = scaleCanvas(unscaledCanvas, 4);
+    if (avg < 128) {
+      const inv = ctx.createImageData(scaled.width, scaled.height);
+      for (let i = 0; i < px.data.length; i += 4) {
+        inv.data[i] = 255 - px.data[i];
+        inv.data[i + 1] = 255 - px.data[i + 1];
+        inv.data[i + 2] = 255 - px.data[i + 2];
+        inv.data[i + 3] = 255;
+      }
+      ctx.putImageData(inv, 0, 0);
+    }
 
     const oc = getOrCreateOcrCanvas();
     oc.width = scaled.width;
@@ -558,11 +538,7 @@ async function readExamineWindow() {
     oc.style.bottom = settings.debugLog
       ? DEBUG_OVERLAY_HEIGHT + "px"
       : "0px";
-    // Always show OCR canvas during this debug session so you can see what's being read
-    oc.style.display = "block";
-
-    // Dump the unscaled image as a data URL so you can inspect it in the debug log
-    dbg("OCR image preview (copy URL into browser): " + unscaledCanvas.toDataURL());
+    if (settings.ocrCanvas) oc.style.display = "block";
 
     setStatus("busy", "Running OCR...");
 
@@ -572,56 +548,43 @@ async function readExamineWindow() {
       return;
     }
 
-    // Build font candidate list — rightclick first (only if A1lib ready), then built-ins
-    const fontCandidates = [];
-
-    if (window.A1lib) {
-      try {
-        const meta = await fetch("./fonts/rightclick.fontmeta.json").then(r => r.json());
-        const fontDef = await buildFontFromFiles(ocr, meta, "./fonts/rightclick.data.png");
-        if (fontDef) fontCandidates.push({ def: fontDef, label: "rightclick" });
-      } catch (e) {
-        dbg("rightclick font skipped: " + e.message);
-      }
-    }
-
-    for (const name of ["OCR_aa_8px_mono", "OCR_aa_10px_mono", "OCR_aa_12px_mono"]) {
-      if (typeof window[name] !== "undefined") {
-        fontCandidates.push({ def: window[name], label: name });
-      }
-    }
-
-    if (!fontCandidates.length) {
+    const font = await loadFont();
+    if (!font) {
       setStatus("err", "OCR font not available");
       return;
     }
 
-    const a1Img = new window.A1lib.ImageData(remapped, cW, SH);
+    const ocrImgData = ctx.getImageData(0, 0, scaled.width, scaled.height);
+    const a1Img = new window.A1lib.ImageData(
+      scaled.width,
+      scaled.height,
+      ocrImgData.data
+    );
 
-    // Single colour avoids the GetChatColorMono/Rect path in findReadLine
-    // After inversion: original 85-grey text becomes 170, original 0-black becomes 255
-    const textColor = [[170, 170, 170]];
+    const textColor = [255, 255, 255];
 
-    let tesseractRaw = "";
-
-    for (const candidate of fontCandidates) {
-      try {
-        const font = candidate.def;
-        dbg(`OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}`);
-        // y=13 = actual bottom of text in a 19px strip (rows 4-13), basey=11
-        const result = ocr.readLine(a1Img, font, [255, 255, 255], 0, 13, true);
-        const text = (result?.text || "").trim();
-        dbg(`OCR [${candidate.label}] raw: "${text}"`);
-        if (text.length >= 2) {
-          tesseractRaw = text;
-          dbg(`✅ Font [${candidate.label}] produced text`);
-          break;
-        }
-      } catch (e) {
-        dbg(`OCR [${candidate.label}] error: ` + e.message);
-      }
+    let result;
+    try {
+      const scale = 4;
+      const baseY = Math.round((font.basey || 11) * scale);
+      const safeY = Math.max(0, Math.min(baseY, a1Img.height - 1));
+      dbg(
+        `OCR: img ${a1Img.width}x${a1Img.height}, font basey=${font.basey} height=${font.height}, scanning y=${safeY}`
+      );
+      result = ocr.findReadLine(
+        a1Img,
+        font,
+        [textColor],
+        Math.floor(a1Img.width / 2),
+        safeY
+      );
+    } catch (e) {
+      dbg("OCR error: " + e.message);
+      setStatus("err", "OCR error: " + e.message.slice(0, 60));
+      return;
     }
 
+    const tesseractRaw = (result?.text || "").trim();
     dbg('OCR raw: "' + tesseractRaw + '"');
 
     const stripped = stripLevelSuffix(tesseractRaw);
@@ -767,15 +730,11 @@ export function initAlt1Integration() {
     dbg("identifyApp err: " + e.message);
   }
 
+  // UPDATED PATH
   const a1script = document.createElement("script");
   a1script.src = "./menuTracking/alt1base.bundle.js";
 
   a1script.onload = function () {
-    // Load OCR bundle AFTER alt1base so Rect and other A1lib classes are available
-    const ocrScript = document.createElement("script");
-    ocrScript.src = "./menuTracking/alt1ocr.bundle.js";
-    ocrScript.onload = () => dbg("alt1ocr bundle loaded — window.OCR: " + (typeof window.OCR));
-    document.head.appendChild(ocrScript);
     let attempts = 0;
     function tryA1lib() {
       const a1lib = window.A1lib;
