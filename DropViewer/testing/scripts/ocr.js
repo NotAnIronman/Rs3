@@ -513,29 +513,26 @@ async function readExamineWindow() {
       }
     }
 
-    // --- Unscaled canvas: this is what OCR actually reads ---
-    const unscaledCanvas = imgDataToCanvas(cD);
+    // --- Remap RS3 right-click colour space (from Alt1 reference implementation) ---
+    // Maps: black shadow → 0, background/hover teal → 128, text → 255
+    const remapped = new Uint8ClampedArray(cW * SH * 4);
+    for (let i = 0; i < cW * SH; i++) {
+      const r = cD.data[i * 4 + 0];
+      const g = cD.data[i * 4 + 1];
+      const b = cD.data[i * 4 + 2];
+      const blackdiff = r + g + b;
+      const hoverdiff = Math.abs(r - 40) + Math.abs(g - 89) + Math.abs(b - 112);
+      const bgdiff    = Math.abs(r - 10) + Math.abs(g - 29) + Math.abs(b - 38);
+      const col = blackdiff <= 20 ? 0 : (hoverdiff < 20 || bgdiff < 20) ? 128 : 255;
+      remapped[i * 4 + 0] = col;
+      remapped[i * 4 + 1] = col;
+      remapped[i * 4 + 2] = col;
+      remapped[i * 4 + 3] = 255;
+    }
+
+    const remappedData = { width: cW, height: SH, data: remapped };
+    const unscaledCanvas = imgDataToCanvas(remappedData);
     const unscaledCtx = unscaledCanvas.getContext("2d");
-
-    // Brightness check on unscaled pixels to decide whether to invert
-    const px = unscaledCtx.getImageData(0, 0, unscaledCanvas.width, unscaledCanvas.height);
-    let avg = 0;
-    for (let i = 0; i < px.data.length; i += 4) {
-      avg += (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
-    }
-    avg /= px.data.length / 4;
-
-    if (avg > 128) {
-      // Light background — invert so text becomes white-on-dark as OCR fonts expect
-      const inv = unscaledCtx.createImageData(unscaledCanvas.width, unscaledCanvas.height);
-      for (let i = 0; i < px.data.length; i += 4) {
-        inv.data[i] = 255 - px.data[i];
-        inv.data[i + 1] = 255 - px.data[i + 1];
-        inv.data[i + 2] = 255 - px.data[i + 2];
-        inv.data[i + 3] = 255;
-      }
-      unscaledCtx.putImageData(inv, 0, 0);
-    }
 
     // --- Scaled canvas: only used for the debug preview overlay ---
     const scaled = scaleCanvas(unscaledCanvas, 4);
@@ -585,12 +582,7 @@ async function readExamineWindow() {
       return;
     }
 
-    const ocrImgData = unscaledCtx.getImageData(0, 0, unscaledCanvas.width, unscaledCanvas.height);
-    const a1Img = new window.A1lib.ImageData(
-      ocrImgData.data,
-      unscaledCanvas.width,
-      unscaledCanvas.height
-    );
+    const a1Img = new window.A1lib.ImageData(remapped, cW, SH);
 
     // Single colour avoids the GetChatColorMono/Rect path in findReadLine
     // After inversion: original 85-grey text becomes 170, original 0-black becomes 255
@@ -601,30 +593,16 @@ async function readExamineWindow() {
     for (const candidate of fontCandidates) {
       try {
         const font = candidate.def;
-        const safeY = Math.max(font.basey || 11, 0);
-        dbg(
-          `OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}, basey=${font.basey}, scanning y=${safeY}`
-        );
-        // Try 170 (inverted 85-grey text) then 255 (inverted black text)
-        for (const col of [[170,170,170],[255,255,255],[200,200,200]]) {
-          const result = ocr.readLine(
-            a1Img,
-            font,
-            [col],
-            0,       // x: start from left
-            safeY,
-            true     // forward
-          );
-          const text = (result?.text || "").trim();
-          if (text.length >= 2) {
-            dbg(`OCR [${candidate.label}] col=${col[0]} raw: "${text}"`);
-            tesseractRaw = text;
-            dbg(`✅ Font [${candidate.label}] produced text`);
-            break;
-          }
+        dbg(`OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}`);
+        // y=12 matches the Alt1 reference implementation for a 19px examine strip
+        const result = ocr.readLine(a1Img, font, [255, 255, 255], 0, 12, true);
+        const text = (result?.text || "").trim();
+        dbg(`OCR [${candidate.label}] raw: "${text}"`);
+        if (text.length >= 2) {
+          tesseractRaw = text;
+          dbg(`✅ Font [${candidate.label}] produced text`);
+          break;
         }
-        if (tesseractRaw) break;
-        dbg(`OCR [${candidate.label}] raw: ""`);
       } catch (e) {
         dbg(`OCR [${candidate.label}] error: ` + e.message);
       }
