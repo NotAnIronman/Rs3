@@ -177,8 +177,12 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
     shadow
   );
 
+  // Log pixel counts for first 10 chars to verify glyphs have data
+  const charSummary = fontDef.chars.slice(0, 10).map((c, i) =>
+    `${chars[i]}:${c.pixels ? c.pixels.length : 0}px`
+  ).join(' ');
   dbg(
-    `Font generated: ${fontDef.chars.length} chars, width=${fontDef.width}, height=${fontDef.height}, basey=${fontDef.basey}, shadow=${fontDef.shadow}`
+    `Font generated: ${fontDef.chars.length} chars, width=${fontDef.width}, height=${fontDef.height}, basey=${fontDef.basey}, shadow=${fontDef.shadow} | ${charSummary}`
   );
   return fontDef;
 }
@@ -604,8 +608,8 @@ async function readExamineWindow() {
       try {
         const font = candidate.def;
         dbg(`OCR attempt [${candidate.label}]: img ${a1Img.width}x${a1Img.height}`);
-        // y=12 matches the Alt1 reference implementation for a 19px examine strip
-        const result = ocr.readLine(a1Img, font, [255, 255, 255], 0, 12, true);
+        // y=13 = actual bottom of text in a 19px strip (rows 4-13), basey=11
+        const result = ocr.readLine(a1Img, font, [255, 255, 255], 0, 13, true);
         const text = (result?.text || "").trim();
         dbg(`OCR [${candidate.label}] raw: "${text}"`);
         if (text.length >= 2) {
