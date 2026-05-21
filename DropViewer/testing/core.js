@@ -11,8 +11,7 @@ import {
   resolveCanonicalTitle,
   loadMonsterList,
   allMonsters,
-  TABLE_ORDER,
-  WIKI
+  TABLE_ORDER
 } from "./scripts/data.js";
 import {
   showBrowser,
@@ -67,7 +66,7 @@ export function getSavedNav() {
 // ============================================================================
 
 export async function checkDisambig(title) {
-  const url = `${WIKI}?action=query&titles=${encodeURIComponent(
+  const url = `${resolveCanonicalTitle.WIKI}?action=query&titles=${encodeURIComponent(
     title
   )}&prop=pageprops&ppprop=disambiguation&format=json&origin=*`;
 
@@ -83,7 +82,7 @@ export async function checkDisambig(title) {
 }
 
 export async function getDisambigLinks(title) {
-  const url = `${WIKI}?action=parse&page=${encodeURIComponent(
+  const url = `${resolveCanonicalTitle.WIKI}?action=parse&page=${encodeURIComponent(
     title
   )}&prop=links&format=json&origin=*`;
 
@@ -147,7 +146,7 @@ export function scoreAlternative(s, q) {
 
 export async function suggestAlternatives(title) {
   try {
-    const url = `${WIKI}?action=opensearch&search=${encodeURIComponent(
+    const url = `${resolveCanonicalTitle.WIKI}?action=opensearch&search=${encodeURIComponent(
       title
     )}&limit=30&namespace=0&format=json&origin=*`;
 
@@ -258,7 +257,7 @@ export async function lookup(name) {
 
   try {
     const r = await fetch(
-      `${WIKI}?action=opensearch&search=${encodeURIComponent(
+      `${resolveCanonicalTitle.WIKI}?action=opensearch&search=${encodeURIComponent(
         name
       )}&limit=5&format=json&origin=*`
     );
@@ -378,7 +377,7 @@ export async function lookupItemSources(name) {
 
   try {
     const r = await fetch(
-      `${WIKI}?action=opensearch&search=${encodeURIComponent(
+      `${resolveCanonicalTitle.WIKI}?action=opensearch&search=${encodeURIComponent(
         name
       )}&limit=5&format=json&origin=*`
     );
