@@ -513,17 +513,17 @@ async function readExamineWindow() {
       }
     }
 
-    // --- Remap RS3 right-click colour space (from Alt1 reference implementation) ---
-    // Maps: black shadow → 0, background/hover teal → 128, text → 255
+    // --- Remap examine strip: dark text on light background → invert to white-on-black ---
+    // The rightclick colourspace remapper is for the RS3 context menu (teal bg),
+    // not the examine tooltip. Examine uses dark grey text on light grey — just invert.
     const remapped = new Uint8ClampedArray(cW * SH * 4);
     for (let i = 0; i < cW * SH; i++) {
-      const r = cD.data[i * 4 + 0];
-      const g = cD.data[i * 4 + 1];
-      const b = cD.data[i * 4 + 2];
-      const blackdiff = r + g + b;
-      const hoverdiff = Math.abs(r - 40) + Math.abs(g - 89) + Math.abs(b - 112);
-      const bgdiff    = Math.abs(r - 10) + Math.abs(g - 29) + Math.abs(b - 38);
-      const col = blackdiff <= 20 ? 0 : (hoverdiff < 20 || bgdiff < 20) ? 128 : 255;
+      const r = 255 - cD.data[i * 4 + 0];
+      const g = 255 - cD.data[i * 4 + 1];
+      const b = 255 - cD.data[i * 4 + 2];
+      // Threshold: only keep pixels that were clearly dark (text), zero everything else
+      const br = (r + g + b) / 3;
+      const col = br > 128 ? 255 : 0;
       remapped[i * 4 + 0] = col;
       remapped[i * 4 + 1] = col;
       remapped[i * 4 + 2] = col;
