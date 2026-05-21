@@ -494,7 +494,8 @@ async function readExamineWindow() {
       }
     }
 
-    const cW = Math.max(1, clipCol);
+    // Trim 1px from right edge to drop the window border bleed
+    const cW = Math.max(1, clipCol - 1);
     const cD = {
       width: cW,
       height: SH,
@@ -590,7 +591,11 @@ async function readExamineWindow() {
       unscaledCanvas.height
     );
 
-    const textColor = [255, 255, 255];
+    const textColor = [
+      [255, 255, 255],  // pure white
+      [226, 226, 226],  // RS3 examine menu light grey
+      [200, 200, 200],  // slightly darker grey
+    ];
 
     let tesseractRaw = "";
 
@@ -605,7 +610,7 @@ async function readExamineWindow() {
         const result = ocr.findReadLine(
           a1Img,
           font,
-          [textColor],
+          textColor,
           Math.floor(a1Img.width / 2),
           safeY
         );
