@@ -105,11 +105,21 @@ async function buildFontFromFiles(ocr, meta, pngUrl) {
   const glyphData = new Uint8ClampedArray(W * pxheight * 4);
   glyphData.set(raw.data.subarray(0, W * pxheight * 4));
 
+  // The rightclick font PNG encodes glyph data in RGB (not alpha).
+  // unblendTrans reads the alpha channel, so we must copy R→alpha before unblending.
+  const rgbFixed = new Uint8ClampedArray(W * pxheight * 4);
+  for (let i = 0; i < W * pxheight * 4; i += 4) {
+    rgbFixed[i + 0] = glyphData[i + 0]; // R
+    rgbFixed[i + 1] = glyphData[i + 1]; // G
+    rgbFixed[i + 2] = glyphData[i + 2]; // B
+    rgbFixed[i + 3] = glyphData[i + 0]; // A = R (luminance as alpha)
+  }
+
   let inimg;
   try {
-    inimg = new window.A1lib.ImageData(glyphData, W, pxheight);
+    inimg = new window.A1lib.ImageData(rgbFixed, W, pxheight);
   } catch (e) {
-    inimg = { width: W, height: pxheight, data: glyphData };
+    inimg = { width: W, height: pxheight, data: rgbFixed };
   }
 
   const color =
