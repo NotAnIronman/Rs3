@@ -533,7 +533,7 @@ async function readExamineWindow() {
       const b = 255 - cD.data[i * 4 + 2];
       // Threshold: only keep pixels that were clearly dark (text), zero everything else
       const br = (r + g + b) / 3;
-      const col = br > 128 ? 255 : 0;
+      const col = br < 128 ? 255 : 0; // dark text → white, light bg → black
       remapped[i * 4 + 0] = col;
       remapped[i * 4 + 1] = col;
       remapped[i * 4 + 2] = col;
