@@ -1,6 +1,7 @@
 {
   "appname": "Drop Viewer",
-  "description": "Lets you quickly pull up the drop table of NPCs",
+  "description": "A companion app to quickly and easily pull up and NPC drop table, or item drop sources.",
+  "version": "V1.5",
   "appurl": "./drops.html",
   "iconUrl": "./drops.png",
   "defaultWidth": 480,
