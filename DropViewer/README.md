@@ -127,3 +127,4 @@ Automatically identifies what you are examining and surfaces the relevant data.
 ## If you have any ideas for additions, find any bugs, or want to share feedback 
 - Message "The Riptide" ingame 
 - Comment on any of the DropViewer Reddit posts
+- Add an issue report on the Github
