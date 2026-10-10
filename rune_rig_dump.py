@@ -14,6 +14,7 @@ import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from mathutils import Color, Euler, Matrix, Quaternion, Vector
 
 
 # Optional: enter an absolute directory, e.g. r"D:\Models\Diagnostics".
@@ -24,6 +25,26 @@ SAMPLE_CURRENT_TIMELINE = True
 MAX_TIMELINE_SAMPLES = 24
 WEIGHT_EPSILON = 1e-6
 SCHEMA_VERSION = 1
+SCRIPT_VERSION = "1.1"
+BLENDER_SEQUENCE_TYPES = (Color, Euler, Matrix, Quaternion, Vector)
+
+
+def json_default(value):
+    """Convert Blender math values, including Matrix rows, without losing numbers."""
+    if isinstance(value, BLENDER_SEQUENCE_TYPES):
+        return list(value)
+    if isinstance(value, (set, frozenset)):
+        return sorted(value)
+    raise TypeError(f"Unsupported report value: {type(value).__name__}")
+
+
+def plain_setting(value):
+    """Snapshot RNA arrays recursively; list(Matrix) alone leaves Vector rows."""
+    if isinstance(value, (bool, int, float, str)) or value is None:
+        return value
+    if isinstance(value, (set, frozenset)):
+        return [plain_setting(x) for x in sorted(value)]
+    return [plain_setting(x) for x in value]
 
 
 def matrix_rows(matrix):
@@ -47,9 +68,9 @@ def simple_settings(item):
         try:
             value = getattr(item, prop.identifier)
             if prop.is_array:
-                value = list(value)
-            if isinstance(value, (bool, int, float, str, list)):
-                result[prop.identifier] = value
+                value = plain_setting(value)
+            if isinstance(value, (bool, int, float, str, list, set, frozenset)):
+                result[prop.identifier] = plain_setting(value)
         except Exception:
             pass
     return result
@@ -416,6 +437,7 @@ def collect_report():
     rig_data_animation = animation_info(armature.data, actions)
     report = {
         "schema_version": SCHEMA_VERSION,
+        "script_version": SCRIPT_VERSION,
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "blender_version": bpy.app.version_string,
         "scope": "One selected armature and all mesh objects in the .blend whose modifiers target it",
@@ -495,6 +517,12 @@ def output_directory():
 def main():
     print("Rune rig dump: reading the rig and bound meshes...")
     report = collect_report()
+    # Validate the complete report before creating any archive. Streaming avoids
+    # allocating a second full JSON string for large mesh dumps.
+    encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False,
+                               default=json_default)
+    for chunk in encoder.iterencode(report):
+        pass
     summary = summary_text(report)
     directory = output_directory()
     safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", report["armature"]["object"])[:70] or "rig"
@@ -506,7 +534,8 @@ def main():
         archive.writestr("summary.txt", summary)
         with archive.open("rig_report.json", "w") as binary:
             with io.TextIOWrapper(binary, encoding="utf-8") as text_stream:
-                json.dump(report, text_stream, separators=(",", ":"), allow_nan=False)
+                json.dump(report, text_stream, separators=(",", ":"), allow_nan=False,
+                          default=json_default)
     with summary_path.open("x", encoding="utf-8") as stream:
         stream.write(summary)
     print(summary)
