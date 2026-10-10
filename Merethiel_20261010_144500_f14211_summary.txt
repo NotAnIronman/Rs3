@@ -1,0 +1,36 @@
+Rune rig diagnostics
+====================
+
+Blender: 5.2.0 LTS
+Armature: Merethiel
+Bones: 535; with group weights above epsilon: 91
+Root bones: 1
+Numbered root_i / bone_i candidates: 267
+Bound mesh objects: 2
+Raw mesh vertices: 7322
+Geometry included: True
+Assigned actions inspected: 1
+Current timeline samples: 24
+
+MESH OBJECTS
+  Mere: 5129 vertices; 90 weighted bone groups; 0 vertices without deform-group weights
+  Staff: 2193 vertices; 1 weighted bone groups; 0 vertices without deform-group weights
+
+BONES WITHOUT GROUP WEIGHTS ABOVE EPSILON
+Node_14; root_1; bone_1; root_2; root_3; root_4; root_5; bone_5; root_6; bone_6; root_7; bone_7; root_8; bone_8; root_9; root_10; root_11; root_12; root_13; root_14; root_15; root_16; bone_16; root_17; bone_17; root_18; root_19; bone_19; root_20; root_21; root_22; root_23; root_24; root_25; bone_25; root_26; root_27; root_28; bone_28; root_29; bone_29; root_30; root_31; root_32; root_33; root_34; bone_34; root_35; root_36; root_37; bone_37; root_38; root_39; root_40; root_41; root_42; root_43; root_44; root_45; root_46; root_47; root_48; root_49; root_50; root_51; root_52; bone_52; root_53; bone_53; root_54; bone_54; root_55; bone_55; root_56; bone_56; root_57; bone_57; root_58; root_59; root_60; bone_60; root_61; bone_61; root_62; bone_62; root_63; bone_63; root_64; bone_64; root_65; bone_65; root_66; bone_66; root_67; bone_67; root_68; bone_68; root_69; bone_69; root_70; bone_70; root_71; bone_71; root_72; bone_72; root_73; bone_73; root_74; bone_74; root_75; bone_75; root_76; bone_76; root_77; bone_77; root_78; bone_78; root_79; bone_79; root_80; bone_80; root_81; bone_81; root_82; bone_82; root_83; bone_83; root_84; bone_84; root_85; bone_85; root_86; bone_86; root_87; bone_87; root_88; bone_88; root_89; bone_89; root_90; bone_90; root_91; bone_91; root_92; bone_92; root_93; bone_93; root_94; root_95; root_96; bone_96; root_97; bone_97; root_98; bone_98; root_99; bone_99; root_100; bone_100; root_101; bone_101; root_102; bone_102; root_103; bone_103; root_104; bone_104; root_105; bone_105; root_106; bone_106; root_107; bone_107; root_108; bone_108; root_109; bone_109; root_110; root_111; bone_111; root_112; bone_112; root_113; bone_113; root_114; bone_114; root_115; bone_115; root_116; bone_116; root_117; bone_117; root_118; bone_118; root_119; bone_119; root_120; bone_120; root_121; bone_121; root_122; bone_122; root_123; bone_123; root_124; bone_124; root_125; bone_125; root_126; bone_126; root_127; bone_127; root_128; bone_128; root_129; bone_129; root_130; bone_130; root_131; bone_131; root_132; bone_132; root_133; bone_133; root_134; bone_134; root_135; bone_135; root_136; bone_136; root_137; bone_137; root_138; bone_138; root_139; bone_139; root_140; bone_140; root_141; bone_141; root_142; root_143; root_144; root_145; bone_145; root_146; root_147; root_148; root_149; root_150; root_151; root_152; root_153; bone_153; root_154; root_155; bone_155; root_156; root_157; bone_157; root_158; bone_158; root_159; bone_159; root_160; bone_160; root_161; root_162; bone_162; root_163; bone_163; root_164; bone_164; root_165; bone_165; root_166; bone_166; root_167; bone_167; root_168; bone_168; root_169; bone_169; root_170; root_171; bone_171; root_172; bone_172; root_173; root_174; root_175; bone_175; root_176; root_177; bone_177; root_178; bone_178; root_179; bone_179; root_180; root_181; bone_181; root_182; bone_182; root_183; root_184; root_185; root_186; bone_186; root_187; root_188; root_189; root_190; bone_190; root_191; root_192; root_193; bone_193; root_194; bone_194; root_195; root_196; root_197; root_198; bone_198; root_199; bone_199; root_200; bone_200; root_201; bone_201; root_202; bone_202; root_203; bone_203; root_204; bone_204; root_205; root_206; bone_206; root_207; root_208; root_209; bone_209; root_210; root_211; bone_211; root_212; root_213; root_214; bone_214; root_215; bone_215; root_216; root_217; root_218; bone_218; root_219; bone_219; root_220; bone_220; root_221; bone_221; root_222; bone_222; root_223; bone_223; root_224; bone_224; root_225; bone_225; root_226; bone_226; root_227; bone_227; root_228; bone_228; root_229; bone_229; root_230; root_231; root_232; bone_232; root_233; root_234; bone_234; root_235; root_236; bone_236; root_237; root_238; root_239; bone_239; root_240; root_241; bone_241; root_242; root_243; bone_243; root_244; root_245; root_246; bone_246; root_247; bone_247; root_248; bone_248; root_249; bone_249; root_250; bone_250; root_251; bone_251; root_252; bone_252; root_253; bone_253; root_254; root_255; bone_255; root_256; bone_256; root_257; bone_257; root_258; bone_258; root_259; bone_259; root_260; bone_260; root_261; bone_261; root_262; bone_262; root_263; bone_263; root_264; bone_264; root_265; bone_265; root_266; bone_266; root_267; bone_267
+
+These are NOT a deletion list. Parents, constraints, envelopes, attachments,
+and animations can make unweighted bones essential.
+
+ASSIGNED ACTIONS
+  anim: range [0.0, 591.3599853515625], 3738 inspected curves
+
+WARNINGS
+None detected by this diagnostic.
+
+NOTES
+Geometry is original mesh data before modifiers, not evaluated posed geometry.
+Action data contains curve summaries; it is not a full animation export.
+Timeline samples evaluate the currently assigned animation setup only.
+No bones, weights, modifiers, actions, or saved .blend files were changed.
+Object/data-block names and raw model geometry are included; textures are not.
