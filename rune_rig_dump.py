@@ -25,7 +25,7 @@ SAMPLE_CURRENT_TIMELINE = True
 MAX_TIMELINE_SAMPLES = 24
 WEIGHT_EPSILON = 1e-6
 SCHEMA_VERSION = 1
-SCRIPT_VERSION = "1.1"
+SCRIPT_VERSION = "1.2"
 BLENDER_SEQUENCE_TYPES = (Color, Euler, Matrix, Quaternion, Vector)
 
 
@@ -67,7 +67,7 @@ def simple_settings(item):
             continue
         try:
             value = getattr(item, prop.identifier)
-            if prop.is_array:
+            if getattr(prop, "is_array", False):
                 value = plain_setting(value)
             if isinstance(value, (bool, int, float, str, list, set, frozenset)):
                 result[prop.identifier] = plain_setting(value)
@@ -323,6 +323,8 @@ def mesh_info(obj, armature, aggregate):
 
 
 def timeline_samples(armature, warnings):
+    if getattr(getattr(armature, "data", None), "pose_position", None) == "REST":
+        return {"samples": [], "reason": "Armature is in Rest Position; pose samples would not show animation."}
     data = armature.animation_data
     has_animation = data and (
         data.action is not None or len(data.drivers) > 0 or
@@ -391,6 +393,8 @@ def collect_report():
         raise RuntimeError("Switch to Object Mode before running the dump. Nothing was changed.")
     armature = find_armature()
     warnings = []
+    if armature.data.pose_position == "REST":
+        warnings.append("Armature is in Rest Position. Timeline sampling is skipped because it would contain only rest matrices.")
     bound = sorted([o for o in bpy.data.objects if o.type == "MESH" and
                     any(m.type == "ARMATURE" and m.object == armature for m in o.modifiers)],
                    key=lambda o: o.name)
