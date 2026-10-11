@@ -1,0 +1,34 @@
+Rune rig diagnostics
+====================
+
+Blender: 5.2.0 LTS
+Armature: RuneRig_GuidedBody22_Rig
+Bones: 22; with group weights above epsilon: 21
+Root bones: 1
+Numbered root_i / bone_i candidates: 0
+Bound mesh objects: 1
+Raw mesh vertices: 2583
+Geometry included: True
+Assigned actions inspected: 0
+Current timeline samples: 0
+
+MESH OBJECTS
+  RuneRig_JoinedBody: 2583 vertices; 21 weighted bone groups; 3 vertices without deform-group weights
+
+BONES WITHOUT GROUP WEIGHTS ABOVE EPSILON
+root
+
+These are NOT a deletion list. Parents, constraints, envelopes, attachments,
+and animations can make unweighted bones essential.
+
+ASSIGNED ACTIONS
+
+WARNINGS
+None detected by this diagnostic.
+
+NOTES
+Geometry is original mesh data before modifiers, not evaluated posed geometry.
+Action data contains curve summaries; it is not a full animation export.
+Timeline samples evaluate the currently assigned animation setup only.
+No bones, weights, modifiers, actions, or saved .blend files were changed.
+Object/data-block names and raw model geometry are included; textures are not.
